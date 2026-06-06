@@ -13,7 +13,7 @@
         <h1>Run the watcher pipeline end to end from the Python webapp.</h1>
         <p class="lede">
           Use this page to collect live resources, inspect the watcher decision every tick, and see
-          when the MPA crosses threshold and produces an intervention agenda.
+          when the MPA crosses threshold and the personality actor turns that agenda into a spoken line.
         </p>
         <div class="hero-grid">
           <article class="hero-card">
@@ -29,8 +29,39 @@
           <article class="hero-card">
             <span class="hero-step">3</span>
             <h2>Inspect Escalation</h2>
-            <p>The MPA stays idle until the configured consecutive watcher-positive threshold is met.</p>
+            <p>The MPA stays idle until threshold, then the personality actor prepares the final voice message.</p>
           </article>
+        </div>
+      </section>
+
+      <section class="panel guided-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="section-kicker">Quick Start</p>
+            <h2>One-click focus session</h2>
+          </div>
+          <span id="guidedBadge" class="badge subtle">Ready to launch</span>
+        </div>
+        <div class="guided-grid">
+          <div class="guided-copy">
+            <p class="status-text">
+              Press one button to reset the session, launch the tracked browser, request webcam and screenshare permissions,
+              begin auto capture, and start the watcher pipeline.
+            </p>
+            <p id="guidedStatus" class="muted-text">Choose a session length, then launch Big Brother.</p>
+          </div>
+          <div class="guided-controls">
+            <label class="metric-field">
+              <span>Active duration</span>
+              <input id="sessionDurationSlider" type="range" min="1" max="60" value="15" />
+              <div class="duration-readout">
+                <strong id="sessionDurationValue">15 min</strong>
+                <span id="sessionCountdown" class="badge subtle">Countdown idle</span>
+              </div>
+              <small>Big Brother auto-stops after this amount of time.</small>
+            </label>
+            <button id="guidedStartButton">Start Big Brother</button>
+          </div>
         </div>
       </section>
 
@@ -55,14 +86,15 @@
             </label>
             <label class="metric-field">
               <span>MPA threshold</span>
-              <input id="threshold" type="number" min="1" max="10" value="2" />
-              <small>Consecutive watcher-positive turns required</small>
+              <input id="threshold" type="number" min="1" max="10" value="1" />
+              <small>Watcher-positive turns required before the response pipeline speaks</small>
             </label>
           </div>
           <div class="actions actions-wide">
             <button id="runOnceButton">Run one watcher turn</button>
             <button id="startButton">Start continuous watcher</button>
             <button id="stopButton" class="alt">Stop watcher</button>
+            <button id="resetStatsButton" class="alt">Reset stats</button>
           </div>
           <div class="meta meta-stack">
             <span id="statusBadge" class="badge idle">Idle</span>
@@ -149,6 +181,19 @@
           <p id="mpaSummary" class="status-text">MPA is waiting for enough consecutive watcher positives.</p>
           <p id="statusText" class="status-text muted-text">Ready.</p>
           <p id="errorText" class="error-text"></p>
+        </article>
+
+        <article class="panel overview-card">
+          <div class="panel-heading">
+            <div>
+              <p class="section-kicker">Personality</p>
+              <h2>Final spoken message</h2>
+            </div>
+            <span id="personalityBadge" class="badge subtle">Waiting</span>
+          </div>
+          <p id="personalitySummary" class="status-text">Personality actor is waiting for an MPA agenda.</p>
+          <p id="personalityNotes" class="status-text muted-text">Voice delivery notes will appear here.</p>
+          <audio id="personalityAudio" controls preload="none" hidden></audio>
         </article>
 
         <article class="panel overview-card">
@@ -253,6 +298,10 @@
               <h3>MPA JSON</h3>
               <pre id="mpaOutput">MPA output will appear after the watcher hits the threshold.</pre>
             </section>
+            <section>
+              <h3>Personality JSON</h3>
+              <pre id="personalityOutput">Personality output will appear after the MPA prepares an agenda.</pre>
+            </section>
           </div>
         </article>
 
@@ -265,6 +314,7 @@
             <p><strong>Watcher:</strong> should update every tick, even when the MPA does nothing.</p>
             <p><strong>Threshold badge:</strong> should climb toward the MPA trigger threshold only on consecutive watcher positives.</p>
             <p><strong>MPA:</strong> should stay idle until the threshold is reached, then produce an agenda.</p>
+            <p><strong>Personality:</strong> should turn the MPA agenda into the final spoken line, then attach an ElevenLabs voice clip if configured.</p>
             <p><strong>Resources:</strong> webcam, screenshare, and browser export should be readable without opening raw files.</p>
           </div>
         </article>

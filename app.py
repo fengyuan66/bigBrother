@@ -10,7 +10,7 @@ from pathlib import Path
 from urllib import error, request
 from urllib.parse import urlparse
 
-from actors import MainProcessingActor, WatcherActor
+from actors import MainProcessingActor, PersonalityActor, WatcherActor
 from browser_live_demo import BROWSERS, TAB_OUTPUT_PATH, BrowserLiveReader
 from config import env_int, load_env_file
 from resources import ResourceLoader
@@ -20,6 +20,8 @@ APP_DIR = Path(__file__).resolve().parent
 WEB_DIR = APP_DIR / "webapp"
 SOURCES_DIR = APP_DIR / "sources"
 SUMMARIES_DIR = APP_DIR / "summaries"
+PERSONALITY_AUDIO_PATH = SUMMARIES_DIR / "personality_latest.mp3"
+PERSONALITY_JSON_PATH = SUMMARIES_DIR / "personality_latest.json"
 load_env_file(APP_DIR / ".env")
 
 VISION_MODEL = os.getenv("BIG_BROTHER_VISION_MODEL", "qwen/qwen3-vl-235b-a22b-instruct")
@@ -34,6 +36,7 @@ MODE_TO_SUMMARY_PATH = {
     "screen": SUMMARIES_DIR / "screen_summary.json",
 }
 DEFAULT_TICK_SECONDS = 4
+DEFAULT_OFF_TASK_THRESHOLD = 1
 
 
 def ensure_output_dirs():
@@ -109,9 +112,12 @@ class DashboardState:
         self.lock = threading.Lock()
         self.goal = "I am studying calculus"
         self.interval_seconds = env_int("BIG_BROTHER_INTERVAL_SECONDS", DEFAULT_TICK_SECONDS)
-        self.threshold = env_int("BIG_BROTHER_OFF_TASK_THRESHOLD", 2)
+        self.threshold = env_int("BIG_BROTHER_OFF_TASK_THRESHOLD", DEFAULT_OFF_TASK_THRESHOLD)
         self.running = False
         self.off_task_streak = 0
+        self.threshold_progress = 0
+        self.session_duration_seconds = env_int("BIG_BROTHER_SESSION_DURATION_SECONDS", 900)
+        self.session_deadline_at = 0.0
         self.status = "Ready."
         self.last_error = ""
         self.last_turn_at = ""
@@ -135,6 +141,17 @@ class DashboardState:
             "supporting_points": [],
             "actor_mode": "idle",
         }
+        self.personality_output = {
+            "triggered": False,
+            "should_speak": False,
+            "spoken_text": "Personality output will appear after the MPA prepares an agenda.",
+            "delivery_notes": "Waiting for an MPA agenda.",
+            "actor_mode": "idle",
+            "event_id": "",
+            "audio_generated": False,
+            "audio_url": "",
+            "audio_error": "",
+        }
         self.last_export = {"path": "", "count": 0}
         self.capture_status = "No capture source active."
         self.vision_model = VISION_MODEL
@@ -146,7 +163,7 @@ class DashboardState:
             "writtenFiles": {},
         }
 
-    def snapshot(self, watcher, mpa, resource_loader):
+    def snapshot(self, watcher, mpa, personality, resource_loader):
         with self.lock:
             return {
                 "goal": self.goal,
@@ -154,6 +171,15 @@ class DashboardState:
                 "threshold": self.threshold,
                 "running": self.running,
                 "off_task_streak": self.off_task_streak,
+                "threshold_progress": self.threshold_progress,
+                "session_duration_seconds": self.session_duration_seconds,
+                "session_deadline_at": self.session_deadline_at,
+                "session_remaining_seconds": max(
+                    0,
+                    int(self.session_deadline_at - time.time()),
+                )
+                if self.running and self.session_deadline_at
+                else 0,
                 "status": self.status,
                 "last_error": self.last_error,
                 "last_turn_at": self.last_turn_at,
@@ -164,6 +190,9 @@ class DashboardState:
                 "mpa_output": dict(self.mpa_output),
                 "mpa_enabled": mpa.enabled,
                 "mpa_model": mpa.model,
+                "personality_output": dict(self.personality_output),
+                "personality_enabled": personality.enabled,
+                "personality_model": personality.model,
                 "vision_model": self.vision_model,
                 "capture_status": self.capture_status,
                 "browser_name": self.browser_name,
@@ -182,10 +211,21 @@ class WatcherDashboardApp:
         self.resource_loader = ResourceLoader()
         self.watcher = WatcherActor()
         self.mpa = MainProcessingActor()
+        self.personality = PersonalityActor()
         self.tab_reader = BrowserLiveReader(BROWSERS[self.state.browser_name])
         self.stop_event = threading.Event()
         self.worker = None
         self.pending_watcher_hits = []
+
+    def _idle_mpa_output(self):
+        return {
+            "triggered": False,
+            "should_intervene": False,
+            "agenda": "MPA output will appear after the watcher hits the threshold.",
+            "rationale": "Waiting for consecutive watcher positives.",
+            "supporting_points": [],
+            "actor_mode": "idle",
+        }
 
     def configure_browser(self, browser_name: str | None = None, browser_url: str | None = None):
         with self.state.lock:
@@ -211,21 +251,21 @@ class WatcherDashboardApp:
             self.state.status = f"Browser launched at {launch_url}"
         return {"browser": current_browser, "url": launch_url}
 
-    def start_monitoring(self, goal, interval_seconds, threshold):
+    def start_monitoring(self, goal, interval_seconds, threshold, duration_seconds=None):
         with self.state.lock:
             self.state.goal = goal.strip() or self.state.goal
             self.state.interval_seconds = max(DEFAULT_TICK_SECONDS, int(interval_seconds))
             self.state.threshold = max(1, int(threshold))
+            if duration_seconds is not None:
+                self.state.session_duration_seconds = max(DEFAULT_TICK_SECONDS, int(duration_seconds))
             self.state.off_task_streak = 0
-            self.state.mpa_output = {
-                "triggered": False,
-                "should_intervene": False,
-                "agenda": "MPA output will appear after the watcher hits the threshold.",
-                "rationale": "Waiting for consecutive watcher positives.",
-                "supporting_points": [],
-                "actor_mode": "idle",
-            }
+            self.state.threshold_progress = 0
+            self.state.mpa_output = self._idle_mpa_output()
+            self.state.personality_output = self._idle_personality_output()
             self.state.running = True
+            self.state.session_deadline_at = time.time() + max(
+                DEFAULT_TICK_SECONDS, int(self.state.session_duration_seconds)
+            )
             self.state.status = "Monitoring started."
             self.state.last_error = ""
         self.pending_watcher_hits = []
@@ -237,8 +277,30 @@ class WatcherDashboardApp:
     def stop_monitoring(self):
         with self.state.lock:
             self.state.running = False
+            self.state.session_deadline_at = 0.0
             self.state.status = "Monitoring stopped."
         self.stop_event.set()
+
+    def reset_stats(self):
+        self.stop_event.set()
+        with self.state.lock:
+            self.state.running = False
+            self.state.off_task_streak = 0
+            self.state.threshold_progress = 0
+            self.state.session_deadline_at = 0.0
+            self.state.status = "Session stats reset."
+            self.state.last_error = ""
+            self.state.last_turn_at = ""
+            self.state.watcher_output = {
+                "off_task": False,
+                "confidence": 0.0,
+                "summary": "Watcher output will appear here after a run.",
+                "relevant_evidence": [],
+                "actor_mode": "unknown",
+            }
+            self.state.mpa_output = self._idle_mpa_output()
+            self.state.personality_output = self._idle_personality_output()
+        self.pending_watcher_hits = []
 
     def run_once(self, goal=None, interval_seconds=None, threshold=None):
         with self.state.lock:
@@ -252,10 +314,35 @@ class WatcherDashboardApp:
             self.state.last_error = ""
         self._run_single_turn()
 
+    def _expire_session_if_needed(self):
+        with self.state.lock:
+            if not self.state.running or not self.state.session_deadline_at:
+                return False
+            if time.time() < self.state.session_deadline_at:
+                return False
+            self.state.running = False
+            self.state.session_deadline_at = 0.0
+            self.state.status = "Timed session complete."
+        self.stop_event.set()
+        return True
+
     def export_tabs(self):
         path, count = self._sync_browser_export(retries=4, delay_seconds=0.5)
         self._refresh_resource_debug()
         return {"path": str(path), "count": count}
+
+    def _idle_personality_output(self):
+        return {
+            "triggered": False,
+            "should_speak": False,
+            "spoken_text": "Personality output will appear after the MPA prepares an agenda.",
+            "delivery_notes": "Waiting for an MPA agenda.",
+            "actor_mode": "idle",
+            "event_id": "",
+            "audio_generated": False,
+            "audio_url": "",
+            "audio_error": "",
+        }
 
     def _sync_browser_export(self, retries=1, delay_seconds=0.25):
         path, count = self.tab_reader.export_tabs(
@@ -267,6 +354,88 @@ class WatcherDashboardApp:
             self.state.last_export = {"path": str(path), "count": count}
             self.state.status = f"Exported {count} browser tabs to {path.name}."
         return path, count
+
+    def _synthesize_personality_audio(self, spoken_text: str):
+        api_key = (
+            os.getenv("BIG_BROTHER_ELEVENLABS_API_KEY")
+            or os.getenv("ELEVENLABS_API_KEY")
+            or ""
+        ).strip()
+        voice_id = os.getenv("BIG_BROTHER_ELEVENLABS_VOICE_ID", "").strip()
+        model_id = os.getenv("BIG_BROTHER_ELEVENLABS_MODEL_ID", "eleven_multilingual_v2").strip()
+        if not spoken_text.strip():
+            return {
+                "audio_generated": False,
+                "audio_url": "",
+                "audio_error": "No spoken text available for synthesis.",
+            }
+        if not api_key:
+            return {
+                "audio_generated": False,
+                "audio_url": "",
+                "audio_error": "Missing ELEVENLABS_API_KEY.",
+            }
+        if not voice_id:
+            return {
+                "audio_generated": False,
+                "audio_url": "",
+                "audio_error": "Missing BIG_BROTHER_ELEVENLABS_VOICE_ID.",
+            }
+
+        payload = {
+            "text": spoken_text,
+            "model_id": model_id,
+            "voice_settings": {
+                "stability": float(os.getenv("BIG_BROTHER_ELEVENLABS_STABILITY", "0.45")),
+                "similarity_boost": float(os.getenv("BIG_BROTHER_ELEVENLABS_SIMILARITY", "0.8")),
+            },
+        }
+        req = request.Request(
+            f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={
+                "xi-api-key": api_key,
+                "Content-Type": "application/json",
+                "Accept": "audio/mpeg",
+            },
+            method="POST",
+        )
+
+        try:
+            with request.urlopen(req, timeout=90) as response:
+                audio_bytes = response.read()
+        except error.HTTPError as exc:
+            error_body = exc.read().decode("utf-8", errors="replace")
+            return {
+                "audio_generated": False,
+                "audio_url": "",
+                "audio_error": f"ElevenLabs request failed: {error_body}",
+            }
+        except error.URLError as exc:
+            return {
+                "audio_generated": False,
+                "audio_url": "",
+                "audio_error": f"Unable to reach ElevenLabs: {exc.reason}",
+            }
+
+        PERSONALITY_AUDIO_PATH.write_bytes(audio_bytes)
+        PERSONALITY_JSON_PATH.write_text(
+            json.dumps(
+                {
+                    "timestamp": datetime.now().isoformat(timespec="seconds"),
+                    "voice_id": voice_id,
+                    "model_id": model_id,
+                    "text": spoken_text,
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        return {
+            "audio_generated": True,
+            "audio_url": f"/artifacts/personality-latest.mp3?ts={int(time.time())}",
+            "audio_error": "",
+        }
 
     def analyze_capture(self, analysis_mode: str, prompt: str, image_data_url: str):
         analysis_mode = analysis_mode.strip().lower()
@@ -342,13 +511,20 @@ class WatcherDashboardApp:
 
     def _monitor_loop(self):
         while not self.stop_event.is_set():
+            if self._expire_session_if_needed():
+                break
             self._run_single_turn()
+            if self._expire_session_if_needed():
+                break
             with self.state.lock:
                 interval_seconds = self.state.interval_seconds
                 running = self.state.running
+                deadline_at = self.state.session_deadline_at
             if not running:
                 break
-            self.stop_event.wait(interval_seconds)
+            remaining = max(0.0, deadline_at - time.time()) if deadline_at else float(interval_seconds)
+            wait_seconds = min(float(interval_seconds), remaining) if deadline_at else float(interval_seconds)
+            self.stop_event.wait(wait_seconds)
 
     def _refresh_resource_debug(self):
         resources = self.resource_loader.load()
@@ -396,12 +572,31 @@ class WatcherDashboardApp:
                     "supporting_points": [],
                     "actor_mode": "idle",
                 }
+            if isinstance(mpa_result, dict) or not mpa_result.triggered or not mpa_result.should_intervene:
+                personality_output = self._idle_personality_output()
+            else:
+                personality_result = self.personality.evaluate(goal, mpa_result, list(self.pending_watcher_hits))
+                personality_output = {
+                    "triggered": personality_result.triggered,
+                    "should_speak": personality_result.should_speak,
+                    "spoken_text": personality_result.spoken_text,
+                    "delivery_notes": personality_result.delivery_notes,
+                    "actor_mode": personality_result.actor_mode,
+                    "event_id": turn_time,
+                    "audio_generated": False,
+                    "audio_url": "",
+                    "audio_error": "",
+                }
+                if personality_result.should_speak:
+                    personality_output.update(self._synthesize_personality_audio(personality_result.spoken_text))
             with self.state.lock:
                 if decision.off_task:
                     self.state.off_task_streak += 1
+                    self.state.threshold_progress = len(self.pending_watcher_hits)
                     state_label = "Off task"
                 else:
                     self.state.off_task_streak = 0
+                    self.state.threshold_progress = 0
                     state_label = "On task"
                 self.state.watcher_output = {
                     "off_task": decision.off_task,
@@ -421,7 +616,13 @@ class WatcherDashboardApp:
                         "supporting_points": list(mpa_result.supporting_points),
                         "actor_mode": mpa_result.actor_mode,
                     }
-                if self.state.mpa_output["triggered"] and self.state.mpa_output["should_intervene"]:
+                self.state.personality_output = dict(personality_output)
+                if self.state.personality_output["triggered"] and self.state.personality_output["should_speak"]:
+                    self.state.status = (
+                        f"{state_label} ({decision.confidence:.0%}). "
+                        f"Personality line ready: {self.state.personality_output['spoken_text']}"
+                    )
+                elif self.state.mpa_output["triggered"] and self.state.mpa_output["should_intervene"]:
                     self.state.status = (
                         f"{state_label} ({decision.confidence:.0%}). "
                         f"MPA agenda ready: {self.state.mpa_output['agenda']}"
@@ -448,8 +649,10 @@ class AppHandler(BaseHTTPRequestHandler):
             return self._serve_file(WEB_DIR / "app.js", "application/javascript; charset=utf-8")
         if parsed.path == "/styles.css":
             return self._serve_file(WEB_DIR / "styles.css", "text/css; charset=utf-8")
+        if parsed.path == "/artifacts/personality-latest.mp3":
+            return self._serve_file(PERSONALITY_AUDIO_PATH, "audio/mpeg")
         if parsed.path == "/api/state":
-            return self._json_response(APP.state.snapshot(APP.watcher, APP.mpa, APP.resource_loader))
+            return self._json_response(APP.state.snapshot(APP.watcher, APP.mpa, APP.personality, APP.resource_loader))
         self.send_error(HTTPStatus.NOT_FOUND, "Not found")
 
     def do_POST(self):
@@ -462,19 +665,24 @@ class AppHandler(BaseHTTPRequestHandler):
                     interval_seconds=payload.get("interval_seconds", APP.state.interval_seconds),
                     threshold=payload.get("threshold", APP.state.threshold),
                 )
-                return self._json_response({"ok": True, "state": APP.state.snapshot(APP.watcher, APP.mpa, APP.resource_loader)})
+                return self._json_response({"ok": True, "state": APP.state.snapshot(APP.watcher, APP.mpa, APP.personality, APP.resource_loader)})
 
             if parsed.path == "/api/start":
                 APP.start_monitoring(
                     goal=payload.get("goal", APP.state.goal),
                     interval_seconds=payload.get("interval_seconds", APP.state.interval_seconds),
                     threshold=payload.get("threshold", APP.state.threshold),
+                    duration_seconds=payload.get("duration_seconds", APP.state.session_duration_seconds),
                 )
-                return self._json_response({"ok": True, "state": APP.state.snapshot(APP.watcher, APP.mpa, APP.resource_loader)})
+                return self._json_response({"ok": True, "state": APP.state.snapshot(APP.watcher, APP.mpa, APP.personality, APP.resource_loader)})
 
             if parsed.path == "/api/stop":
                 APP.stop_monitoring()
-                return self._json_response({"ok": True, "state": APP.state.snapshot(APP.watcher, APP.mpa, APP.resource_loader)})
+                return self._json_response({"ok": True, "state": APP.state.snapshot(APP.watcher, APP.mpa, APP.personality, APP.resource_loader)})
+
+            if parsed.path == "/api/reset-stats":
+                APP.reset_stats()
+                return self._json_response({"ok": True, "state": APP.state.snapshot(APP.watcher, APP.mpa, APP.personality, APP.resource_loader)})
 
             if parsed.path == "/api/export-tabs":
                 APP.configure_browser(
@@ -482,14 +690,14 @@ class AppHandler(BaseHTTPRequestHandler):
                     browser_url=payload.get("browser_url"),
                 )
                 export_info = APP.export_tabs()
-                return self._json_response({"ok": True, "export": export_info, "state": APP.state.snapshot(APP.watcher, APP.mpa, APP.resource_loader)})
+                return self._json_response({"ok": True, "export": export_info, "state": APP.state.snapshot(APP.watcher, APP.mpa, APP.personality, APP.resource_loader)})
 
             if parsed.path == "/api/launch-browser":
                 launch_info = APP.launch_browser(
                     browser_name=payload.get("browser_name"),
                     browser_url=payload.get("browser_url"),
                 )
-                return self._json_response({"ok": True, "launch": launch_info, "state": APP.state.snapshot(APP.watcher, APP.mpa, APP.resource_loader)})
+                return self._json_response({"ok": True, "launch": launch_info, "state": APP.state.snapshot(APP.watcher, APP.mpa, APP.personality, APP.resource_loader)})
 
             if parsed.path == "/api/analyze":
                 result = APP.analyze_capture(
@@ -497,7 +705,7 @@ class AppHandler(BaseHTTPRequestHandler):
                     prompt=payload.get("prompt", ""),
                     image_data_url=payload.get("imageDataUrl", ""),
                 )
-                return self._json_response({"ok": True, **result, "state": APP.state.snapshot(APP.watcher, APP.mpa, APP.resource_loader)})
+                return self._json_response({"ok": True, **result, "state": APP.state.snapshot(APP.watcher, APP.mpa, APP.personality, APP.resource_loader)})
         except ValueError as exc:
             return self._json_response({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
         except RuntimeError as exc:
@@ -516,6 +724,7 @@ class AppHandler(BaseHTTPRequestHandler):
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(body)
 

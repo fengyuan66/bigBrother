@@ -4,6 +4,7 @@ const thresholdInput = document.getElementById("threshold");
 const capturePromptInput = document.getElementById("capturePrompt");
 const browserNameInput = document.getElementById("browserName");
 const browserUrlInput = document.getElementById("browserUrl");
+const sessionDurationSlider = document.getElementById("sessionDurationSlider");
 
 const watcherBadge = document.getElementById("watcherBadge");
 const statusBadge = document.getElementById("statusBadge");
@@ -13,6 +14,8 @@ const turnBadge = document.getElementById("turnBadge");
 const actorModeBadge = document.getElementById("actorModeBadge");
 const thresholdBadge = document.getElementById("thresholdBadge");
 const mpaBadge = document.getElementById("mpaBadge");
+const personalityBadge = document.getElementById("personalityBadge");
+const guidedBadge = document.getElementById("guidedBadge");
 
 const statusText = document.getElementById("statusText");
 const captureStatusText = document.getElementById("captureStatusText");
@@ -21,6 +24,11 @@ const streakValue = document.getElementById("streakValue");
 const exportValue = document.getElementById("exportValue");
 const watcherSummary = document.getElementById("watcherSummary");
 const mpaSummary = document.getElementById("mpaSummary");
+const personalitySummary = document.getElementById("personalitySummary");
+const personalityNotes = document.getElementById("personalityNotes");
+const guidedStatus = document.getElementById("guidedStatus");
+const sessionDurationValue = document.getElementById("sessionDurationValue");
+const sessionCountdown = document.getElementById("sessionCountdown");
 const evidenceList = document.getElementById("evidenceList");
 const pathsText = document.getElementById("paths");
 
@@ -29,6 +37,8 @@ const screenshareOutput = document.getElementById("screenshareOutput");
 const browserOutput = document.getElementById("browserOutput");
 const watcherOutput = document.getElementById("watcherOutput");
 const mpaOutput = document.getElementById("mpaOutput");
+const personalityOutput = document.getElementById("personalityOutput");
+const personalityAudio = document.getElementById("personalityAudio");
 
 const shareButton = document.getElementById("shareButton");
 const webcamButton = document.getElementById("webcamButton");
@@ -38,8 +48,10 @@ const stopCaptureButton = document.getElementById("stopCaptureButton");
 const runOnceButton = document.getElementById("runOnceButton");
 const startButton = document.getElementById("startButton");
 const stopButton = document.getElementById("stopButton");
+const resetStatsButton = document.getElementById("resetStatsButton");
 const exportTabsButton = document.getElementById("exportTabsButton");
 const launchBrowserButton = document.getElementById("launchBrowserButton");
+const guidedStartButton = document.getElementById("guidedStartButton");
 
 const captureSources = {
   webcam: {
@@ -69,15 +81,48 @@ const captureSources = {
 let pollHandle = null;
 let autoCaptureHandle = null;
 let captureInFlight = false;
+let lastSpokenPersonalityEventId = "";
+let availableSpeechVoices = [];
+
+function refreshSpeechVoices() {
+  if (!("speechSynthesis" in window)) {
+    availableSpeechVoices = [];
+    return;
+  }
+  availableSpeechVoices = window.speechSynthesis.getVoices();
+}
+
+refreshSpeechVoices();
+if ("speechSynthesis" in window) {
+  window.speechSynthesis.addEventListener("voiceschanged", refreshSpeechVoices);
+}
 
 function payloadFromControls() {
   return {
     goal: goalInput.value,
     interval_seconds: Number(intervalInput.value || 4),
-    threshold: Number(thresholdInput.value || 2),
+    threshold: Number(thresholdInput.value || 1),
+    duration_seconds: Number(sessionDurationSlider.value || 15) * 60,
     browser_name: browserNameInput.value,
     browser_url: browserUrlInput.value,
   };
+}
+
+function formatDurationLabel(totalSeconds) {
+  const seconds = Math.max(0, Number(totalSeconds || 0));
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  if (minutes > 0 && remainder > 0) {
+    return `${minutes}m ${remainder}s`;
+  }
+  if (minutes > 0) {
+    return `${minutes} min`;
+  }
+  return `${remainder}s`;
+}
+
+function syncSessionDurationLabel() {
+  sessionDurationValue.textContent = `${Number(sessionDurationSlider.value || 15)} min`;
 }
 
 function activeSourceKeys() {
@@ -225,7 +270,11 @@ function renderEvidence(items) {
 }
 
 function renderThreshold(state) {
-  const streak = Number(state.off_task_streak || 0);
+  const rawProgress =
+    state.threshold_progress !== undefined && state.threshold_progress !== null
+      ? state.threshold_progress
+      : state.off_task_streak;
+  const streak = Number(rawProgress || 0);
   const threshold = Number(state.threshold || 1);
   const remaining = Math.max(0, threshold - streak);
   thresholdBadge.textContent =
@@ -255,6 +304,65 @@ function renderMPA(mpa) {
   mpaSummary.textContent = mpa.rationale || "MPA is waiting for enough consecutive watcher positives.";
 }
 
+function renderPersonality(personality) {
+  if (personality.triggered && personality.should_speak) {
+    personalityBadge.textContent = personality.audio_generated ? "Voice ready" : "Line ready";
+    personalityBadge.className = `badge ${personality.audio_generated ? "ready" : "subtle"}`;
+    personalitySummary.textContent = personality.spoken_text || "Personality actor produced a spoken line.";
+    personalityNotes.textContent =
+      personality.audio_error || personality.delivery_notes || "Final voice output prepared.";
+  } else {
+    personalityBadge.textContent = "Waiting";
+    personalityBadge.className = "badge subtle";
+    personalitySummary.textContent =
+      personality.spoken_text || "Personality actor is waiting for an MPA agenda.";
+    personalityNotes.textContent =
+      personality.audio_error || personality.delivery_notes || "Voice delivery notes will appear here.";
+  }
+
+  if (personality.audio_url) {
+    if (personalityAudio.getAttribute("src") !== personality.audio_url) {
+      personalityAudio.src = personality.audio_url;
+    }
+    personalityAudio.hidden = false;
+  } else {
+    personalityAudio.pause();
+    personalityAudio.removeAttribute("src");
+    personalityAudio.load();
+    personalityAudio.hidden = true;
+  }
+}
+
+function speakPersonalityIfNeeded(personality, turnLabel = "") {
+  if (!("speechSynthesis" in window)) {
+    return;
+  }
+  if (!personality.triggered || !personality.should_speak || !personality.spoken_text) {
+    return;
+  }
+
+  const eventId = personality.event_id || `${turnLabel}::${personality.spoken_text}`;
+  if (!eventId || eventId === lastSpokenPersonalityEventId) {
+    return;
+  }
+
+  const utterance = new SpeechSynthesisUtterance(personality.spoken_text);
+  const preferredVoice =
+    availableSpeechVoices.find((voice) => voice.lang === "en-US") ||
+    availableSpeechVoices.find((voice) => voice.lang && voice.lang.startsWith("en")) ||
+    null;
+  if (preferredVoice) {
+    utterance.voice = preferredVoice;
+  }
+  utterance.pitch = 1.05;
+  utterance.rate = 0.92;
+  utterance.volume = 1;
+
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(utterance);
+  lastSpokenPersonalityEventId = eventId;
+}
+
 function renderState(state) {
   goalInput.value = state.goal;
   intervalInput.value = state.interval_seconds;
@@ -280,6 +388,8 @@ function renderState(state) {
 
   runningBadge.textContent = state.running ? "Watcher running" : "Watcher stopped";
   runningBadge.className = `badge ${state.running ? "running" : "subtle"}`;
+  guidedBadge.textContent = state.running ? "Session active" : "Ready to launch";
+  guidedBadge.className = `badge ${state.running ? "running" : "subtle"}`;
 
   statusBadge.textContent = state.watcher_output.off_task ? "Watcher says off task" : "Watcher says on task";
   statusBadge.className = `badge ${state.watcher_output.off_task ? "alert" : "idle"}`;
@@ -287,9 +397,28 @@ function renderState(state) {
   turnBadge.textContent = state.last_turn_at ? `Last turn: ${state.last_turn_at}` : "No turns yet";
   statusText.textContent = state.status || "Ready.";
   captureStatusText.textContent = `${state.capture_status} Vision model: ${state.vision_model}`;
+  guidedStatus.textContent = state.running
+    ? "Big Brother is live. The tab will keep speaking interventions until the timer expires."
+    : "Choose a session length, then launch Big Brother.";
   errorText.textContent = state.last_error || "";
   streakValue.textContent = String(state.off_task_streak);
   exportValue.textContent = String(state.last_export.count || 0);
+  const remainingSeconds = Number(state.session_remaining_seconds || 0);
+  sessionCountdown.textContent = state.running
+    ? `Time left: ${formatDurationLabel(remainingSeconds)}`
+    : "Countdown idle";
+  sessionCountdown.className = `badge ${state.running ? "running" : "subtle"}`;
+  if (state.session_duration_seconds) {
+    sessionDurationSlider.value = String(Math.max(1, Math.round(state.session_duration_seconds / 60)));
+  }
+  syncSessionDurationLabel();
+  if (!state.running && state.status === "Timed session complete.") {
+    stopAutoCapture();
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
+    guidedStatus.textContent = "Session timer finished. Big Brother is no longer active.";
+  }
 
   renderThreshold(state);
   watcherSummary.textContent = state.watcher_output.summary || "No watcher output yet.";
@@ -297,6 +426,9 @@ function renderState(state) {
 
   const mpa = state.mpa_output || {};
   renderMPA(mpa);
+  const personality = state.personality_output || {};
+  renderPersonality(personality);
+  speakPersonalityIfNeeded(personality, state.last_turn_at || "");
 
   const paths = state.paths || {};
   pathsText.textContent = `Files in use: webcam ${paths.webcam || ""} | screenshare ${paths.screenshare || ""} | browser ${paths.browser || ""}`;
@@ -306,6 +438,7 @@ function renderState(state) {
   browserOutput.textContent = state.resources.browser;
   watcherOutput.textContent = JSON.stringify(state.watcher_output, null, 2);
   mpaOutput.textContent = JSON.stringify(mpa, null, 2);
+  personalityOutput.textContent = JSON.stringify(personality, null, 2);
 
   syncCaptureBadges();
 }
@@ -369,6 +502,60 @@ async function startSession() {
   }
 }
 
+async function startGuidedSession() {
+  guidedStartButton.disabled = true;
+  errorText.textContent = "";
+  guidedStatus.textContent = "Resetting state and preparing the session...";
+  try {
+    await resetStats();
+    guidedStatus.textContent = "Launching tracked browser...";
+    await postJson("/api/launch-browser", {
+      browser_name: browserNameInput.value,
+      browser_url: browserUrlInput.value,
+    });
+
+    const setupErrors = [];
+
+    guidedStatus.textContent = "Requesting webcam access...";
+    try {
+      await startSource("webcam");
+    } catch (error) {
+      setupErrors.push(`Webcam: ${error.message || "permission denied"}`);
+    }
+
+    guidedStatus.textContent = "Requesting screenshare access...";
+    try {
+      await startSource("screen");
+    } catch (error) {
+      setupErrors.push(`Screenshare: ${error.message || "permission denied"}`);
+    }
+
+    guidedStatus.textContent = "Starting watcher pipeline...";
+    await postJson("/api/start", payloadFromControls());
+
+    if (activeSourceKeys().length > 0) {
+      await summarizeSources("auto");
+      if (!autoCaptureHandle) {
+        autoCaptureHandle = window.setInterval(
+          () => summarizeSources("auto"),
+          Number(intervalInput.value || 4) * 1000
+        );
+        autoCaptureButton.textContent = "Pause auto capture";
+      }
+    }
+
+    await loadState();
+    guidedStatus.textContent = setupErrors.length
+      ? `Started with partial setup. ${setupErrors.join(" | ")}`
+      : "Big Brother launched successfully.";
+  } catch (error) {
+    errorText.textContent = error.message || "Unable to launch the guided session.";
+    guidedStatus.textContent = "Guided launch hit a problem. You can still use the manual controls below.";
+  } finally {
+    guidedStartButton.disabled = false;
+  }
+}
+
 async function stopSession() {
   stopButton.disabled = true;
   try {
@@ -376,6 +563,24 @@ async function stopSession() {
     await loadState();
   } finally {
     stopButton.disabled = false;
+  }
+}
+
+async function resetStats() {
+  resetStatsButton.disabled = true;
+  try {
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
+    lastSpokenPersonalityEventId = "";
+    personalityAudio.pause();
+    personalityAudio.removeAttribute("src");
+    personalityAudio.load();
+    personalityAudio.hidden = true;
+    await postJson("/api/reset-stats");
+    await loadState();
+  } finally {
+    resetStatsButton.disabled = false;
   }
 }
 
@@ -464,12 +669,16 @@ stopCaptureButton.addEventListener("click", () => {
 runOnceButton.addEventListener("click", runOnce);
 startButton.addEventListener("click", startSession);
 stopButton.addEventListener("click", stopSession);
+resetStatsButton.addEventListener("click", resetStats);
 exportTabsButton.addEventListener("click", exportTabs);
 launchBrowserButton.addEventListener("click", launchBrowser);
+guidedStartButton.addEventListener("click", startGuidedSession);
+sessionDurationSlider.addEventListener("input", syncSessionDurationLabel);
 
 captureSources.webcam.liveStatusEl.textContent = "Webcam not connected.";
 captureSources.screen.liveStatusEl.textContent = "Screenshare not connected.";
 syncCaptureBadges();
+syncSessionDurationLabel();
 loadState().catch((error) => {
   errorText.textContent = error.message;
 });

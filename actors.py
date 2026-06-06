@@ -11,6 +11,7 @@ except ImportError:
 DEFAULT_BASE_URL = os.getenv("BIG_BROTHER_BASE_URL", "https://api.openai.com/v1")
 DEFAULT_WATCHER_MODEL = os.getenv("BIG_BROTHER_WATCHER_MODEL", "generic-light-llm")
 DEFAULT_MPA_MODEL = os.getenv("BIG_BROTHER_MPA_MODEL", DEFAULT_WATCHER_MODEL)
+DEFAULT_PERSONALITY_MODEL = os.getenv("BIG_BROTHER_PERSONALITY_MODEL", DEFAULT_MPA_MODEL)
 
 
 @dataclass
@@ -29,6 +30,15 @@ class MPAResult:
     agenda: str
     rationale: str
     supporting_points: list[str]
+    actor_mode: str
+
+
+@dataclass
+class PersonalityResult:
+    triggered: bool
+    should_speak: bool
+    spoken_text: str
+    delivery_notes: str
     actor_mode: str
 
 
@@ -231,3 +241,117 @@ class MainProcessingActor:
         if isinstance(value, str) and value.strip():
             return [value.strip()]
         return []
+
+
+class PersonalityActor:
+    def __init__(self):
+        api_key = os.getenv("BIG_BROTHER_API_KEY") or os.getenv("OPENAI_API_KEY")
+        self.base_url = os.getenv("BIG_BROTHER_BASE_URL", DEFAULT_BASE_URL)
+        self.model = os.getenv("BIG_BROTHER_PERSONALITY_MODEL", DEFAULT_PERSONALITY_MODEL)
+        self.personality_brief = os.getenv(
+            "BIG_BROTHER_PERSONALITY_BRIEF",
+            (
+                "You are Big Brother's final speaking voice. Sound direct, warm, slightly assertive, "
+                "and human. Keep the user focused without being cruel, preachy, or robotic. Prefer "
+                "one short spoken message that feels natural out loud."
+            ),
+        )
+        self.client = (
+            OpenAI(api_key=api_key, base_url=self.base_url) if api_key and OpenAI else None
+        )
+
+    @property
+    def enabled(self):
+        return self.client is not None
+
+    def evaluate(self, session_goal, mpa_result, watcher_decisions):
+        if not mpa_result.triggered or not mpa_result.should_intervene:
+            return PersonalityResult(
+                triggered=False,
+                should_speak=False,
+                spoken_text="Personality actor is waiting for an intervention agenda.",
+                delivery_notes="No spoken intervention is needed yet.",
+                actor_mode="idle",
+            )
+
+        if not self.client:
+            return self._fallback(session_goal, mpa_result, watcher_decisions)
+
+        evidence_lines = []
+        for decision in watcher_decisions:
+            evidence = decision.relevant_evidence or [decision.summary]
+            evidence_lines.extend(
+                cleaned
+                for cleaned in (str(item).strip() for item in evidence)
+                if cleaned
+            )
+
+        prompt = (
+            "You are the Personality actor in a study-support system.\n"
+            f"Voice brief:\n{self.personality_brief}\n\n"
+            "You receive an MPA agenda and must turn it into the exact short line that should be "
+            "spoken to the user.\n"
+            "Voice: blunt, alien, and zero-bullshit. Say exactly what you observe from the agenda, "
+            "then command the user exactly what to do next to return to focus. Use short, direct sentences. "
+            "Every spoken line must include a playful alien threat to shoot Earth with laser beams if the user "
+            "does not refocus. Keep it absurd.\n"
+            "Stay grounded in the agenda and evidence. Do not invent facts. Do not mention internal "
+            "actors, thresholds, or system architecture. Sound natural when read aloud.\n"
+            "Return strict JSON with keys:\n"
+            "should_speak: boolean\n"
+            "spoken_text: string under 320 characters\n"
+            "delivery_notes: string under 160 characters\n\n"
+            f"Study intention:\n{session_goal}\n\n"
+            f"MPA agenda:\n{mpa_result.agenda}\n\n"
+            f"MPA rationale:\n{mpa_result.rationale}\n\n"
+            "Supporting points:\n"
+            f"{chr(10).join('- ' + item for item in mpa_result.supporting_points) or '- None'}\n\n"
+            "Watcher evidence:\n"
+            f"{chr(10).join('- ' + item for item in evidence_lines) or '- None'}"
+        )
+
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.6,
+            response_format={"type": "json_object"},
+        )
+
+        data = json.loads(response.choices[0].message.content or "{}")
+        return PersonalityResult(
+            triggered=True,
+            should_speak=bool(data.get("should_speak", True)),
+            spoken_text=str(
+                data.get(
+                    "spoken_text",
+                    "Come back to the study task and tell me if the current distraction is actually helping.",
+                )
+            ),
+            delivery_notes=str(
+                data.get(
+                    "delivery_notes",
+                    "Short, calm, and firm.",
+                )
+            ),
+            actor_mode=f"llm:{self.model}",
+        )
+
+    def _fallback(self, session_goal, mpa_result, watcher_decisions):
+        supporting_points = []
+        for decision in watcher_decisions:
+            for item in decision.relevant_evidence or [decision.summary]:
+                cleaned = str(item).strip()
+                if cleaned and cleaned not in supporting_points:
+                    supporting_points.append(cleaned)
+
+        spoken_text = (
+            f"Pause for a second. You said you're working on {session_goal}. "
+            f"{mpa_result.agenda}"
+        )
+        return PersonalityResult(
+            triggered=True,
+            should_speak=True,
+            spoken_text=spoken_text[:320],
+            delivery_notes="Warm, firm, and conversational.",
+            actor_mode="fallback",
+        )

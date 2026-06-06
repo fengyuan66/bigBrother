@@ -1,9 +1,11 @@
 Big Brother Browser Tab Export
-Created: 2026-06-05 19:35:22
+Created: 2026-06-06 12:34:51
+Browser: Edge
 
-No tabs found.
+1. YouTube
+   URL: https://www.youtube.com/
+   Domain: www.youtube.com
 
-Start a supported browser with remote debugging first:
-  .\start-debug-browser.ps1 chrome
-  .\start-debug-browser.ps1 edge
-  .\start-debug-browser.ps1 brave
+2. Calculus - Wikipedia
+   URL: https://en.wikipedia.org/wiki/Calculus
+   Domain: en.wikipedia.org

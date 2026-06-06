@@ -2,16 +2,12 @@ import base64
 import io
 import json
 import os
-from pathlib import Path
 import queue
 import threading
 import time
 import tkinter as tk
 from dataclasses import dataclass
-from datetime import datetime
 from tkinter import messagebox, ttk
-from urllib.error import URLError
-from urllib.request import urlopen
 
 from PIL import Image
 import mss
@@ -23,8 +19,6 @@ except ImportError:
 
 
 DEFAULT_MODEL = os.getenv("BIG_BROTHER_MODEL", "gpt-4.1-mini")
-APP_DIR = Path(__file__).resolve().parent
-TAB_EXPORT_PATH = APP_DIR / "tabs.txt"
 
 
 @dataclass
@@ -49,77 +43,6 @@ class ScreenCapture:
         buffer = io.BytesIO()
         image.save(buffer, format="PNG", optimize=True)
         return buffer.getvalue()
-
-
-class BrowserTabExporter:
-    DEBUG_TARGETS = [
-        ("Chrome", 9222),
-        ("Edge", 9223),
-        ("Brave", 9224),
-    ]
-
-    def collect_tabs(self):
-        tabs = []
-        for browser, port in self.DEBUG_TARGETS:
-            tabs.extend(self._read_debug_tabs(browser, port))
-        return tabs
-
-    def export(self, output_path=TAB_EXPORT_PATH):
-        tabs = self.collect_tabs()
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-        lines = [
-            "Big Brother Browser Tab Export",
-            f"Created: {now}",
-            "",
-        ]
-
-        if not tabs:
-            lines.extend(
-                [
-                    "No tabs found.",
-                    "",
-                    "Start a supported browser with remote debugging first:",
-                    "  .\\start-debug-browser.ps1 chrome",
-                    "  .\\start-debug-browser.ps1 edge",
-                    "  .\\start-debug-browser.ps1 brave",
-                ]
-            )
-        else:
-            for index, tab in enumerate(tabs, start=1):
-                lines.extend(
-                    [
-                        f"{index}. [{tab['browser']}] {tab['title'] or '(untitled)'}",
-                        f"   {tab['url']}",
-                        "",
-                    ]
-                )
-
-        output_path.write_text("\n".join(lines), encoding="utf-8")
-        return output_path, len(tabs)
-
-    def _read_debug_tabs(self, browser, port):
-        try:
-            with urlopen(f"http://127.0.0.1:{port}/json/list", timeout=1.5) as response:
-                pages = json.loads(response.read().decode("utf-8"))
-        except (OSError, URLError, TimeoutError, json.JSONDecodeError):
-            return []
-
-        tabs = []
-        for page in pages:
-            if page.get("type") != "page":
-                continue
-            url = page.get("url", "")
-            if url.startswith(("devtools://", "chrome://", "edge://", "brave://")):
-                continue
-            tabs.append(
-                {
-                    "browser": browser,
-                    "title": page.get("title", ""),
-                    "url": url,
-                }
-            )
-        return tabs
 
 
 class VisionFocusEvaluator:
@@ -224,7 +147,6 @@ class BigBrotherApp(tk.Tk):
         self.minsize(520, 400)
 
         self.capture = ScreenCapture()
-        self.tab_exporter = BrowserTabExporter()
         self.evaluator = VisionFocusEvaluator()
         self.events = queue.Queue()
         self.worker = None
@@ -296,9 +218,6 @@ class BigBrotherApp(tk.Tk):
         self.stop_button = ttk.Button(buttons, text="Stop", command=self.stop, state="disabled")
         self.stop_button.pack(side="left", padx=(10, 0))
         ttk.Button(buttons, text="Test Reminder", command=self._test_reminder).pack(
-            side="left", padx=(10, 0)
-        )
-        ttk.Button(buttons, text="Export Tabs", command=self._export_tabs).pack(
             side="left", padx=(10, 0)
         )
 
@@ -392,15 +311,6 @@ class BigBrotherApp(tk.Tk):
             self,
             self.goal_var.get().strip() or "your task",
             "This is what the nudge looks like when you drift.",
-        )
-
-    def _export_tabs(self):
-        path, count = self.tab_exporter.export()
-        self.status_var.set(f"Exported {count} browser tabs to {path.name}.")
-        messagebox.showinfo(
-            "Tabs exported",
-            f"Exported {count} tabs to:\n{path}\n\n"
-            "If this found 0 tabs, launch your browser with start-debug-browser.ps1 first.",
         )
 
     def _on_close(self):

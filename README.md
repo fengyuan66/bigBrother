@@ -10,6 +10,7 @@ This MVP is designed for self-monitoring only. It keeps monitoring visible, has 
 - Captures your screen every 5-10 seconds.
 - Uses an OpenAI vision model when `OPENAI_API_KEY` is set.
 - Falls back to a local placeholder evaluator when no API key is present.
+- Shows a characterized coach chat with moods based on your focus state.
 - Shows an always-on-top reminder after repeated off-task checks.
 - Exports open tab titles and URLs from supported browsers to `tabs.txt`.
 
@@ -69,10 +70,22 @@ browser_live.txt
 
 This uses a separate browser profile in the project folder so the demo is explicit and visible.
 
+## Coach Personality
+
+The main app includes a simple character named Big Brother:
+
+- `happy` when the screen looks on-task
+- `disappointed` after early off-task checks
+- `angry` after repeated off-task checks
+- `watchful` or `calm` when starting/stopping
+
+The coach message appears in the app, gets added to the chat log, and is included in reminder popups.
+
 ## Notes
 
 - Screenshots are sent to OpenAI only if `OPENAI_API_KEY` is present.
 - Screenshots are not written to disk unless you enable debugging in the code.
+- Coach messages are generated locally from the focus result and off-task streak.
 - Tab export writes tab titles and URLs to `tabs.txt` only when you click **Export Tabs**.
 - Browser live output writes page text and URLs to `browser_live.txt` only while the demo is running.
 - The app works best if you monitor your primary display.

@@ -1,338 +1,493 @@
 import base64
-import io
 import json
 import os
-import queue
 import threading
 import time
-import tkinter as tk
-from dataclasses import dataclass
-from tkinter import messagebox, ttk
+from datetime import datetime
+from http import HTTPStatus
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from urllib import error, request
+from urllib.parse import urlparse
 
-from PIL import Image
-import mss
-
+from actors import WatcherActor
+from browser_live_demo import BROWSERS, TAB_OUTPUT_PATH, BrowserLiveReader
 from config import env_int, load_env_file
-
-try:
-    from openai import OpenAI
-except ImportError:
-    OpenAI = None
+from resources import ResourceLoader
 
 
 APP_DIR = Path(__file__).resolve().parent
+WEB_DIR = APP_DIR / "webapp"
+SOURCES_DIR = APP_DIR / "sources"
+SUMMARIES_DIR = APP_DIR / "summaries"
 load_env_file(APP_DIR / ".env")
 
-TAB_EXPORT_PATH = APP_DIR / "tabs.txt"
-DEFAULT_BASE_URL = os.getenv("BIG_BROTHER_BASE_URL", "https://ai.hackclub.com/proxy/v1")
-DEFAULT_MODEL = os.getenv("BIG_BROTHER_MODEL", "google/gemini-2.5-flash")
+VISION_MODEL = os.getenv("BIG_BROTHER_VISION_MODEL", "qwen/qwen3-vl-235b-a22b-instruct")
+API_URL = os.getenv("BIG_BROTHER_BASE_URL", "https://ai.hackclub.com/proxy/v1").rstrip("/") + "/chat/completions"
+
+MODE_TO_SOURCE_DIR = {
+    "webcam": SOURCES_DIR / "webcam",
+    "screen": SOURCES_DIR / "video",
+}
+MODE_TO_SUMMARY_PATH = {
+    "webcam": SUMMARIES_DIR / "webcam_summary.json",
+    "screen": SUMMARIES_DIR / "screen_summary.json",
+}
+DEFAULT_TICK_SECONDS = 4
 
 
-@dataclass
-class FocusResult:
-    on_task: bool
-    confidence: float
-    reason: str
+def ensure_output_dirs():
+    for path in MODE_TO_SOURCE_DIR.values():
+        path.mkdir(parents=True, exist_ok=True)
+    (SOURCES_DIR / "browser").mkdir(parents=True, exist_ok=True)
+    SUMMARIES_DIR.mkdir(parents=True, exist_ok=True)
 
 
-class ScreenCapture:
-    def capture_primary_png(self, max_width=1280):
-        with mss.mss() as sct:
-            monitor = sct.monitors[1]
-            shot = sct.grab(monitor)
-            image = Image.frombytes("RGB", shot.size, shot.rgb)
-
-        if image.width > max_width:
-            ratio = max_width / image.width
-            height = int(image.height * ratio)
-            image = image.resize((max_width, height), Image.Resampling.LANCZOS)
-
-        buffer = io.BytesIO()
-        image.save(buffer, format="PNG", optimize=True)
-        return buffer.getvalue()
+def parse_data_url(data_url: str) -> str:
+    if not data_url.startswith("data:image/"):
+        raise ValueError("Expected a base64-encoded image data URL.")
+    header, encoded = data_url.split(",", 1)
+    if ";base64" not in header:
+        raise ValueError("Expected a base64-encoded image data URL.")
+    base64.b64decode(encoded, validate=True)
+    return data_url
 
 
-class VisionFocusEvaluator:
-    def __init__(self):
-        api_key = os.getenv("BIG_BROTHER_API_KEY") or os.getenv("OPENAI_API_KEY")
-        self.base_url = os.getenv("BIG_BROTHER_BASE_URL", DEFAULT_BASE_URL)
-        self.model = DEFAULT_MODEL
-        self.client = (
-            OpenAI(api_key=api_key, base_url=self.base_url) if api_key and OpenAI else None
-        )
-
-    @property
-    def enabled(self):
-        return self.client is not None
-
-    def evaluate(self, goal, png_bytes):
-        if not self.client:
-            return self._fallback(goal)
-
-        image_b64 = base64.b64encode(png_bytes).decode("ascii")
+def build_vision_prompt(analysis_mode: str, user_prompt: str) -> str:
+    if analysis_mode == "webcam":
         prompt = (
-            "You are a strict but fair focus coach. Decide if the screenshot is consistent "
-            "with the user's stated task. Only judge visible screen content. "
-            "Return compact JSON with keys: on_task boolean, confidence number from 0 to 1, "
-            "and reason string under 120 characters.\n\n"
-            f"User task: {goal}"
+            "You are analyzing a webcam image for another AI agent. "
+            "Summarize what is happening in a concise, agent-friendly way. "
+            "Focus on the person's visible actions, posture, attention, nearby objects, "
+            "environment, and the most likely real-world task they are doing. "
+            "State clear observations first, then short inferences, and explicitly mark uncertainty. "
+            "Do not identify the person. If important details are occluded or blurry, say so."
         )
+    else:
+        prompt = (
+            "You are analyzing a live computer screen capture. "
+            "Describe exactly what is visible, focusing on apps, windows, layout, "
+            "readable text, and the likely current task. "
+            "Separate observed facts from any uncertainty. "
+            "If text is too small or unclear, say that explicitly instead of guessing."
+        )
+    if user_prompt:
+        prompt = f"{prompt}\n\nUser focus: {user_prompt}"
+    return prompt
 
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=[
+
+def write_local_outputs(analysis_mode: str, prompt: str, summary: str) -> dict:
+    ensure_output_dirs()
+    source_dir = MODE_TO_SOURCE_DIR[analysis_mode]
+    summary_path = MODE_TO_SUMMARY_PATH[analysis_mode]
+    timestamp = datetime.now().isoformat(timespec="seconds")
+
+    payload = {
+        "timestamp": timestamp,
+        "analysisMode": analysis_mode,
+        "model": VISION_MODEL,
+        "prompt": prompt,
+        "summary": summary,
+        "sourceFolder": str(source_dir.relative_to(APP_DIR)),
+    }
+
+    latest_json_path = source_dir / "latest.json"
+    latest_txt_path = source_dir / "latest.txt"
+    latest_json_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    latest_txt_path.write_text(summary, encoding="utf-8")
+    summary_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+    return {
+        "latestJson": str(latest_json_path.relative_to(APP_DIR)),
+        "latestText": str(latest_txt_path.relative_to(APP_DIR)),
+        "summaryJson": str(summary_path.relative_to(APP_DIR)),
+    }
+
+
+class DashboardState:
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.goal = "I am studying calculus"
+        self.interval_seconds = env_int("BIG_BROTHER_INTERVAL_SECONDS", DEFAULT_TICK_SECONDS)
+        self.threshold = env_int("BIG_BROTHER_OFF_TASK_THRESHOLD", 2)
+        self.running = False
+        self.off_task_streak = 0
+        self.status = "Ready."
+        self.last_error = ""
+        self.last_turn_at = ""
+        self.resources = {
+            "webcam": "Waiting for webcam resource text.",
+            "screenshare": "Waiting for screenshare resource text.",
+            "browser": "Waiting for browser export text.",
+        }
+        self.watcher_output = {
+            "off_task": False,
+            "confidence": 0.0,
+            "summary": "Watcher output will appear here after a run.",
+            "relevant_evidence": [],
+            "actor_mode": "unknown",
+        }
+        self.last_export = {"path": "", "count": 0}
+        self.capture_status = "No capture source active."
+        self.vision_model = VISION_MODEL
+        self.browser_name = os.getenv("BIG_BROTHER_DEMO_BROWSER", "Edge")
+        self.browser_url = os.getenv("BIG_BROTHER_DEMO_URL", "https://www.google.com")
+        self.last_analysis = {
+            "analysisMode": "",
+            "summary": "",
+            "writtenFiles": {},
+        }
+
+    def snapshot(self, watcher, resource_loader):
+        with self.lock:
+            return {
+                "goal": self.goal,
+                "interval_seconds": self.interval_seconds,
+                "threshold": self.threshold,
+                "running": self.running,
+                "off_task_streak": self.off_task_streak,
+                "status": self.status,
+                "last_error": self.last_error,
+                "last_turn_at": self.last_turn_at,
+                "resources": dict(self.resources),
+                "watcher_output": dict(self.watcher_output),
+                "watcher_enabled": watcher.enabled,
+                "watcher_model": watcher.model,
+                "vision_model": self.vision_model,
+                "capture_status": self.capture_status,
+                "browser_name": self.browser_name,
+                "browser_url": self.browser_url,
+                "available_browsers": list(BROWSERS.keys()),
+                "paths": resource_loader.describe_paths(),
+                "last_export": dict(self.last_export),
+                "last_analysis": dict(self.last_analysis),
+            }
+
+
+class WatcherDashboardApp:
+    def __init__(self):
+        ensure_output_dirs()
+        self.state = DashboardState()
+        self.resource_loader = ResourceLoader()
+        self.watcher = WatcherActor()
+        self.tab_reader = BrowserLiveReader(BROWSERS[self.state.browser_name])
+        self.stop_event = threading.Event()
+        self.worker = None
+
+    def configure_browser(self, browser_name: str | None = None, browser_url: str | None = None):
+        with self.state.lock:
+            if browser_name:
+                if browser_name not in BROWSERS:
+                    raise ValueError(f"Unknown browser '{browser_name}'.")
+                self.state.browser_name = browser_name
+                self.tab_reader = BrowserLiveReader(BROWSERS[browser_name])
+            if browser_url is not None:
+                cleaned = browser_url.strip()
+                self.state.browser_url = cleaned or self.state.browser_url
+
+    def launch_browser(self, browser_name: str | None = None, browser_url: str | None = None):
+        self.configure_browser(browser_name, browser_url)
+        with self.state.lock:
+            launch_url = self.state.browser_url
+            current_browser = self.state.browser_name
+        self.tab_reader.launch(launch_url)
+        self._sync_browser_export(retries=6, delay_seconds=0.5)
+        self._refresh_resource_debug()
+        with self.state.lock:
+            self.state.capture_status = f"Launched {current_browser} for browser monitoring."
+            self.state.status = f"Browser launched at {launch_url}"
+        return {"browser": current_browser, "url": launch_url}
+
+    def start_monitoring(self, goal, interval_seconds, threshold):
+        with self.state.lock:
+            self.state.goal = goal.strip() or self.state.goal
+            self.state.interval_seconds = max(DEFAULT_TICK_SECONDS, int(interval_seconds))
+            self.state.threshold = max(1, int(threshold))
+            self.state.off_task_streak = 0
+            self.state.running = True
+            self.state.status = "Monitoring started."
+            self.state.last_error = ""
+        self.stop_event.clear()
+        if not self.worker or not self.worker.is_alive():
+            self.worker = threading.Thread(target=self._monitor_loop, daemon=True)
+            self.worker.start()
+
+    def stop_monitoring(self):
+        with self.state.lock:
+            self.state.running = False
+            self.state.status = "Monitoring stopped."
+        self.stop_event.set()
+
+    def run_once(self, goal=None, interval_seconds=None, threshold=None):
+        with self.state.lock:
+            if goal is not None and goal.strip():
+                self.state.goal = goal.strip()
+            if interval_seconds is not None:
+                self.state.interval_seconds = max(DEFAULT_TICK_SECONDS, int(interval_seconds))
+            if threshold is not None:
+                self.state.threshold = max(1, int(threshold))
+            self.state.status = "Checking resources once..."
+            self.state.last_error = ""
+        self._run_single_turn()
+
+    def export_tabs(self):
+        path, count = self._sync_browser_export(retries=4, delay_seconds=0.5)
+        self._refresh_resource_debug()
+        return {"path": str(path), "count": count}
+
+    def _sync_browser_export(self, retries=1, delay_seconds=0.25):
+        path, count = self.tab_reader.export_tabs(
+            TAB_OUTPUT_PATH,
+            retries=retries,
+            delay_seconds=delay_seconds,
+        )
+        with self.state.lock:
+            self.state.last_export = {"path": str(path), "count": count}
+            self.state.status = f"Exported {count} browser tabs to {path.name}."
+        return path, count
+
+    def analyze_capture(self, analysis_mode: str, prompt: str, image_data_url: str):
+        analysis_mode = analysis_mode.strip().lower()
+        if analysis_mode not in MODE_TO_SOURCE_DIR:
+            raise ValueError("analysisMode must be 'webcam' or 'screen'.")
+
+        api_key = (os.getenv("BIG_BROTHER_API_KEY") or os.getenv("HACKCLUB_API_KEY") or "").strip()
+        if not api_key:
+            raise ValueError("Missing API key. Set BIG_BROTHER_API_KEY in .env.")
+
+        image_data_url = parse_data_url(image_data_url)
+        request_prompt = build_vision_prompt(analysis_mode, prompt.strip())
+
+        upstream_body = {
+            "model": VISION_MODEL,
+            "temperature": 0.2,
+            "max_tokens": 500,
+            "messages": [
                 {
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": prompt},
-                        {
-                            "type": "image_url",
-                            "image_url": {"url": f"data:image/png;base64,{image_b64}"},
-                        },
+                        {"type": "text", "text": request_prompt},
+                        {"type": "image_url", "image_url": {"url": image_data_url}},
                     ],
-                },
+                }
             ],
-            temperature=0,
+        }
+
+        req = request.Request(
+            API_URL,
+            data=json.dumps(upstream_body).encode("utf-8"),
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            method="POST",
         )
 
-        data = json.loads(response.choices[0].message.content or "{}")
-        return FocusResult(
-            on_task=bool(data.get("on_task")),
-            confidence=float(data.get("confidence", 0.5)),
-            reason=str(data.get("reason", "No reason provided.")),
-        )
+        try:
+            with request.urlopen(req, timeout=90) as response:
+                response_data = json.loads(response.read().decode("utf-8"))
+        except error.HTTPError as exc:
+            error_body = exc.read().decode("utf-8", errors="replace")
+            raise RuntimeError(f"Hack Club API request failed.\n\n{error_body}") from exc
+        except error.URLError as exc:
+            raise RuntimeError(f"Unable to reach Hack Club API: {exc.reason}") from exc
 
-    def _fallback(self, goal):
-        return FocusResult(
-            on_task=True,
-            confidence=0.0,
-            reason="AI checks disabled. Set OPENAI_API_KEY to enable screenshot evaluation.",
-        )
+        try:
+            message = response_data["choices"][0]["message"]["content"]
+        except (KeyError, IndexError, TypeError) as exc:
+            raise RuntimeError(f"Unexpected response from Hack Club API: {response_data}") from exc
 
-
-class ReminderPopup(tk.Toplevel):
-    def __init__(self, parent, goal, reason):
-        super().__init__(parent)
-        self.title("Big Brother Reminder")
-        self.attributes("-topmost", True)
-        self.resizable(False, False)
-
-        frame = ttk.Frame(self, padding=18)
-        frame.grid(row=0, column=0, sticky="nsew")
-
-        ttk.Label(
-            frame,
-            text="Back to task",
-            font=("Segoe UI", 16, "bold"),
-        ).grid(row=0, column=0, sticky="w")
-
-        ttk.Label(
-            frame,
-            text=f"You said: {goal}",
-            wraplength=420,
-        ).grid(row=1, column=0, pady=(10, 4), sticky="w")
-
-        ttk.Label(
-            frame,
-            text=reason,
-            wraplength=420,
-            foreground="#555555",
-        ).grid(row=2, column=0, pady=(0, 14), sticky="w")
-
-        ttk.Button(frame, text="I'm back", command=self.destroy).grid(row=3, column=0, sticky="e")
-
-        self.update_idletasks()
-        width = self.winfo_width()
-        height = self.winfo_height()
-        x = self.winfo_screenwidth() - width - 28
-        y = self.winfo_screenheight() - height - 72
-        self.geometry(f"+{x}+{y}")
-        self.after(12000, self.destroy)
-
-
-class BigBrotherApp(tk.Tk):
-    def __init__(self):
-        super().__init__()
-        self.title("Big Brother")
-        self.geometry("560x430")
-        self.minsize(520, 400)
-
-        self.capture = ScreenCapture()
-        self.evaluator = VisionFocusEvaluator()
-        self.events = queue.Queue()
-        self.worker = None
-        self.stop_event = threading.Event()
-        self.off_task_streak = 0
-        self.last_popup_at = 0
-
-        self.goal_var = tk.StringVar(value="I am going to study calculus")
-        self.interval_var = tk.IntVar(value=env_int("BIG_BROTHER_INTERVAL_SECONDS", 8))
-        self.threshold_var = tk.IntVar(value=env_int("BIG_BROTHER_OFF_TASK_THRESHOLD", 2))
-        self.status_var = tk.StringVar(value="Ready.")
-        self.streak_var = tk.StringVar(value="Off-task streak: 0")
-        self.ai_var = tk.StringVar(
-            value=(
-                f"AI vision: enabled ({self.evaluator.model})"
-                if self.evaluator.enabled
-                else "AI vision: disabled"
+        written_files = write_local_outputs(analysis_mode, prompt.strip(), message)
+        self._refresh_resource_debug()
+        with self.state.lock:
+            self.state.capture_status = (
+                "Webcam summary updated."
+                if analysis_mode == "webcam"
+                else "Screenshare summary updated."
             )
-        )
+            self.state.last_analysis = {
+                "analysisMode": analysis_mode,
+                "summary": message,
+                "writtenFiles": written_files,
+            }
 
-        self._build_ui()
-        self.after(250, self._drain_events)
-        self.protocol("WM_DELETE_WINDOW", self._on_close)
-
-    def _build_ui(self):
-        root = ttk.Frame(self, padding=20)
-        root.pack(fill="both", expand=True)
-        root.columnconfigure(0, weight=1)
-
-        ttk.Label(root, text="Big Brother", font=("Segoe UI", 22, "bold")).grid(
-            row=0, column=0, sticky="w"
-        )
-        ttk.Label(root, text="Visible focus monitoring for your own screen.").grid(
-            row=1, column=0, sticky="w", pady=(2, 18)
-        )
-
-        ttk.Label(root, text="Current task").grid(row=2, column=0, sticky="w")
-        goal_entry = ttk.Entry(root, textvariable=self.goal_var)
-        goal_entry.grid(row=3, column=0, sticky="ew", pady=(4, 14))
-
-        controls = ttk.Frame(root)
-        controls.grid(row=4, column=0, sticky="ew", pady=(0, 14))
-        controls.columnconfigure(1, weight=1)
-        controls.columnconfigure(3, weight=1)
-
-        ttk.Label(controls, text="Check every").grid(row=0, column=0, sticky="w")
-        ttk.Spinbox(
-            controls,
-            from_=5,
-            to=60,
-            textvariable=self.interval_var,
-            width=6,
-            justify="center",
-        ).grid(row=0, column=1, sticky="w", padx=(8, 18))
-        ttk.Label(controls, text="seconds").grid(row=0, column=2, sticky="w")
-
-        ttk.Label(controls, text="Remind after").grid(row=1, column=0, sticky="w", pady=(10, 0))
-        ttk.Spinbox(
-            controls,
-            from_=1,
-            to=10,
-            textvariable=self.threshold_var,
-            width=6,
-            justify="center",
-        ).grid(row=1, column=1, sticky="w", padx=(8, 18), pady=(10, 0))
-        ttk.Label(controls, text="off-task checks").grid(row=1, column=2, sticky="w", pady=(10, 0))
-
-        buttons = ttk.Frame(root)
-        buttons.grid(row=5, column=0, sticky="ew", pady=(2, 18))
-
-        self.start_button = ttk.Button(buttons, text="Start Focus Session", command=self.start)
-        self.start_button.pack(side="left")
-        self.stop_button = ttk.Button(buttons, text="Stop", command=self.stop, state="disabled")
-        self.stop_button.pack(side="left", padx=(10, 0))
-        ttk.Button(buttons, text="Test Reminder", command=self._test_reminder).pack(
-            side="left", padx=(10, 0)
-        )
-
-        ttk.Separator(root).grid(row=6, column=0, sticky="ew", pady=(0, 14))
-
-        ttk.Label(root, textvariable=self.ai_var).grid(row=7, column=0, sticky="w")
-        ttk.Label(root, textvariable=self.streak_var).grid(row=8, column=0, sticky="w", pady=(6, 0))
-        ttk.Label(root, textvariable=self.status_var, wraplength=500).grid(
-            row=9, column=0, sticky="w", pady=(6, 0)
-        )
-
-        ttk.Label(
-            root,
-            text="Tip: put BIG_BROTHER_API_KEY in .env to enable Hack Club AI screenshot checks.",
-            foreground="#666666",
-            wraplength=500,
-        ).grid(row=10, column=0, sticky="w", pady=(24, 0))
-
-    def start(self):
-        goal = self.goal_var.get().strip()
-        if not goal:
-            messagebox.showerror("Missing task", "Tell Big Brother what you are trying to do.")
-            return
-
-        self.off_task_streak = 0
-        self.stop_event.clear()
-        self.start_button.configure(state="disabled")
-        self.stop_button.configure(state="normal")
-        self.status_var.set("Monitoring started.")
-        self.streak_var.set("Off-task streak: 0")
-
-        self.worker = threading.Thread(target=self._monitor_loop, daemon=True)
-        self.worker.start()
-
-    def stop(self):
-        self.stop_event.set()
-        self.start_button.configure(state="normal")
-        self.stop_button.configure(state="disabled")
-        self.status_var.set("Monitoring stopped.")
+        return {
+            "summary": message,
+            "model": VISION_MODEL,
+            "analysisMode": analysis_mode,
+            "writtenFiles": written_files,
+        }
 
     def _monitor_loop(self):
         while not self.stop_event.is_set():
-            goal = self.goal_var.get().strip()
-            try:
-                self.events.put(("status", "Capturing screenshot..."))
-                png = self.capture.capture_primary_png()
-                self.events.put(("status", "Checking focus..."))
-                result = self.evaluator.evaluate(goal, png)
-                self.events.put(("result", result))
-            except Exception as exc:
-                self.events.put(("error", str(exc)))
-
-            interval = max(5, int(self.interval_var.get() or 8))
-            self.stop_event.wait(interval)
-
-    def _drain_events(self):
-        while True:
-            try:
-                event, payload = self.events.get_nowait()
-            except queue.Empty:
+            self._run_single_turn()
+            with self.state.lock:
+                interval_seconds = self.state.interval_seconds
+                running = self.state.running
+            if not running:
                 break
+            self.stop_event.wait(interval_seconds)
 
-            if event == "status":
-                self.status_var.set(payload)
-            elif event == "error":
-                self.status_var.set(f"Error: {payload}")
-            elif event == "result":
-                self._handle_result(payload)
+    def _refresh_resource_debug(self):
+        resources = self.resource_loader.load()
+        with self.state.lock:
+            self.state.resources = {
+                "webcam": resources.webcam_text or "No webcam resource text found.",
+                "screenshare": resources.screenshare_text or "No screenshare resource text found.",
+                "browser": resources.browser_text or "No browser resource text found.",
+            }
+        return resources
 
-        self.after(250, self._drain_events)
+    def _run_single_turn(self):
+        try:
+            with self.state.lock:
+                self.state.status = "Refreshing browser export..."
+            self._sync_browser_export(retries=1, delay_seconds=0.2)
+            with self.state.lock:
+                self.state.status = "Loading resource files..."
+            resources = self._refresh_resource_debug()
+            with self.state.lock:
+                self.state.status = "Watcher reviewing evidence..."
+                goal = self.state.goal
+            decision = self.watcher.evaluate(goal, resources)
+            turn_time = time.strftime("%Y-%m-%d %H:%M:%S")
+            with self.state.lock:
+                if decision.off_task:
+                    self.state.off_task_streak += 1
+                    state_label = "Off task"
+                else:
+                    self.state.off_task_streak = 0
+                    state_label = "On task"
+                self.state.watcher_output = {
+                    "off_task": decision.off_task,
+                    "confidence": decision.confidence,
+                    "summary": decision.summary,
+                    "relevant_evidence": list(decision.relevant_evidence),
+                    "actor_mode": decision.actor_mode,
+                }
+                self.state.status = f"{state_label} ({decision.confidence:.0%}): {decision.summary}"
+                self.state.last_turn_at = turn_time
+                self.state.last_error = ""
+        except Exception as exc:
+            with self.state.lock:
+                self.state.last_error = str(exc)
+                self.state.status = f"Error: {exc}"
 
-    def _handle_result(self, result):
-        if result.on_task:
-            self.off_task_streak = 0
-            state = "On task"
-        else:
-            self.off_task_streak += 1
-            state = "Off task"
 
-        self.streak_var.set(f"Off-task streak: {self.off_task_streak}")
-        self.status_var.set(f"{state} ({result.confidence:.0%}): {result.reason}")
+APP = WatcherDashboardApp()
 
-        threshold = max(1, int(self.threshold_var.get() or 2))
-        enough_time_since_popup = time.time() - self.last_popup_at > 20
-        if self.off_task_streak >= threshold and enough_time_since_popup:
-            self.last_popup_at = time.time()
-            ReminderPopup(self, self.goal_var.get().strip(), result.reason)
 
-    def _test_reminder(self):
-        ReminderPopup(
-            self,
-            self.goal_var.get().strip() or "your task",
-            "This is what the nudge looks like when you drift.",
-        )
+class AppHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        parsed = urlparse(self.path)
+        if parsed.path == "/":
+            return self._serve_file(WEB_DIR / "index.html", "text/html; charset=utf-8")
+        if parsed.path == "/app.js":
+            return self._serve_file(WEB_DIR / "app.js", "application/javascript; charset=utf-8")
+        if parsed.path == "/styles.css":
+            return self._serve_file(WEB_DIR / "styles.css", "text/css; charset=utf-8")
+        if parsed.path == "/api/state":
+            return self._json_response(APP.state.snapshot(APP.watcher, APP.resource_loader))
+        self.send_error(HTTPStatus.NOT_FOUND, "Not found")
 
-    def _on_close(self):
-        self.stop()
-        self.destroy()
+    def do_POST(self):
+        parsed = urlparse(self.path)
+        payload = self._read_json_body()
+        try:
+            if parsed.path == "/api/run-once":
+                APP.run_once(
+                    goal=payload.get("goal"),
+                    interval_seconds=payload.get("interval_seconds", APP.state.interval_seconds),
+                    threshold=payload.get("threshold", APP.state.threshold),
+                )
+                return self._json_response({"ok": True, "state": APP.state.snapshot(APP.watcher, APP.resource_loader)})
+
+            if parsed.path == "/api/start":
+                APP.start_monitoring(
+                    goal=payload.get("goal", APP.state.goal),
+                    interval_seconds=payload.get("interval_seconds", APP.state.interval_seconds),
+                    threshold=payload.get("threshold", APP.state.threshold),
+                )
+                return self._json_response({"ok": True, "state": APP.state.snapshot(APP.watcher, APP.resource_loader)})
+
+            if parsed.path == "/api/stop":
+                APP.stop_monitoring()
+                return self._json_response({"ok": True, "state": APP.state.snapshot(APP.watcher, APP.resource_loader)})
+
+            if parsed.path == "/api/export-tabs":
+                APP.configure_browser(
+                    browser_name=payload.get("browser_name"),
+                    browser_url=payload.get("browser_url"),
+                )
+                export_info = APP.export_tabs()
+                return self._json_response({"ok": True, "export": export_info, "state": APP.state.snapshot(APP.watcher, APP.resource_loader)})
+
+            if parsed.path == "/api/launch-browser":
+                launch_info = APP.launch_browser(
+                    browser_name=payload.get("browser_name"),
+                    browser_url=payload.get("browser_url"),
+                )
+                return self._json_response({"ok": True, "launch": launch_info, "state": APP.state.snapshot(APP.watcher, APP.resource_loader)})
+
+            if parsed.path == "/api/analyze":
+                result = APP.analyze_capture(
+                    analysis_mode=payload.get("analysisMode", ""),
+                    prompt=payload.get("prompt", ""),
+                    image_data_url=payload.get("imageDataUrl", ""),
+                )
+                return self._json_response({"ok": True, **result, "state": APP.state.snapshot(APP.watcher, APP.resource_loader)})
+        except ValueError as exc:
+            return self._json_response({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+        except RuntimeError as exc:
+            return self._json_response({"error": str(exc)}, status=HTTPStatus.BAD_GATEWAY)
+
+        self.send_error(HTTPStatus.NOT_FOUND, "Not found")
+
+    def log_message(self, format, *args):
+        return
+
+    def _serve_file(self, path, content_type):
+        if not path.exists():
+            self.send_error(HTTPStatus.NOT_FOUND, "Not found")
+            return
+        body = path.read_bytes()
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _json_response(self, payload, status=HTTPStatus.OK):
+        body = json.dumps(payload).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _read_json_body(self):
+        length = int(self.headers.get("Content-Length", "0"))
+        if length <= 0:
+            return {}
+        raw = self.rfile.read(length)
+        if not raw:
+            return {}
+        return json.loads(raw.decode("utf-8"))
+
+
+def main():
+    host = "127.0.0.1"
+    port = 8765
+    server = ThreadingHTTPServer((host, port), AppHandler)
+    print(f"Big Brother web app running at http://{host}:{port}")
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        APP.stop_monitoring()
+        server.server_close()
 
 
 if __name__ == "__main__":
-    app = BigBrotherApp()
-    app.mainloop()
+    main()

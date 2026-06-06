@@ -10,7 +10,7 @@ from pathlib import Path
 from urllib import error, request
 from urllib.parse import urlparse
 
-from actors import WatcherActor
+from actors import MainProcessingActor, WatcherActor
 from browser_live_demo import BROWSERS, TAB_OUTPUT_PATH, BrowserLiveReader
 from config import env_int, load_env_file
 from resources import ResourceLoader
@@ -127,6 +127,14 @@ class DashboardState:
             "relevant_evidence": [],
             "actor_mode": "unknown",
         }
+        self.mpa_output = {
+            "triggered": False,
+            "should_intervene": False,
+            "agenda": "MPA output will appear after the watcher hits the threshold.",
+            "rationale": "Waiting for consecutive watcher positives.",
+            "supporting_points": [],
+            "actor_mode": "idle",
+        }
         self.last_export = {"path": "", "count": 0}
         self.capture_status = "No capture source active."
         self.vision_model = VISION_MODEL
@@ -138,7 +146,7 @@ class DashboardState:
             "writtenFiles": {},
         }
 
-    def snapshot(self, watcher, resource_loader):
+    def snapshot(self, watcher, mpa, resource_loader):
         with self.lock:
             return {
                 "goal": self.goal,
@@ -153,6 +161,9 @@ class DashboardState:
                 "watcher_output": dict(self.watcher_output),
                 "watcher_enabled": watcher.enabled,
                 "watcher_model": watcher.model,
+                "mpa_output": dict(self.mpa_output),
+                "mpa_enabled": mpa.enabled,
+                "mpa_model": mpa.model,
                 "vision_model": self.vision_model,
                 "capture_status": self.capture_status,
                 "browser_name": self.browser_name,
@@ -170,9 +181,11 @@ class WatcherDashboardApp:
         self.state = DashboardState()
         self.resource_loader = ResourceLoader()
         self.watcher = WatcherActor()
+        self.mpa = MainProcessingActor()
         self.tab_reader = BrowserLiveReader(BROWSERS[self.state.browser_name])
         self.stop_event = threading.Event()
         self.worker = None
+        self.pending_watcher_hits = []
 
     def configure_browser(self, browser_name: str | None = None, browser_url: str | None = None):
         with self.state.lock:
@@ -204,9 +217,18 @@ class WatcherDashboardApp:
             self.state.interval_seconds = max(DEFAULT_TICK_SECONDS, int(interval_seconds))
             self.state.threshold = max(1, int(threshold))
             self.state.off_task_streak = 0
+            self.state.mpa_output = {
+                "triggered": False,
+                "should_intervene": False,
+                "agenda": "MPA output will appear after the watcher hits the threshold.",
+                "rationale": "Waiting for consecutive watcher positives.",
+                "supporting_points": [],
+                "actor_mode": "idle",
+            }
             self.state.running = True
             self.state.status = "Monitoring started."
             self.state.last_error = ""
+        self.pending_watcher_hits = []
         self.stop_event.clear()
         if not self.worker or not self.worker.is_alive():
             self.worker = threading.Thread(target=self._monitor_loop, daemon=True)
@@ -349,8 +371,31 @@ class WatcherDashboardApp:
             with self.state.lock:
                 self.state.status = "Watcher reviewing evidence..."
                 goal = self.state.goal
+                threshold = self.state.threshold
             decision = self.watcher.evaluate(goal, resources)
             turn_time = time.strftime("%Y-%m-%d %H:%M:%S")
+            if decision.off_task:
+                self.pending_watcher_hits.append(decision)
+                self.pending_watcher_hits = self.pending_watcher_hits[-max(1, threshold):]
+            else:
+                self.pending_watcher_hits = []
+
+            if len(self.pending_watcher_hits) >= threshold:
+                mpa_result = self.mpa.evaluate(goal, list(self.pending_watcher_hits))
+            else:
+                turns_left = max(0, threshold - len(self.pending_watcher_hits))
+                mpa_result = {
+                    "triggered": False,
+                    "should_intervene": False,
+                    "agenda": "MPA output will appear after the watcher hits the threshold.",
+                    "rationale": (
+                        "Waiting for consecutive watcher positives."
+                        if turns_left
+                        else "Watcher threshold met."
+                    ),
+                    "supporting_points": [],
+                    "actor_mode": "idle",
+                }
             with self.state.lock:
                 if decision.off_task:
                     self.state.off_task_streak += 1
@@ -365,7 +410,24 @@ class WatcherDashboardApp:
                     "relevant_evidence": list(decision.relevant_evidence),
                     "actor_mode": decision.actor_mode,
                 }
-                self.state.status = f"{state_label} ({decision.confidence:.0%}): {decision.summary}"
+                if isinstance(mpa_result, dict):
+                    self.state.mpa_output = dict(mpa_result)
+                else:
+                    self.state.mpa_output = {
+                        "triggered": mpa_result.triggered,
+                        "should_intervene": mpa_result.should_intervene,
+                        "agenda": mpa_result.agenda,
+                        "rationale": mpa_result.rationale,
+                        "supporting_points": list(mpa_result.supporting_points),
+                        "actor_mode": mpa_result.actor_mode,
+                    }
+                if self.state.mpa_output["triggered"] and self.state.mpa_output["should_intervene"]:
+                    self.state.status = (
+                        f"{state_label} ({decision.confidence:.0%}). "
+                        f"MPA agenda ready: {self.state.mpa_output['agenda']}"
+                    )
+                else:
+                    self.state.status = f"{state_label} ({decision.confidence:.0%}): {decision.summary}"
                 self.state.last_turn_at = turn_time
                 self.state.last_error = ""
         except Exception as exc:
@@ -387,7 +449,7 @@ class AppHandler(BaseHTTPRequestHandler):
         if parsed.path == "/styles.css":
             return self._serve_file(WEB_DIR / "styles.css", "text/css; charset=utf-8")
         if parsed.path == "/api/state":
-            return self._json_response(APP.state.snapshot(APP.watcher, APP.resource_loader))
+            return self._json_response(APP.state.snapshot(APP.watcher, APP.mpa, APP.resource_loader))
         self.send_error(HTTPStatus.NOT_FOUND, "Not found")
 
     def do_POST(self):
@@ -400,7 +462,7 @@ class AppHandler(BaseHTTPRequestHandler):
                     interval_seconds=payload.get("interval_seconds", APP.state.interval_seconds),
                     threshold=payload.get("threshold", APP.state.threshold),
                 )
-                return self._json_response({"ok": True, "state": APP.state.snapshot(APP.watcher, APP.resource_loader)})
+                return self._json_response({"ok": True, "state": APP.state.snapshot(APP.watcher, APP.mpa, APP.resource_loader)})
 
             if parsed.path == "/api/start":
                 APP.start_monitoring(
@@ -408,11 +470,11 @@ class AppHandler(BaseHTTPRequestHandler):
                     interval_seconds=payload.get("interval_seconds", APP.state.interval_seconds),
                     threshold=payload.get("threshold", APP.state.threshold),
                 )
-                return self._json_response({"ok": True, "state": APP.state.snapshot(APP.watcher, APP.resource_loader)})
+                return self._json_response({"ok": True, "state": APP.state.snapshot(APP.watcher, APP.mpa, APP.resource_loader)})
 
             if parsed.path == "/api/stop":
                 APP.stop_monitoring()
-                return self._json_response({"ok": True, "state": APP.state.snapshot(APP.watcher, APP.resource_loader)})
+                return self._json_response({"ok": True, "state": APP.state.snapshot(APP.watcher, APP.mpa, APP.resource_loader)})
 
             if parsed.path == "/api/export-tabs":
                 APP.configure_browser(
@@ -420,14 +482,14 @@ class AppHandler(BaseHTTPRequestHandler):
                     browser_url=payload.get("browser_url"),
                 )
                 export_info = APP.export_tabs()
-                return self._json_response({"ok": True, "export": export_info, "state": APP.state.snapshot(APP.watcher, APP.resource_loader)})
+                return self._json_response({"ok": True, "export": export_info, "state": APP.state.snapshot(APP.watcher, APP.mpa, APP.resource_loader)})
 
             if parsed.path == "/api/launch-browser":
                 launch_info = APP.launch_browser(
                     browser_name=payload.get("browser_name"),
                     browser_url=payload.get("browser_url"),
                 )
-                return self._json_response({"ok": True, "launch": launch_info, "state": APP.state.snapshot(APP.watcher, APP.resource_loader)})
+                return self._json_response({"ok": True, "launch": launch_info, "state": APP.state.snapshot(APP.watcher, APP.mpa, APP.resource_loader)})
 
             if parsed.path == "/api/analyze":
                 result = APP.analyze_capture(
@@ -435,7 +497,7 @@ class AppHandler(BaseHTTPRequestHandler):
                     prompt=payload.get("prompt", ""),
                     image_data_url=payload.get("imageDataUrl", ""),
                 )
-                return self._json_response({"ok": True, **result, "state": APP.state.snapshot(APP.watcher, APP.resource_loader)})
+                return self._json_response({"ok": True, **result, "state": APP.state.snapshot(APP.watcher, APP.mpa, APP.resource_loader)})
         except ValueError as exc:
             return self._json_response({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
         except RuntimeError as exc:

@@ -10,6 +10,7 @@ except ImportError:
 
 DEFAULT_BASE_URL = os.getenv("BIG_BROTHER_BASE_URL", "https://api.openai.com/v1")
 DEFAULT_WATCHER_MODEL = os.getenv("BIG_BROTHER_WATCHER_MODEL", "generic-light-llm")
+DEFAULT_MPA_MODEL = os.getenv("BIG_BROTHER_MPA_MODEL", DEFAULT_WATCHER_MODEL)
 
 
 @dataclass
@@ -18,6 +19,16 @@ class WatcherDecision:
     confidence: float
     summary: str
     relevant_evidence: list[str]
+    actor_mode: str
+
+
+@dataclass
+class MPAResult:
+    triggered: bool
+    should_intervene: bool
+    agenda: str
+    rationale: str
+    supporting_points: list[str]
     actor_mode: str
 
 
@@ -121,3 +132,102 @@ class WatcherActor:
             if term in chunk.lower():
                 return chunk.strip()[:180]
         return text.strip()[:180]
+
+
+class MainProcessingActor:
+    def __init__(self):
+        api_key = os.getenv("BIG_BROTHER_API_KEY") or os.getenv("OPENAI_API_KEY")
+        self.base_url = os.getenv("BIG_BROTHER_BASE_URL", DEFAULT_BASE_URL)
+        self.model = os.getenv("BIG_BROTHER_MPA_MODEL", DEFAULT_MPA_MODEL)
+        self.client = (
+            OpenAI(api_key=api_key, base_url=self.base_url) if api_key and OpenAI else None
+        )
+
+    @property
+    def enabled(self):
+        return self.client is not None
+
+    def evaluate(self, session_goal, watcher_decisions):
+        positive_decisions = [decision for decision in watcher_decisions if decision.off_task]
+        if not positive_decisions:
+            return MPAResult(
+                triggered=False,
+                should_intervene=False,
+                agenda="Waiting for enough consecutive watcher positives.",
+                rationale="The watcher has not produced enough consecutive off-task booleans yet.",
+                supporting_points=[],
+                actor_mode="idle",
+            )
+
+        if not self.client:
+            return self._fallback(session_goal, positive_decisions)
+
+        evidence_lines = []
+        for index, decision in enumerate(positive_decisions, start=1):
+            evidence = decision.relevant_evidence or [decision.summary]
+            for item in evidence:
+                cleaned = str(item).strip()
+                if cleaned:
+                    evidence_lines.append(f"{index}. {cleaned}")
+
+        prompt = (
+            "You are the Main Processing Agent (MPA) in a study-support system.\n"
+            "You receive only watcher-approved off-task signals after the watcher has already met "
+            "the consecutive-threshold requirement.\n"
+            "Your job is to convert those observations into an intervention agenda for a downstream "
+            "personality/speaking agent.\n"
+            "Be concise, practical, and evidence-grounded. Do not invent facts.\n"
+            "Return strict JSON with keys:\n"
+            "should_intervene: boolean\n"
+            "agenda: string under 220 characters\n"
+            "rationale: string under 220 characters\n"
+            "supporting_points: array of short strings\n\n"
+            f"Study intention:\n{session_goal}\n\n"
+            "Watcher-approved evidence:\n"
+            f"{chr(10).join(evidence_lines) if evidence_lines else 'None'}"
+        )
+
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0,
+            response_format={"type": "json_object"},
+        )
+
+        data = json.loads(response.choices[0].message.content or "{}")
+        return MPAResult(
+            triggered=True,
+            should_intervene=bool(data.get("should_intervene", True)),
+            agenda=str(data.get("agenda", "Review the watcher evidence and redirect the user.")),
+            rationale=str(data.get("rationale", "Multiple watcher turns indicate likely off-task behavior.")),
+            supporting_points=self._normalize_points(data.get("supporting_points")),
+            actor_mode=f"llm:{self.model}",
+        )
+
+    def _fallback(self, session_goal, positive_decisions):
+        supporting_points = []
+        for decision in positive_decisions:
+            evidence = decision.relevant_evidence or [decision.summary]
+            for item in evidence:
+                cleaned = str(item).strip()
+                if cleaned and cleaned not in supporting_points:
+                    supporting_points.append(cleaned)
+
+        agenda = (
+            f"Redirect the user back to: {session_goal}. Ask whether the flagged behavior is actually helping that goal."
+        )[:220]
+        return MPAResult(
+            triggered=True,
+            should_intervene=True,
+            agenda=agenda,
+            rationale="The watcher produced consecutive off-task booleans, so escalation is now warranted.",
+            supporting_points=supporting_points[:4],
+            actor_mode="fallback",
+        )
+
+    def _normalize_points(self, value):
+        if isinstance(value, list):
+            return [str(item).strip() for item in value if str(item).strip()]
+        if isinstance(value, str) and value.strip():
+            return [value.strip()]
+        return []

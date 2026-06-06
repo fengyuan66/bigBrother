@@ -3,161 +3,274 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Big Brother Watcher Dashboard</title>
+    <title>Big Brother Watcher Console</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
     <main class="shell">
       <section class="hero">
-        <p class="eyebrow">Big Brother · Watcher Dashboard</p>
-        <h1>Capture webcam and screen summaries, then watch the watcher react live.</h1>
+        <p class="eyebrow">Big Brother · Watcher Console</p>
+        <h1>Run the watcher pipeline end to end from the Python webapp.</h1>
         <p class="lede">
-          The browser asks for webcam and screen-share permission directly. Captured frames are sent
-          to Hack Club AI for resource summaries, saved locally, and immediately fed into the watcher.
+          Use this page to collect live resources, inspect the watcher decision every tick, and see
+          when the MPA crosses threshold and produces an intervention agenda.
         </p>
+        <div class="hero-grid">
+          <article class="hero-card">
+            <span class="hero-step">1</span>
+            <h2>Collect Inputs</h2>
+            <p>Share screen, use webcam, or launch the tracked browser so the watcher has fresh resources.</p>
+          </article>
+          <article class="hero-card">
+            <span class="hero-step">2</span>
+            <h2>Watch Ticks</h2>
+            <p>The watcher runs every update and emits a single-turn boolean plus evidence.</p>
+          </article>
+          <article class="hero-card">
+            <span class="hero-step">3</span>
+            <h2>Inspect Escalation</h2>
+            <p>The MPA stays idle until the configured consecutive watcher-positive threshold is met.</p>
+          </article>
+        </div>
       </section>
 
-      <section class="panel controls">
-        <div class="field">
-          <label for="goal">Study intention</label>
-          <textarea id="goal" rows="2">I am studying calculus</textarea>
-        </div>
+      <section class="control-layout">
+        <article class="panel controls-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="section-kicker">Session Setup</p>
+              <h2>Study session</h2>
+            </div>
+            <span id="watcherBadge" class="badge subtle">Watcher loading...</span>
+          </div>
+          <div class="field">
+            <label for="goal">Study intention</label>
+            <textarea id="goal" rows="3">I am studying calculus</textarea>
+          </div>
+          <div class="control-row compact">
+            <label class="metric-field">
+              <span>Watcher tick</span>
+              <input id="intervalSeconds" type="number" min="4" max="60" value="4" />
+              <small>Seconds between watcher turns</small>
+            </label>
+            <label class="metric-field">
+              <span>MPA threshold</span>
+              <input id="threshold" type="number" min="1" max="10" value="2" />
+              <small>Consecutive watcher-positive turns required</small>
+            </label>
+          </div>
+          <div class="actions actions-wide">
+            <button id="runOnceButton">Run one watcher turn</button>
+            <button id="startButton">Start continuous watcher</button>
+            <button id="stopButton" class="alt">Stop watcher</button>
+          </div>
+          <div class="meta meta-stack">
+            <span id="statusBadge" class="badge idle">Idle</span>
+            <span id="turnBadge" class="badge subtle">No turns yet</span>
+            <span id="thresholdBadge" class="badge subtle">Threshold loading...</span>
+          </div>
+          <p id="paths" class="hint"></p>
+        </article>
 
-        <div class="control-row">
-          <label class="inline-field">
-            <span>Check every</span>
-            <input id="intervalSeconds" type="number" min="4" max="60" value="4" />
-            <span>seconds</span>
-          </label>
-
-          <label class="inline-field">
-            <span>Trigger after</span>
-            <input id="threshold" type="number" min="1" max="10" value="2" />
-            <span>turns</span>
-          </label>
-        </div>
-
-        <div class="field">
-          <label for="capturePrompt">Capture guidance</label>
-          <textarea
-            id="capturePrompt"
-            rows="2"
-            placeholder="Optional: tell the VLM to focus on visible study behavior, active window, or distractions."
-          ></textarea>
-        </div>
-
-        <div class="control-row">
-          <label class="inline-field">
-            <span>Browser</span>
-            <select id="browserName"></select>
-          </label>
-
-          <label class="inline-field grow">
-            <span>Browser URL</span>
-            <input id="browserUrl" type="text" placeholder="https://www.google.com" />
-          </label>
-        </div>
-
-        <div class="actions">
-          <button id="shareButton">Share screen</button>
-          <button id="webcamButton" class="alt">Use webcam</button>
-          <button id="captureButton" disabled>Capture summary</button>
-          <button id="autoCaptureButton" class="alt" disabled>Start auto capture</button>
-          <button id="stopCaptureButton" class="alt" disabled>Stop capture</button>
-        </div>
-
-        <div class="actions">
-          <button id="launchBrowserButton" class="alt">Launch tracked browser</button>
-          <button id="runOnceButton">Run watcher once</button>
-          <button id="startButton">Start watcher</button>
-          <button id="stopButton" class="alt">Stop watcher</button>
-          <button id="exportTabsButton" class="alt">Export tabs</button>
-        </div>
-
-        <div class="meta">
-          <span id="watcherBadge" class="badge subtle">Watcher loading...</span>
-          <span id="statusBadge" class="badge idle">Idle</span>
-          <span id="captureBadge" class="badge subtle">No source</span>
-          <span id="turnBadge" class="badge subtle">No turns yet</span>
-        </div>
-
-        <p id="paths" class="hint"></p>
+        <article class="panel controls-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="section-kicker">Resource Capture</p>
+              <h2>Inputs and browser tracking</h2>
+            </div>
+            <span id="captureBadge" class="badge subtle">No source</span>
+          </div>
+          <div class="field">
+            <label for="capturePrompt">Capture guidance</label>
+            <textarea
+              id="capturePrompt"
+              rows="3"
+              placeholder="Optional: tell the VLM what to focus on, like the active app, visible study behavior, or likely distractions."
+            ></textarea>
+          </div>
+          <div class="control-row browser-row">
+            <label class="field">
+              <span>Tracked browser</span>
+              <select id="browserName"></select>
+            </label>
+            <label class="field grow">
+              <span>Browser URL</span>
+              <input id="browserUrl" type="text" placeholder="https://www.google.com" />
+            </label>
+          </div>
+          <div class="actions actions-wide">
+            <button id="shareButton">Share screen</button>
+            <button id="webcamButton" class="alt">Use webcam</button>
+            <button id="captureButton" disabled>Capture now</button>
+            <button id="autoCaptureButton" class="alt" disabled>Start auto capture</button>
+            <button id="stopCaptureButton" class="alt" disabled>Stop capture</button>
+          </div>
+          <div class="actions actions-wide">
+            <button id="launchBrowserButton" class="alt">Launch tracked browser</button>
+            <button id="exportTabsButton" class="alt">Refresh browser export</button>
+          </div>
+          <p class="hint">
+            Screen-share and webcam stay client-side until you explicitly capture. Browser monitoring
+            reads only the tracked browser instance launched from this app.
+          </p>
+        </article>
       </section>
 
-      <section class="preview-grid">
+      <section class="overview-grid">
+        <article class="panel overview-card">
+          <div class="panel-heading">
+            <div>
+              <p class="section-kicker">Watcher</p>
+              <h2>Single-turn decision</h2>
+            </div>
+            <span id="actorModeBadge" class="badge subtle">unknown</span>
+          </div>
+          <p id="watcherSummary" class="status-text">Watcher output will appear here after a run.</p>
+          <div class="mini-stats">
+            <div class="mini-stat">
+              <span class="summary-label">Watcher positive streak</span>
+              <strong id="streakValue">0</strong>
+            </div>
+            <div class="mini-stat">
+              <span class="summary-label">Browser tabs exported</span>
+              <strong id="exportValue">0</strong>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel overview-card">
+          <div class="panel-heading">
+            <div>
+              <p class="section-kicker">MPA</p>
+              <h2>Escalation agenda</h2>
+            </div>
+            <span id="mpaBadge" class="badge subtle">Waiting</span>
+          </div>
+          <p id="mpaSummary" class="status-text">MPA is waiting for enough consecutive watcher positives.</p>
+          <p id="statusText" class="status-text muted-text">Ready.</p>
+          <p id="errorText" class="error-text"></p>
+        </article>
+
+        <article class="panel overview-card">
+          <div class="panel-heading">
+            <div>
+              <p class="section-kicker">Capture</p>
+              <h2>Live source status</h2>
+            </div>
+            <span id="runningBadge" class="badge subtle">Stopped</span>
+          </div>
+          <p id="captureStatusText" class="status-text">No capture source active.</p>
+          <ul id="evidenceList" class="evidence-list">
+            <li>Watcher evidence will appear here.</li>
+          </ul>
+        </article>
+      </section>
+
+      <section class="workspace-grid">
         <div class="panel preview-panel">
           <div class="panel-heading">
             <h2>Live capture preview</h2>
-            <span id="runningBadge" class="badge subtle">Stopped</span>
+            <span class="badge subtle">Dual source monitor</span>
           </div>
-          <video id="video" autoplay muted playsinline></video>
-          <canvas id="canvas" hidden></canvas>
-          <img id="snapshot" alt="Latest captured frame" />
-          <p id="captureStatusText" class="status-text">No capture source active.</p>
+          <div class="source-preview-grid">
+            <article class="source-preview-card">
+              <div class="resource-head">
+                <h3>Webcam live</h3>
+                <span class="badge subtle">Latest snip beside feed</span>
+              </div>
+              <div class="source-visuals">
+                <video id="webcamVideo" autoplay muted playsinline></video>
+                <div class="snip-shell">
+                  <img id="webcamSnapshot" class="snip-frame" alt="Latest webcam snip" />
+                  <p class="snip-label">Latest webcam snip</p>
+                </div>
+              </div>
+              <canvas id="webcamCanvas" hidden></canvas>
+              <p id="webcamLiveStatus" class="hint">Webcam not connected.</p>
+            </article>
+
+            <article class="source-preview-card">
+              <div class="resource-head">
+                <h3>Screenshare live</h3>
+                <span class="badge subtle">Latest snip beside feed</span>
+              </div>
+              <div class="source-visuals">
+                <video id="screenVideo" autoplay muted playsinline></video>
+                <div class="snip-shell">
+                  <img id="screenSnapshot" class="snip-frame" alt="Latest screenshare snip" />
+                  <p class="snip-label">Latest screenshare snip</p>
+                </div>
+              </div>
+              <canvas id="screenCanvas" hidden></canvas>
+              <p id="screenLiveStatus" class="hint">Screenshare not connected.</p>
+            </article>
+          </div>
         </div>
 
         <div class="panel">
           <div class="panel-heading">
-            <h2>Watcher summary</h2>
-            <span id="actorModeBadge" class="badge subtle">unknown</span>
+            <h2>Live resource summaries</h2>
+            <span class="badge subtle">Watcher inputs</span>
           </div>
-          <p id="statusText" class="status-text">Ready.</p>
-          <p id="errorText" class="error-text"></p>
-          <p id="watcherSummary" class="status-text">Watcher output will appear here after a run.</p>
-          <div class="summary-grid">
-            <div class="summary-card">
-              <span class="summary-label">Off-task streak</span>
-              <strong id="streakValue">0</strong>
-            </div>
-            <div class="summary-card">
-              <span class="summary-label">Exported tabs</span>
-              <strong id="exportValue">0</strong>
-            </div>
-          </div>
-          <div class="evidence-block">
-            <h3>Relevant evidence</h3>
-            <ul id="evidenceList" class="evidence-list">
-              <li>None.</li>
-            </ul>
+          <div class="resource-stack">
+            <article class="resource-card">
+              <div class="resource-head">
+                <h3>Webcam</h3>
+                <span class="badge subtle">VLM</span>
+              </div>
+              <pre id="webcamOutput">Waiting for webcam resource text.</pre>
+            </article>
+            <article class="resource-card">
+              <div class="resource-head">
+                <h3>Screenshare</h3>
+                <span class="badge subtle">VLM</span>
+              </div>
+              <pre id="screenshareOutput">Waiting for screenshare resource text.</pre>
+            </article>
+            <article class="resource-card">
+              <div class="resource-head">
+                <h3>Browser export</h3>
+                <span class="badge subtle">Tracked tabs</span>
+              </div>
+              <pre id="browserOutput">Waiting for browser export text.</pre>
+            </article>
           </div>
         </div>
       </section>
 
-      <section class="debug-grid">
-        <article class="panel debug-panel">
+      <section class="inspector-grid">
+        <article class="panel inspector-panel">
           <div class="panel-heading">
-            <h2>Webcam VLM Output</h2>
-            <span class="badge subtle">Resource</span>
+            <h2>Decision inspector</h2>
+            <span class="badge subtle">Raw JSON</span>
           </div>
-          <pre id="webcamOutput">Waiting for webcam resource text.</pre>
+          <div class="inspector-stack">
+            <section>
+              <h3>Watcher JSON</h3>
+              <pre id="watcherOutput">Watcher output will appear here after a run.</pre>
+            </section>
+            <section>
+              <h3>MPA JSON</h3>
+              <pre id="mpaOutput">MPA output will appear after the watcher hits the threshold.</pre>
+            </section>
+          </div>
         </article>
 
-        <article class="panel debug-panel">
+        <article class="panel inspector-panel">
           <div class="panel-heading">
-            <h2>Screenshare VLM Output</h2>
-            <span class="badge subtle">Resource</span>
+            <h2>Tester notes</h2>
+            <span class="badge subtle">Reading guide</span>
           </div>
-          <pre id="screenshareOutput">Waiting for screenshare resource text.</pre>
-        </article>
-
-        <article class="panel debug-panel">
-          <div class="panel-heading">
-            <h2>Browser Export Output</h2>
-            <span class="badge subtle">Resource</span>
+          <div class="checklist">
+            <p><strong>Watcher:</strong> should update every tick, even when the MPA does nothing.</p>
+            <p><strong>Threshold badge:</strong> should climb toward the MPA trigger threshold only on consecutive watcher positives.</p>
+            <p><strong>MPA:</strong> should stay idle until the threshold is reached, then produce an agenda.</p>
+            <p><strong>Resources:</strong> webcam, screenshare, and browser export should be readable without opening raw files.</p>
           </div>
-          <pre id="browserOutput">Waiting for browser export text.</pre>
-        </article>
-
-        <article class="panel debug-panel">
-          <div class="panel-heading">
-            <h2>Watcher Output</h2>
-            <span class="badge subtle">Decision JSON</span>
-          </div>
-          <pre id="watcherOutput">Watcher output will appear here after a run.</pre>
         </article>
       </section>
     </main>
 
     <script src="/app.js"></script>
   </body>
-  </html>
+</html>

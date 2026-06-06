@@ -11,12 +11,16 @@ const captureBadge = document.getElementById("captureBadge");
 const runningBadge = document.getElementById("runningBadge");
 const turnBadge = document.getElementById("turnBadge");
 const actorModeBadge = document.getElementById("actorModeBadge");
+const thresholdBadge = document.getElementById("thresholdBadge");
+const mpaBadge = document.getElementById("mpaBadge");
+
 const statusText = document.getElementById("statusText");
 const captureStatusText = document.getElementById("captureStatusText");
 const errorText = document.getElementById("errorText");
 const streakValue = document.getElementById("streakValue");
 const exportValue = document.getElementById("exportValue");
 const watcherSummary = document.getElementById("watcherSummary");
+const mpaSummary = document.getElementById("mpaSummary");
 const evidenceList = document.getElementById("evidenceList");
 const pathsText = document.getElementById("paths");
 
@@ -24,6 +28,7 @@ const webcamOutput = document.getElementById("webcamOutput");
 const screenshareOutput = document.getElementById("screenshareOutput");
 const browserOutput = document.getElementById("browserOutput");
 const watcherOutput = document.getElementById("watcherOutput");
+const mpaOutput = document.getElementById("mpaOutput");
 
 const shareButton = document.getElementById("shareButton");
 const webcamButton = document.getElementById("webcamButton");
@@ -36,15 +41,34 @@ const stopButton = document.getElementById("stopButton");
 const exportTabsButton = document.getElementById("exportTabsButton");
 const launchBrowserButton = document.getElementById("launchBrowserButton");
 
-const video = document.getElementById("video");
-const canvas = document.getElementById("canvas");
-const snapshot = document.getElementById("snapshot");
+const captureSources = {
+  webcam: {
+    key: "webcam",
+    label: "Webcam",
+    analysisMode: "webcam",
+    videoEl: document.getElementById("webcamVideo"),
+    canvasEl: document.getElementById("webcamCanvas"),
+    snapshotEl: document.getElementById("webcamSnapshot"),
+    liveStatusEl: document.getElementById("webcamLiveStatus"),
+    stream: null,
+    lastSnipAt: "",
+  },
+  screen: {
+    key: "screen",
+    label: "Screenshare",
+    analysisMode: "screen",
+    videoEl: document.getElementById("screenVideo"),
+    canvasEl: document.getElementById("screenCanvas"),
+    snapshotEl: document.getElementById("screenSnapshot"),
+    liveStatusEl: document.getElementById("screenLiveStatus"),
+    stream: null,
+    lastSnipAt: "",
+  },
+};
 
 let pollHandle = null;
-let stream = null;
 let autoCaptureHandle = null;
 let captureInFlight = false;
-let activeSource = null;
 
 function payloadFromControls() {
   return {
@@ -56,30 +80,28 @@ function payloadFromControls() {
   };
 }
 
-function setCaptureSource(source) {
-  activeSource = source;
-  captureBadge.textContent =
-    source === "webcam" ? "Webcam mode" : source === "screen" ? "Screen mode" : "No source";
+function activeSourceKeys() {
+  return Object.keys(captureSources).filter((key) => Boolean(captureSources[key].stream));
 }
 
-function setCaptureControlsEnabled(hasStream) {
-  captureButton.disabled = !hasStream || captureInFlight;
-  autoCaptureButton.disabled = !hasStream || captureInFlight;
-  stopCaptureButton.disabled = !hasStream;
-  shareButton.textContent =
-    activeSource === "screen" && hasStream ? "Re-share screen" : "Share screen";
-  webcamButton.textContent =
-    activeSource === "webcam" && hasStream ? "Restart webcam" : "Use webcam";
-}
-
-function stopCurrentStream() {
-  if (stream) {
-    stream.getTracks().forEach((track) => track.stop());
-    stream = null;
+function formatSourceList(keys) {
+  if (keys.length === 0) {
+    return "No live sources";
   }
-  video.srcObject = null;
-  setCaptureSource(null);
-  setCaptureControlsEnabled(false);
+  return keys.map((key) => captureSources[key].label).join(" + ");
+}
+
+function syncCaptureBadges() {
+  const activeKeys = activeSourceKeys();
+  captureBadge.textContent = formatSourceList(activeKeys);
+
+  const hasActiveSources = activeKeys.length > 0;
+  captureButton.disabled = !hasActiveSources || captureInFlight;
+  autoCaptureButton.disabled = !hasActiveSources || captureInFlight;
+  stopCaptureButton.disabled = !hasActiveSources;
+
+  shareButton.textContent = captureSources.screen.stream ? "Re-share screen" : "Share screen";
+  webcamButton.textContent = captureSources.webcam.stream ? "Restart webcam" : "Use webcam";
 }
 
 function stopAutoCapture() {
@@ -90,12 +112,28 @@ function stopAutoCapture() {
   autoCaptureButton.textContent = "Start auto capture";
 }
 
-async function startStream(source) {
-  stopAutoCapture();
-  stopCurrentStream();
+function stopSource(sourceKey, endedMessage = "") {
+  const source = captureSources[sourceKey];
+  if (source.stream) {
+    source.stream.getTracks().forEach((track) => track.stop());
+    source.stream = null;
+  }
+  source.videoEl.srcObject = null;
+  if (endedMessage) {
+    source.liveStatusEl.textContent = endedMessage;
+  }
+  if (activeSourceKeys().length === 0) {
+    stopAutoCapture();
+  }
+  syncCaptureBadges();
+}
 
-  if (source === "webcam") {
-    stream = await navigator.mediaDevices.getUserMedia({
+async function startSource(sourceKey) {
+  const source = captureSources[sourceKey];
+  stopSource(sourceKey);
+
+  if (sourceKey === "webcam") {
+    source.stream = await navigator.mediaDevices.getUserMedia({
       video: {
         facingMode: "user",
         width: { ideal: 1280 },
@@ -104,7 +142,7 @@ async function startStream(source) {
       audio: false,
     });
   } else {
-    stream = await navigator.mediaDevices.getDisplayMedia({
+    source.stream = await navigator.mediaDevices.getDisplayMedia({
       video: {
         frameRate: { ideal: 8, max: 12 },
       },
@@ -112,42 +150,39 @@ async function startStream(source) {
     });
   }
 
-  const [track] = stream.getVideoTracks();
+  const [track] = source.stream.getVideoTracks();
   track.addEventListener("ended", () => {
-    stopAutoCapture();
-    stopCurrentStream();
-    captureStatusText.textContent =
-      source === "webcam" ? "Webcam permission ended." : "Screen-share permission ended.";
+    stopSource(
+      sourceKey,
+      sourceKey === "webcam" ? "Webcam permission ended." : "Screen-share permission ended."
+    );
   });
 
-  video.srcObject = stream;
-  await video.play();
-  setCaptureSource(source);
-  setCaptureControlsEnabled(true);
-  captureStatusText.textContent =
-    source === "webcam"
-      ? "Webcam ready. Capture to write a webcam summary."
-      : "Screen ready. Capture to write a screenshare summary.";
+  source.videoEl.srcObject = source.stream;
+  await source.videoEl.play();
+  source.liveStatusEl.textContent = `${source.label} live feed connected.`;
+  syncCaptureBadges();
 
-  if (source === "screen") {
-    window.setTimeout(() => {
-      summarizeFrame("auto");
-    }, 250);
-  }
+  window.setTimeout(() => {
+    summarizeSources("auto", [sourceKey]);
+  }, 250);
 }
 
-function captureFrame() {
-  const width = video.videoWidth;
-  const height = video.videoHeight;
+function captureSourceFrame(sourceKey) {
+  const source = captureSources[sourceKey];
+  const width = source.videoEl.videoWidth;
+  const height = source.videoEl.videoHeight;
   if (!width || !height) {
-    throw new Error("Video stream is not ready yet.");
+    throw new Error(`${source.label} stream is not ready yet.`);
   }
-  canvas.width = width;
-  canvas.height = height;
-  const context = canvas.getContext("2d");
-  context.drawImage(video, 0, 0, width, height);
-  const imageDataUrl = canvas.toDataURL("image/jpeg", 0.92);
-  snapshot.src = imageDataUrl;
+
+  source.canvasEl.width = width;
+  source.canvasEl.height = height;
+  const context = source.canvasEl.getContext("2d");
+  context.drawImage(source.videoEl, 0, 0, width, height);
+  const imageDataUrl = source.canvasEl.toDataURL("image/jpeg", 0.92);
+  source.snapshotEl.src = imageDataUrl;
+  source.lastSnipAt = new Date().toLocaleTimeString();
   return imageDataUrl;
 }
 
@@ -173,6 +208,53 @@ async function loadState() {
   renderState(state);
 }
 
+function renderEvidence(items) {
+  evidenceList.innerHTML = "";
+  if (!items || items.length === 0) {
+    const item = document.createElement("li");
+    item.textContent = "No relevant watcher evidence for the latest turn.";
+    evidenceList.appendChild(item);
+    return;
+  }
+
+  for (const entry of items) {
+    const item = document.createElement("li");
+    item.textContent = entry;
+    evidenceList.appendChild(item);
+  }
+}
+
+function renderThreshold(state) {
+  const streak = Number(state.off_task_streak || 0);
+  const threshold = Number(state.threshold || 1);
+  const remaining = Math.max(0, threshold - streak);
+  thresholdBadge.textContent =
+    remaining === 0
+      ? `Threshold met: ${streak}/${threshold}`
+      : `Toward MPA: ${streak}/${threshold}`;
+  thresholdBadge.className = `badge ${remaining === 0 ? "ready" : "subtle"}`;
+}
+
+function renderMPA(mpa) {
+  if (mpa.triggered && mpa.should_intervene) {
+    mpaBadge.textContent = "Agenda ready";
+    mpaBadge.className = "badge ready";
+    mpaSummary.textContent = mpa.agenda || "MPA triggered.";
+    return;
+  }
+
+  if (mpa.triggered && !mpa.should_intervene) {
+    mpaBadge.textContent = "No intervention";
+    mpaBadge.className = "badge subtle";
+    mpaSummary.textContent = mpa.rationale || "MPA reviewed the evidence and declined intervention.";
+    return;
+  }
+
+  mpaBadge.textContent = "Waiting";
+  mpaBadge.className = "badge subtle";
+  mpaSummary.textContent = mpa.rationale || "MPA is waiting for enough consecutive watcher positives.";
+}
+
 function renderState(state) {
   goalInput.value = state.goal;
   intervalInput.value = state.interval_seconds;
@@ -192,73 +274,78 @@ function renderState(state) {
   browserNameInput.value = state.browser_name || availableBrowsers[0] || "";
 
   watcherBadge.textContent = state.watcher_enabled
-    ? `Watcher enabled · ${state.watcher_model}`
+    ? `Watcher online · ${state.watcher_model}`
     : "Watcher fallback mode";
   actorModeBadge.textContent = state.watcher_output.actor_mode || "unknown";
 
   runningBadge.textContent = state.running ? "Watcher running" : "Watcher stopped";
   runningBadge.className = `badge ${state.running ? "running" : "subtle"}`;
 
-  statusBadge.textContent = state.watcher_output.off_task ? "Off task" : "On task / idle";
+  statusBadge.textContent = state.watcher_output.off_task ? "Watcher says off task" : "Watcher says on task";
   statusBadge.className = `badge ${state.watcher_output.off_task ? "alert" : "idle"}`;
 
-  turnBadge.textContent = state.last_turn_at ? `Last turn · ${state.last_turn_at}` : "No turns yet";
-  statusText.textContent = state.status;
+  turnBadge.textContent = state.last_turn_at ? `Last turn: ${state.last_turn_at}` : "No turns yet";
+  statusText.textContent = state.status || "Ready.";
   captureStatusText.textContent = `${state.capture_status} Vision model: ${state.vision_model}`;
   errorText.textContent = state.last_error || "";
   streakValue.textContent = String(state.off_task_streak);
   exportValue.textContent = String(state.last_export.count || 0);
 
+  renderThreshold(state);
   watcherSummary.textContent = state.watcher_output.summary || "No watcher output yet.";
-  evidenceList.innerHTML = "";
-  const evidence = state.watcher_output.relevant_evidence || [];
-  if (evidence.length === 0) {
-    const item = document.createElement("li");
-    item.textContent = "None.";
-    evidenceList.appendChild(item);
-  } else {
-    for (const entry of evidence) {
-      const item = document.createElement("li");
-      item.textContent = entry;
-      evidenceList.appendChild(item);
-    }
-  }
+  renderEvidence(state.watcher_output.relevant_evidence || []);
+
+  const mpa = state.mpa_output || {};
+  renderMPA(mpa);
 
   const paths = state.paths || {};
-  pathsText.textContent = `Watching files — webcam: ${paths.webcam || ""} | screenshare: ${paths.screenshare || ""} | browser: ${paths.browser || ""}`;
+  pathsText.textContent = `Files in use: webcam ${paths.webcam || ""} | screenshare ${paths.screenshare || ""} | browser ${paths.browser || ""}`;
 
   webcamOutput.textContent = state.resources.webcam;
   screenshareOutput.textContent = state.resources.screenshare;
   browserOutput.textContent = state.resources.browser;
   watcherOutput.textContent = JSON.stringify(state.watcher_output, null, 2);
+  mpaOutput.textContent = JSON.stringify(mpa, null, 2);
+
+  syncCaptureBadges();
 }
 
-async function summarizeFrame(reason = "manual") {
-  if (!stream || captureInFlight || !activeSource) {
+async function summarizeSources(reason = "manual", requestedKeys = null) {
+  const sourceKeys = (requestedKeys || activeSourceKeys()).filter((key) => Boolean(captureSources[key].stream));
+  if (sourceKeys.length === 0 || captureInFlight) {
     return;
   }
+
   captureInFlight = true;
-  setCaptureControlsEnabled(true);
-  captureStatusText.textContent =
-    reason === "auto" ? "Auto summarizing latest frame..." : "Summarizing latest frame...";
+  syncCaptureBadges();
   errorText.textContent = "";
 
   try {
-    const imageDataUrl = captureFrame();
-    const payload = await postJson("/api/analyze", {
-      analysisMode: activeSource,
-      prompt: capturePromptInput.value.trim(),
-      imageDataUrl,
-    });
+    for (const sourceKey of sourceKeys) {
+      const source = captureSources[sourceKey];
+      source.liveStatusEl.textContent =
+        reason === "auto"
+          ? `${source.label} snipping on the current tick...`
+          : `${source.label} capturing a fresh frame...`;
+
+      const imageDataUrl = captureSourceFrame(sourceKey);
+      await postJson("/api/analyze", {
+        analysisMode: source.analysisMode,
+        prompt: capturePromptInput.value.trim(),
+        imageDataUrl,
+      });
+
+      source.liveStatusEl.textContent = `${source.label} updated at ${source.lastSnipAt}.`;
+    }
+
     await loadState();
-    captureStatusText.textContent =
-      `${payload.analysisMode === "webcam" ? "Webcam" : "Screenshare"} summary updated and saved.`;
+    captureStatusText.textContent = `Updated ${formatSourceList(sourceKeys)} on this tick.`;
   } catch (error) {
     errorText.textContent = error.message || "Capture failed.";
     stopAutoCapture();
   } finally {
     captureInFlight = false;
-    setCaptureControlsEnabled(Boolean(stream));
+    syncCaptureBadges();
   }
 }
 
@@ -331,8 +418,8 @@ function startPolling() {
 
 shareButton.addEventListener("click", async () => {
   try {
-    captureStatusText.textContent = "Waiting for screen-share permission...";
-    await startStream("screen");
+    captureSources.screen.liveStatusEl.textContent = "Waiting for screen-share permission...";
+    await startSource("screen");
   } catch (error) {
     errorText.textContent = error.message || "Unable to start screen share.";
   }
@@ -340,14 +427,14 @@ shareButton.addEventListener("click", async () => {
 
 webcamButton.addEventListener("click", async () => {
   try {
-    captureStatusText.textContent = "Waiting for webcam permission...";
-    await startStream("webcam");
+    captureSources.webcam.liveStatusEl.textContent = "Waiting for webcam permission...";
+    await startSource("webcam");
   } catch (error) {
     errorText.textContent = error.message || "Unable to start webcam.";
   }
 });
 
-captureButton.addEventListener("click", () => summarizeFrame("manual"));
+captureButton.addEventListener("click", () => summarizeSources("manual"));
 
 autoCaptureButton.addEventListener("click", async () => {
   if (autoCaptureHandle) {
@@ -362,16 +449,16 @@ autoCaptureButton.addEventListener("click", async () => {
     return;
   }
 
-  await summarizeFrame("auto");
-  autoCaptureHandle = window.setInterval(() => summarizeFrame("auto"), seconds * 1000);
+  await summarizeSources("auto");
+  autoCaptureHandle = window.setInterval(() => summarizeSources("auto"), seconds * 1000);
   autoCaptureButton.textContent = "Pause auto capture";
-  stopCaptureButton.disabled = false;
 });
 
 stopCaptureButton.addEventListener("click", () => {
   stopAutoCapture();
-  stopCurrentStream();
-  captureStatusText.textContent = "Capture stopped.";
+  stopSource("webcam", "Webcam stopped.");
+  stopSource("screen", "Screenshare stopped.");
+  captureStatusText.textContent = "All capture sources stopped.";
 });
 
 runOnceButton.addEventListener("click", runOnce);
@@ -380,8 +467,9 @@ stopButton.addEventListener("click", stopSession);
 exportTabsButton.addEventListener("click", exportTabs);
 launchBrowserButton.addEventListener("click", launchBrowser);
 
-setCaptureSource(null);
-setCaptureControlsEnabled(false);
+captureSources.webcam.liveStatusEl.textContent = "Webcam not connected.";
+captureSources.screen.liveStatusEl.textContent = "Screenshare not connected.";
+syncCaptureBadges();
 loadState().catch((error) => {
   errorText.textContent = error.message;
 });

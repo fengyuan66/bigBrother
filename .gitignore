@@ -1,0 +1,8 @@
+.env
+.venv/
+__pycache__/
+.demo-profile-*/
+sources/browser/browser_live.txt
+sources/browser/tabs.txt
+sources/browser/index.json
+summaries/browser_summary.json

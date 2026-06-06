@@ -5,10 +5,14 @@ import threading
 import time
 import tkinter as tk
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from tkinter import messagebox, ttk
 from urllib.error import URLError
 from urllib.request import urlopen
+from urllib.parse import urlparse
+
+from config import env_int, load_env_file
 
 try:
     import websocket
@@ -17,7 +21,25 @@ except ImportError:
 
 
 APP_DIR = Path(__file__).resolve().parent
-OUTPUT_PATH = APP_DIR / "browser_live.txt"
+load_env_file(APP_DIR / ".env")
+
+SOURCES_DIR = APP_DIR / "sources"
+BROWSER_DIR = SOURCES_DIR / "browser"
+BROWSER_TABS_DIR = BROWSER_DIR / "tabs"
+SUMMARIES_DIR = APP_DIR / "summaries"
+STATE_DIR = APP_DIR / "state"
+
+OUTPUT_PATH = BROWSER_DIR / "browser_live.txt"
+TAB_OUTPUT_PATH = BROWSER_DIR / "tabs.txt"
+INDEX_OUTPUT_PATH = BROWSER_DIR / "index.json"
+SUMMARY_OUTPUT_PATH = SUMMARIES_DIR / "browser_summary.json"
+
+
+def ensure_output_dirs():
+    BROWSER_DIR.mkdir(parents=True, exist_ok=True)
+    BROWSER_TABS_DIR.mkdir(parents=True, exist_ok=True)
+    SUMMARIES_DIR.mkdir(parents=True, exist_ok=True)
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
 
 
 @dataclass
@@ -78,6 +100,7 @@ class BrowserLiveReader:
         args = [
             browser_path,
             f"--remote-debugging-port={self.config.port}",
+            "--remote-allow-origins=*",
             f"--user-data-dir={profile_dir}",
             "--no-first-run",
             "--new-window",
@@ -101,6 +124,98 @@ class BrowserLiveReader:
                 continue
             tabs.append(page)
         return tabs
+
+    def export_tabs(self, output_path=TAB_OUTPUT_PATH):
+        ensure_output_dirs()
+        tabs = self.read_tabs()
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        lines = [
+            "Big Brother Browser Tab Export",
+            f"Created: {now}",
+            f"Browser: {self.config.name}",
+            "",
+        ]
+
+        if not tabs:
+            lines.extend(
+                [
+                    "No tabs found yet.",
+                    "Use Launch Browser in this app, then navigate inside that browser window.",
+                ]
+            )
+        else:
+            for index, tab in enumerate(tabs, start=1):
+                url = tab.get("url", "")
+                domain = urlparse(url).netloc or "(no domain)"
+                lines.extend(
+                    [
+                        f"{index}. {tab.get('title') or '(untitled)'}",
+                        f"   URL: {url}",
+                        f"   Domain: {domain}",
+                        "",
+                    ]
+                )
+
+        output_path.write_text("\n".join(lines), encoding="utf-8")
+        return output_path, len(tabs)
+
+    def write_index(self, output_path=INDEX_OUTPUT_PATH):
+        ensure_output_dirs()
+        tabs = self.read_tabs()
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        data = {
+            "updated": now,
+            "browser": self.config.name,
+            "tab_count": len(tabs),
+            "tabs": [
+                {
+                    "tab_id": tab.get("id"),
+                    "title": tab.get("title", ""),
+                    "url": tab.get("url", ""),
+                    "domain": urlparse(tab.get("url", "")).netloc,
+                }
+                for tab in tabs
+            ],
+        }
+        output_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        return output_path, data
+
+    def write_summary(self, output_path=SUMMARY_OUTPUT_PATH):
+        ensure_output_dirs()
+        tabs = self.read_tabs()
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        domains = []
+        seen_domains = set()
+        for tab in tabs:
+            domain = urlparse(tab.get("url", "")).netloc
+            if domain and domain not in seen_domains:
+                seen_domains.add(domain)
+                domains.append(domain)
+
+        summary = {
+            "updated": now,
+            "source": "browser",
+            "browser": self.config.name,
+            "tab_count": len(tabs),
+            "top_domains": domains[:10],
+            "active_signals": [
+                {
+                    "title": tab.get("title", ""),
+                    "url": tab.get("url", ""),
+                }
+                for tab in tabs[:5]
+            ],
+            "summary": (
+                "No tabs found in the demo browser."
+                if not tabs
+                else f"{len(tabs)} open tab(s) in {self.config.name}. "
+                f"Top domains: {', '.join(domains[:3]) or 'none'}."
+            ),
+        }
+        output_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
+        return output_path, summary
 
     def read_page_text(self, tab):
         if not websocket:
@@ -147,14 +262,20 @@ class BrowserLiveReader:
 class BrowserDemoApp(tk.Tk):
     def __init__(self):
         super().__init__()
+        ensure_output_dirs()
         self.title("Big Brother Browser Live Demo")
         self.geometry("920x680")
         self.minsize(760, 520)
 
-        self.browser_var = tk.StringVar(value="Chrome")
-        self.url_var = tk.StringVar(value="https://en.wikipedia.org/wiki/Calculus")
-        self.interval_var = tk.IntVar(value=2)
+        self.browser_var = tk.StringVar(value=os.getenv("BIG_BROTHER_DEMO_BROWSER", "Chrome"))
+        self.url_var = tk.StringVar(
+            value=os.getenv("BIG_BROTHER_DEMO_URL", "https://en.wikipedia.org/wiki/Calculus")
+        )
+        self.interval_var = tk.IntVar(value=env_int("BIG_BROTHER_DEMO_INTERVAL_SECONDS", 2))
         self.status_var = tk.StringVar(value="Launch a demo browser, then start live output.")
+        self.files_var = tk.StringVar(
+            value="Outputs: sources/browser/ + summaries/browser_summary.json"
+        )
         self.running = False
         self.worker = None
         self.stop_event = threading.Event()
@@ -166,7 +287,7 @@ class BrowserDemoApp(tk.Tk):
         root = ttk.Frame(self, padding=16)
         root.pack(fill="both", expand=True)
         root.columnconfigure(0, weight=1)
-        root.rowconfigure(4, weight=1)
+        root.rowconfigure(5, weight=1)
 
         ttk.Label(root, text="Browser Live Demo", font=("Segoe UI", 20, "bold")).grid(
             row=0, column=0, sticky="w"
@@ -203,16 +324,24 @@ class BrowserDemoApp(tk.Tk):
         buttons = ttk.Frame(root)
         buttons.grid(row=3, column=0, sticky="ew", pady=(12, 12))
         ttk.Button(buttons, text="Launch Browser", command=self.launch_browser).pack(side="left")
+        ttk.Button(buttons, text="Export Tabs", command=self.export_tabs).pack(side="left", padx=(10, 0))
+        ttk.Button(buttons, text="Snapshot Once", command=self.snapshot_once).pack(
+            side="left", padx=(10, 0)
+        )
         self.start_button = ttk.Button(buttons, text="Start Live Output", command=self.start)
         self.start_button.pack(side="left", padx=(10, 0))
         self.stop_button = ttk.Button(buttons, text="Stop", command=self.stop, state="disabled")
         self.stop_button.pack(side="left", padx=(10, 0))
 
+        ttk.Label(root, textvariable=self.files_var, foreground="#666666").grid(
+            row=4, column=0, sticky="w", pady=(0, 8)
+        )
+
         self.output = tk.Text(root, wrap="word", font=("Consolas", 10), undo=False)
-        self.output.grid(row=4, column=0, sticky="nsew")
+        self.output.grid(row=5, column=0, sticky="nsew")
 
         scrollbar = ttk.Scrollbar(root, command=self.output.yview)
-        scrollbar.grid(row=4, column=1, sticky="ns")
+        scrollbar.grid(row=5, column=1, sticky="ns")
         self.output.configure(yscrollcommand=scrollbar.set)
 
     def launch_browser(self):
@@ -233,6 +362,16 @@ class BrowserDemoApp(tk.Tk):
         self.worker = threading.Thread(target=self._loop, daemon=True)
         self.worker.start()
 
+    def snapshot_once(self):
+        reader = self._reader()
+        text = self._snapshot(reader)
+        ensure_output_dirs()
+        OUTPUT_PATH.write_text(text, encoding="utf-8")
+        self._show_snapshot(text)
+        self.export_tabs(show_message=False)
+        reader.write_index()
+        reader.write_summary()
+
     def stop(self):
         self.running = False
         self.stop_event.set()
@@ -244,7 +383,11 @@ class BrowserDemoApp(tk.Tk):
         reader = self._reader()
         while not self.stop_event.is_set():
             text = self._snapshot(reader)
+            ensure_output_dirs()
             OUTPUT_PATH.write_text(text, encoding="utf-8")
+            reader.export_tabs()
+            reader.write_index()
+            reader.write_summary()
             self.after(0, self._show_snapshot, text)
             self.stop_event.wait(max(1, int(self.interval_var.get() or 2)))
 
@@ -283,7 +426,20 @@ class BrowserDemoApp(tk.Tk):
     def _show_snapshot(self, text):
         self.output.delete("1.0", "end")
         self.output.insert("1.0", text)
-        self.status_var.set(f"Live output updating. Saved to {OUTPUT_PATH.name}.")
+        self.status_var.set(
+            "Live output updating. Saved browser files under sources/browser and summaries."
+        )
+
+    def export_tabs(self, show_message=True):
+        reader = self._reader()
+        path, count = reader.export_tabs()
+        self.status_var.set(f"Exported {count} tabs to {path.name}.")
+        if show_message:
+            messagebox.showinfo(
+                "Tabs exported",
+                f"Exported {count} tabs to:\n{path}\n\n"
+                "If this found 0 tabs, use Launch Browser in this app first.",
+            )
 
     def _reader(self):
         return BrowserLiveReader(BROWSERS[self.browser_var.get()])

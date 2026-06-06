@@ -16,15 +16,20 @@ from urllib.request import urlopen
 from PIL import Image
 import mss
 
+from config import env_int, load_env_file
+
 try:
     from openai import OpenAI
 except ImportError:
     OpenAI = None
 
 
-DEFAULT_MODEL = os.getenv("BIG_BROTHER_MODEL", "gpt-4.1-mini")
 APP_DIR = Path(__file__).resolve().parent
+load_env_file(APP_DIR / ".env")
+
 TAB_EXPORT_PATH = APP_DIR / "tabs.txt"
+DEFAULT_BASE_URL = os.getenv("BIG_BROTHER_BASE_URL", "https://ai.hackclub.com/proxy/v1")
+DEFAULT_MODEL = os.getenv("BIG_BROTHER_MODEL", "google/gemini-2.5-flash")
 
 
 @dataclass
@@ -124,9 +129,12 @@ class BrowserTabExporter:
 
 class VisionFocusEvaluator:
     def __init__(self):
-        api_key = os.getenv("OPENAI_API_KEY")
-        self.client = OpenAI(api_key=api_key) if api_key and OpenAI else None
+        api_key = os.getenv("BIG_BROTHER_API_KEY") or os.getenv("OPENAI_API_KEY")
+        self.base_url = os.getenv("BIG_BROTHER_BASE_URL", DEFAULT_BASE_URL)
         self.model = DEFAULT_MODEL
+        self.client = (
+            OpenAI(api_key=api_key, base_url=self.base_url) if api_key and OpenAI else None
+        )
 
     @property
     def enabled(self):
@@ -145,23 +153,24 @@ class VisionFocusEvaluator:
             f"User task: {goal}"
         )
 
-        response = self.client.responses.create(
+        response = self.client.chat.completions.create(
             model=self.model,
-            input=[
+            messages=[
                 {
                     "role": "user",
                     "content": [
-                        {"type": "input_text", "text": prompt},
+                        {"type": "text", "text": prompt},
                         {
-                            "type": "input_image",
-                            "image_url": f"data:image/png;base64,{image_b64}",
+                            "type": "image_url",
+                            "image_url": {"url": f"data:image/png;base64,{image_b64}"},
                         },
                     ],
-                }
+                },
             ],
+            temperature=0,
         )
 
-        data = json.loads(response.output_text)
+        data = json.loads(response.choices[0].message.content or "{}")
         return FocusResult(
             on_task=bool(data.get("on_task")),
             confidence=float(data.get("confidence", 0.5)),
@@ -233,12 +242,16 @@ class BigBrotherApp(tk.Tk):
         self.last_popup_at = 0
 
         self.goal_var = tk.StringVar(value="I am going to study calculus")
-        self.interval_var = tk.IntVar(value=8)
-        self.threshold_var = tk.IntVar(value=2)
+        self.interval_var = tk.IntVar(value=env_int("BIG_BROTHER_INTERVAL_SECONDS", 8))
+        self.threshold_var = tk.IntVar(value=env_int("BIG_BROTHER_OFF_TASK_THRESHOLD", 2))
         self.status_var = tk.StringVar(value="Ready.")
         self.streak_var = tk.StringVar(value="Off-task streak: 0")
         self.ai_var = tk.StringVar(
-            value="AI vision: enabled" if self.evaluator.enabled else "AI vision: disabled"
+            value=(
+                f"AI vision: enabled ({self.evaluator.model})"
+                if self.evaluator.enabled
+                else "AI vision: disabled"
+            )
         )
 
         self._build_ui()
@@ -312,7 +325,7 @@ class BigBrotherApp(tk.Tk):
 
         ttk.Label(
             root,
-            text="Tip: set OPENAI_API_KEY before launching to enable real screenshot checks.",
+            text="Tip: put BIG_BROTHER_API_KEY in .env to enable Hack Club AI screenshot checks.",
             foreground="#666666",
             wraplength=500,
         ).grid(row=10, column=0, sticky="w", pady=(24, 0))

@@ -1,17 +1,16 @@
 # Big Brother
 
-A local desktop focus monitor that checks your screen every few seconds against a stated task and nudges you back when you drift.
-
-This MVP is designed for self-monitoring only. It keeps monitoring visible, has a stop button, and does not save screenshot history by default.
+A local browser info demo that launches a dedicated browser window, reads open tabs, and exports lightweight browser data files you can inspect locally.
 
 ## What It Does
 
-- Lets you enter a focus goal, such as `I am going to study calculus`.
-- Captures your screen every 5-10 seconds.
-- Uses an OpenAI vision model when `OPENAI_API_KEY` is set.
-- Falls back to a local placeholder evaluator when no API key is present.
-- Shows an always-on-top reminder after repeated off-task checks.
-- Exports open tab titles and URLs from supported browsers to `tabs.txt`.
+- Launches a dedicated Chrome, Edge, or Brave window with remote debugging enabled.
+- Shows open tab titles and URLs from that demo browser.
+- Exports tab summaries to `sources/browser/tabs.txt`.
+- Exports richer per-snapshot page text to `sources/browser/browser_live.txt`.
+- Exports a structured browser index to `sources/browser/index.json`.
+- Exports a lightweight summary to `summaries/browser_summary.json`.
+- Lets you run a one-shot snapshot or continuous live updates from the same UI.
 
 ## Setup
 
@@ -23,57 +22,56 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-Optional, for AI vision checks:
+Create your local config:
 
 ```powershell
-$env:OPENAI_API_KEY = "your_api_key_here"
+Copy-Item .env.example .env
 ```
 
-Run it:
+Defaults included in `.env`:
+
+- Demo browser, demo URL, and interval constants
+
+Run the browser info demo:
 
 ```powershell
 .\run.ps1
 ```
 
-## Export Browser Tabs
-
-Browsers do not expose all tabs to desktop apps by default. To make tab export work, close your browser, then launch it from this folder with one of these commands:
+Check your active config at any time:
 
 ```powershell
-.\start-debug-browser.ps1 chrome
-.\start-debug-browser.ps1 edge
-.\start-debug-browser.ps1 brave
+.\run.ps1 doctor
 ```
 
-Then open the tabs you want Big Brother to see and click **Export Tabs** in the app.
+Run a quick smoke test:
 
-The tab list is saved to:
-
-```text
-tabs.txt
+```powershell
+.\run.ps1 test
 ```
 
 ## Browser Live Demo
 
-This demo opens a dedicated browser window and writes a near-real-time text snapshot of the visible page content and tab URLs.
+This demo is now the main browser info module. It opens a dedicated browser window and writes both a near-real-time content snapshot and a lightweight tab summary.
 
 ```powershell
-python browser_live_demo.py
+.\run.ps1 demo
 ```
 
-Click **Launch Browser**, then **Start Live Output**. The live feed is shown in the app and saved to:
+In the app:
+
+- Click `Launch Browser` to open the dedicated browser window.
+- Click `Export Tabs` to write the current tab summary to `sources/browser/tabs.txt`.
+- Click `Snapshot Once` to write both outputs once without starting the loop.
+- Click `Start Live Output` to keep both files refreshed on the selected interval.
+
+Generated files:
 
 ```text
-browser_live.txt
+sources/browser/browser_live.txt
+sources/browser/tabs.txt
+sources/browser/index.json
+summaries/browser_summary.json
 ```
 
 This uses a separate browser profile in the project folder so the demo is explicit and visible.
-
-## Notes
-
-- Screenshots are sent to OpenAI only if `OPENAI_API_KEY` is present.
-- Screenshots are not written to disk unless you enable debugging in the code.
-- Tab export writes tab titles and URLs to `tabs.txt` only when you click **Export Tabs**.
-- Browser live output writes page text and URLs to `browser_live.txt` only while the demo is running.
-- The app works best if you monitor your primary display.
-- If reminders feel too aggressive, raise the interval or the off-task threshold.

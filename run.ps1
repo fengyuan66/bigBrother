@@ -2,7 +2,7 @@ $ErrorActionPreference = "Stop"
 
 param(
     [ValidateSet("app", "demo", "doctor", "test")]
-    [string]$Mode = "demo"
+    [string]$Mode = "app"
 )
 
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -27,6 +27,8 @@ switch ($Mode) {
     "test" {
         & $python -m py_compile `
             (Join-Path $root "app.py") `
+            (Join-Path $root "actors.py") `
+            (Join-Path $root "resources.py") `
             (Join-Path $root "browser_live_demo.py") `
             (Join-Path $root "doctor.py")
         if ($LASTEXITCODE -ne 0) {

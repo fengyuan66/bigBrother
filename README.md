@@ -1,77 +1,24 @@
-# Big Brother
+This is Big Brother. It is an AI agent system that takes in context (resources) from Webcam VLM, Screenshare VLM, and browser data. All live by X second intervals. Big Brother is interfaced via an app. A watcher, light LLM actor is given access to these resources, and the context of what the user is doing, with the intention of keeping the user on-task. This light LLM actor will summarise the objective things relevant (matters under the scope of keeping the user on-task) in a way that is non-biased like its stating a fact (interprative content can come from VLM's output summaries), and will report back with boolean "true", content of relevant info (if there are things relevant to indicate the user is distracted), and boolean false if there are no info relevant to suggest the user is off-task. If true for Y turns (Y consequtive turns), the Main Processing Agent (MPA actor, heavier LLM with better logic) will trigger and translate the cited facts and evidence into actionable words (set an agenda). Then, a personality agent actor will articulate that communication agenda in a human-speaking like way to the user.
 
-A local browser info demo that launches a dedicated browser window, reads open tabs, and exports lightweight browser data files you can inspect locally.
+For instance: 
 
-## What It Does
+VLM -> "The person is wearing a black hoodie, with a blue surgical mask. The person is holding a mobile phone, with their gaze staring down at the phone. The user seems to be in a ambiently lit room with a white background and plants nearby. The user is sitting in an office chair
 
-- Launches a dedicated Chrome, Edge, or Brave window with remote debugging enabled.
-- Shows open tab titles and URLs from that demo browser.
-- Exports tab summaries to `sources/browser/tabs.txt`.
-- Exports richer per-snapshot page text to `sources/browser/browser_live.txt`.
-- Exports a structured browser index to `sources/browser/index.json`.
-- Exports a lightweight summary to `summaries/browser_summary.json`.
-- Lets you run a one-shot snapshot or continuous live updates from the same UI.
+Watcher -> true, "The person is holding a mobile phone, with their gaze staring down at the phone"
 
-## Setup
+VLM -> "The person is wearing a black hoodie, with a blue surgical mask. The person is holding up a mobile phone, potentially to take a selfie, with their gaze looking right in the direction of phone. The user seems to be in a ambiently lit room with a white background and plants nearby. The user is sitting in an offie chair and rotating around
 
-From this folder:
+Watcher -> true, "The person is holding up a mobile phone, potentially to take a selfie, with their gaze looking right in the direction of phone."
 
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-```
+MPA -> Given: 
 
-Create your local config:
+"The person is holding a mobile phone, with their gaze staring down at the phone"
 
-```powershell
-Copy-Item .env.example .env
-```
+"The person is holding up a mobile phone, potentially to take a selfie, with their gaze looking right in the direction of phone."
 
-Defaults included in `.env`:
+Intention: The user is studying math homework
 
-- Demo browser, demo URL, and interval constants
+Agenda: Tell the user to stop using their phone. However, I'm not sure if it is relevant to their maths homework, but most likely not
 
-Run the browser info demo:
+Personality agent -> "Hey! Get off the phone, unless you can explain why that would be helpful for your math homework
 
-```powershell
-.\run.ps1
-```
-
-Check your active config at any time:
-
-```powershell
-.\run.ps1 doctor
-```
-
-Run a quick smoke test:
-
-```powershell
-.\run.ps1 test
-```
-
-## Browser Live Demo
-
-This demo is now the main browser info module. It opens a dedicated browser window and writes both a near-real-time content snapshot and a lightweight tab summary.
-
-```powershell
-.\run.ps1 demo
-```
-
-In the app:
-
-- Click `Launch Browser` to open the dedicated browser window.
-- Click `Export Tabs` to write the current tab summary to `sources/browser/tabs.txt`.
-- Click `Snapshot Once` to write both outputs once without starting the loop.
-- Click `Start Live Output` to keep both files refreshed on the selected interval.
-
-Generated files:
-
-```text
-sources/browser/browser_live.txt
-sources/browser/tabs.txt
-sources/browser/index.json
-summaries/browser_summary.json
-```
-
-This uses a separate browser profile in the project folder so the demo is explicit and visible.

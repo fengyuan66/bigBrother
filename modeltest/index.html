@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Screen Summary Demo</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <p class="eyebrow">Hack Club AI + Qwen Vision</p>
+        <h1>Summarize your screen or webcam with one captured frame.</h1>
+        <p class="lede">
+          This mini demo uses the Hack Club OpenAI-compatible API with
+          <code>qwen/qwen3-vl-235b-a22b-instruct</code> to inspect a live screen
+          share or webcam feed and explain what is happening.
+        </p>
+      </section>
+
+      <section class="panel controls">
+        <div class="actions">
+          <button id="shareButton">Share screen</button>
+          <button id="webcamButton" class="alt">Use webcam</button>
+        </div>
+
+        <label class="field">
+          <span>Focus prompt</span>
+          <textarea
+            id="prompt"
+            rows="3"
+            placeholder="Optional: e.g. Focus on the active window, visible code, or explain what I seem to be doing physically."
+          ></textarea>
+        </label>
+
+        <div class="actions">
+          <button id="captureButton" disabled>Capture and summarize</button>
+          <button id="autoButton" disabled>Start auto mode</button>
+        </div>
+
+        <div class="actions secondary">
+          <label class="interval">
+            <span>Auto every</span>
+            <input id="intervalSeconds" type="number" min="5" max="60" value="12" />
+            <span>seconds</span>
+          </label>
+          <button id="stopButton" disabled>Stop</button>
+        </div>
+
+        <p class="hint">
+          Your screen stream stays local in the browser. Configure <code>HACKCLUB_API_KEY</code> in <code>.env</code>, then only the captured frame is forwarded to the Hack Club API.
+        </p>
+      </section>
+
+      <section class="grid">
+        <div class="panel preview-panel">
+          <div class="panel-heading">
+            <h2>Preview</h2>
+            <div class="badges">
+              <span id="sourceBadge" class="badge subtle">No source</span>
+              <span id="statusBadge" class="badge idle">Idle</span>
+            </div>
+          </div>
+          <video id="video" autoplay muted playsinline></video>
+          <canvas id="canvas" hidden></canvas>
+          <img id="snapshot" alt="Latest captured frame" />
+        </div>
+
+        <div class="panel output-panel">
+          <div class="panel-heading">
+            <h2>Model summary</h2>
+            <span id="modelName" class="badge subtle">Not called yet</span>
+          </div>
+          <div id="output" class="output empty">
+            Share your screen or webcam, then capture a frame to get a summary.
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+  </html>

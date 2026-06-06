@@ -5,4 +5,10 @@ __pycache__/
 sources/browser/browser_live.txt
 sources/browser/tabs.txt
 sources/browser/index.json
+sources/video/latest.txt
+sources/video/latest.json
+sources/webcam/latest.txt
+sources/webcam/latest.json
 summaries/browser_summary.json
+summaries/webcam_summary.json
+summaries/screen_summary.json

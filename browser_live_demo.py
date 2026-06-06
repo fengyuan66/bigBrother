@@ -100,6 +100,7 @@ class BrowserLiveReader:
         args = [
             browser_path,
             f"--remote-debugging-port={self.config.port}",
+            "--remote-debugging-address=127.0.0.1",
             "--remote-allow-origins=*",
             f"--user-data-dir={profile_dir}",
             "--no-first-run",
@@ -108,12 +109,9 @@ class BrowserLiveReader:
         ]
         subprocess.Popen(args)
 
-    def read_tabs(self):
-        try:
-            with urlopen(f"http://127.0.0.1:{self.config.port}/json/list", timeout=1.5) as response:
-                pages = json.loads(response.read().decode("utf-8"))
-        except (OSError, URLError, TimeoutError, json.JSONDecodeError):
-            return []
+    def _read_tabs_once(self):
+        with urlopen(f"http://127.0.0.1:{self.config.port}/json/list", timeout=1.5) as response:
+            pages = json.loads(response.read().decode("utf-8"))
 
         tabs = []
         for page in pages:
@@ -125,9 +123,21 @@ class BrowserLiveReader:
             tabs.append(page)
         return tabs
 
-    def export_tabs(self, output_path=TAB_OUTPUT_PATH):
+    def read_tabs(self, retries=1, delay_seconds=0.35):
+        attempts = max(1, int(retries))
+        for attempt in range(attempts):
+            try:
+                tabs = self._read_tabs_once()
+            except (OSError, URLError, TimeoutError, json.JSONDecodeError):
+                tabs = []
+            if tabs or attempt == attempts - 1:
+                return tabs
+            time.sleep(max(0.05, float(delay_seconds)))
+        return []
+
+    def export_tabs(self, output_path=TAB_OUTPUT_PATH, retries=4, delay_seconds=0.5):
         ensure_output_dirs()
-        tabs = self.read_tabs()
+        tabs = self.read_tabs(retries=retries, delay_seconds=delay_seconds)
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         lines = [
@@ -160,9 +170,9 @@ class BrowserLiveReader:
         output_path.write_text("\n".join(lines), encoding="utf-8")
         return output_path, len(tabs)
 
-    def write_index(self, output_path=INDEX_OUTPUT_PATH):
+    def write_index(self, output_path=INDEX_OUTPUT_PATH, retries=4, delay_seconds=0.5):
         ensure_output_dirs()
-        tabs = self.read_tabs()
+        tabs = self.read_tabs(retries=retries, delay_seconds=delay_seconds)
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         data = {
@@ -182,9 +192,9 @@ class BrowserLiveReader:
         output_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
         return output_path, data
 
-    def write_summary(self, output_path=SUMMARY_OUTPUT_PATH):
+    def write_summary(self, output_path=SUMMARY_OUTPUT_PATH, retries=4, delay_seconds=0.5):
         ensure_output_dirs()
-        tabs = self.read_tabs()
+        tabs = self.read_tabs(retries=retries, delay_seconds=delay_seconds)
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         domains = []
         seen_domains = set()
@@ -271,7 +281,7 @@ class BrowserDemoApp(tk.Tk):
         self.url_var = tk.StringVar(
             value=os.getenv("BIG_BROTHER_DEMO_URL", "https://en.wikipedia.org/wiki/Calculus")
         )
-        self.interval_var = tk.IntVar(value=env_int("BIG_BROTHER_DEMO_INTERVAL_SECONDS", 2))
+        self.interval_var = tk.IntVar(value=env_int("BIG_BROTHER_DEMO_INTERVAL_SECONDS", 4))
         self.status_var = tk.StringVar(value="Launch a demo browser, then start live output.")
         self.files_var = tk.StringVar(
             value="Outputs: sources/browser/ + summaries/browser_summary.json"
@@ -313,8 +323,8 @@ class BrowserDemoApp(tk.Tk):
         ttk.Label(controls, text="Every").grid(row=0, column=4, sticky="w")
         ttk.Spinbox(
             controls,
-            from_=1,
-            to=15,
+            from_=4,
+            to=60,
             textvariable=self.interval_var,
             width=5,
             justify="center",
@@ -385,14 +395,14 @@ class BrowserDemoApp(tk.Tk):
             text = self._snapshot(reader)
             ensure_output_dirs()
             OUTPUT_PATH.write_text(text, encoding="utf-8")
-            reader.export_tabs()
-            reader.write_index()
-            reader.write_summary()
+            reader.export_tabs(retries=2, delay_seconds=0.25)
+            reader.write_index(retries=2, delay_seconds=0.25)
+            reader.write_summary(retries=2, delay_seconds=0.25)
             self.after(0, self._show_snapshot, text)
-            self.stop_event.wait(max(1, int(self.interval_var.get() or 2)))
+            self.stop_event.wait(max(4, int(self.interval_var.get() or 4)))
 
     def _snapshot(self, reader):
-        tabs = reader.read_tabs()
+        tabs = reader.read_tabs(retries=3, delay_seconds=0.4)
         now = time.strftime("%Y-%m-%d %H:%M:%S")
         lines = [
             "Big Brother Browser Live Output",

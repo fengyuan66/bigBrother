@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Big Brother Watcher Dashboard</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <p class="eyebrow">Big Brother · Watcher Dashboard</p>
+        <h1>Capture webcam and screen summaries, then watch the watcher react live.</h1>
+        <p class="lede">
+          The browser asks for webcam and screen-share permission directly. Captured frames are sent
+          to Hack Club AI for resource summaries, saved locally, and immediately fed into the watcher.
+        </p>
+      </section>
+
+      <section class="panel controls">
+        <div class="field">
+          <label for="goal">Study intention</label>
+          <textarea id="goal" rows="2">I am studying calculus</textarea>
+        </div>
+
+        <div class="control-row">
+          <label class="inline-field">
+            <span>Check every</span>
+            <input id="intervalSeconds" type="number" min="4" max="60" value="4" />
+            <span>seconds</span>
+          </label>
+
+          <label class="inline-field">
+            <span>Trigger after</span>
+            <input id="threshold" type="number" min="1" max="10" value="2" />
+            <span>turns</span>
+          </label>
+        </div>
+
+        <div class="field">
+          <label for="capturePrompt">Capture guidance</label>
+          <textarea
+            id="capturePrompt"
+            rows="2"
+            placeholder="Optional: tell the VLM to focus on visible study behavior, active window, or distractions."
+          ></textarea>
+        </div>
+
+        <div class="control-row">
+          <label class="inline-field">
+            <span>Browser</span>
+            <select id="browserName"></select>
+          </label>
+
+          <label class="inline-field grow">
+            <span>Browser URL</span>
+            <input id="browserUrl" type="text" placeholder="https://www.google.com" />
+          </label>
+        </div>
+
+        <div class="actions">
+          <button id="shareButton">Share screen</button>
+          <button id="webcamButton" class="alt">Use webcam</button>
+          <button id="captureButton" disabled>Capture summary</button>
+          <button id="autoCaptureButton" class="alt" disabled>Start auto capture</button>
+          <button id="stopCaptureButton" class="alt" disabled>Stop capture</button>
+        </div>
+
+        <div class="actions">
+          <button id="launchBrowserButton" class="alt">Launch tracked browser</button>
+          <button id="runOnceButton">Run watcher once</button>
+          <button id="startButton">Start watcher</button>
+          <button id="stopButton" class="alt">Stop watcher</button>
+          <button id="exportTabsButton" class="alt">Export tabs</button>
+        </div>
+
+        <div class="meta">
+          <span id="watcherBadge" class="badge subtle">Watcher loading...</span>
+          <span id="statusBadge" class="badge idle">Idle</span>
+          <span id="captureBadge" class="badge subtle">No source</span>
+          <span id="turnBadge" class="badge subtle">No turns yet</span>
+        </div>
+
+        <p id="paths" class="hint"></p>
+      </section>
+
+      <section class="preview-grid">
+        <div class="panel preview-panel">
+          <div class="panel-heading">
+            <h2>Live capture preview</h2>
+            <span id="runningBadge" class="badge subtle">Stopped</span>
+          </div>
+          <video id="video" autoplay muted playsinline></video>
+          <canvas id="canvas" hidden></canvas>
+          <img id="snapshot" alt="Latest captured frame" />
+          <p id="captureStatusText" class="status-text">No capture source active.</p>
+        </div>
+
+        <div class="panel">
+          <div class="panel-heading">
+            <h2>Watcher summary</h2>
+            <span id="actorModeBadge" class="badge subtle">unknown</span>
+          </div>
+          <p id="statusText" class="status-text">Ready.</p>
+          <p id="errorText" class="error-text"></p>
+          <p id="watcherSummary" class="status-text">Watcher output will appear here after a run.</p>
+          <div class="summary-grid">
+            <div class="summary-card">
+              <span class="summary-label">Off-task streak</span>
+              <strong id="streakValue">0</strong>
+            </div>
+            <div class="summary-card">
+              <span class="summary-label">Exported tabs</span>
+              <strong id="exportValue">0</strong>
+            </div>
+          </div>
+          <div class="evidence-block">
+            <h3>Relevant evidence</h3>
+            <ul id="evidenceList" class="evidence-list">
+              <li>None.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="debug-grid">
+        <article class="panel debug-panel">
+          <div class="panel-heading">
+            <h2>Webcam VLM Output</h2>
+            <span class="badge subtle">Resource</span>
+          </div>
+          <pre id="webcamOutput">Waiting for webcam resource text.</pre>
+        </article>
+
+        <article class="panel debug-panel">
+          <div class="panel-heading">
+            <h2>Screenshare VLM Output</h2>
+            <span class="badge subtle">Resource</span>
+          </div>
+          <pre id="screenshareOutput">Waiting for screenshare resource text.</pre>
+        </article>
+
+        <article class="panel debug-panel">
+          <div class="panel-heading">
+            <h2>Browser Export Output</h2>
+            <span class="badge subtle">Resource</span>
+          </div>
+          <pre id="browserOutput">Waiting for browser export text.</pre>
+        </article>
+
+        <article class="panel debug-panel">
+          <div class="panel-heading">
+            <h2>Watcher Output</h2>
+            <span class="badge subtle">Decision JSON</span>
+          </div>
+          <pre id="watcherOutput">Watcher output will appear here after a run.</pre>
+        </article>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+  </html>

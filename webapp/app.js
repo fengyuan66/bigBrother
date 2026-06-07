@@ -83,6 +83,9 @@ let autoCaptureHandle = null;
 let captureInFlight = false;
 let lastSpokenPersonalityEventId = "";
 let availableSpeechVoices = [];
+let latestState = null;
+let speechInFlight = false;
+let speechPauseUntilMs = 0;
 
 function refreshSpeechVoices() {
   if (!("speechSynthesis" in window)) {
@@ -100,7 +103,7 @@ if ("speechSynthesis" in window) {
 function payloadFromControls() {
   return {
     goal: goalInput.value,
-    interval_seconds: Number(intervalInput.value || 4),
+    interval_seconds: Number(intervalInput.value || 3),
     threshold: Number(thresholdInput.value || 1),
     duration_seconds: Number(sessionDurationSlider.value || 15) * 60,
     browser_name: browserNameInput.value,
@@ -123,6 +126,17 @@ function formatDurationLabel(totalSeconds) {
 
 function syncSessionDurationLabel() {
   sessionDurationValue.textContent = `${Number(sessionDurationSlider.value || 15)} min`;
+}
+
+function speechPauseActive() {
+  return speechInFlight || Date.now() < speechPauseUntilMs;
+}
+
+function clearSnipPreviews() {
+  for (const source of Object.values(captureSources)) {
+    source.snapshotEl.removeAttribute("src");
+    source.lastSnipAt = "";
+  }
 }
 
 function activeSourceKeys() {
@@ -340,6 +354,9 @@ function speakPersonalityIfNeeded(personality, turnLabel = "") {
   if (!personality.triggered || !personality.should_speak || !personality.spoken_text) {
     return;
   }
+  if (speechPauseActive()) {
+    return;
+  }
 
   const eventId = personality.event_id || `${turnLabel}::${personality.spoken_text}`;
   if (!eventId || eventId === lastSpokenPersonalityEventId) {
@@ -357,6 +374,21 @@ function speakPersonalityIfNeeded(personality, turnLabel = "") {
   utterance.pitch = 1.05;
   utterance.rate = 0.92;
   utterance.volume = 1;
+  utterance.onstart = () => {
+    speechInFlight = true;
+  };
+  utterance.onend = () => {
+    speechInFlight = false;
+    clearSnipPreviews();
+    const pauseSeconds = Number((latestState && latestState.post_speech_pause_seconds) || 5);
+    speechPauseUntilMs = Date.now() + pauseSeconds * 1000;
+    postJson("/api/speech-finished", { pause_seconds: pauseSeconds }).catch(() => {});
+  };
+  utterance.onerror = () => {
+    speechInFlight = false;
+    const pauseSeconds = Number((latestState && latestState.post_speech_pause_seconds) || 5);
+    speechPauseUntilMs = Date.now() + pauseSeconds * 1000;
+  };
 
   window.speechSynthesis.cancel();
   window.speechSynthesis.speak(utterance);
@@ -364,6 +396,7 @@ function speakPersonalityIfNeeded(personality, turnLabel = "") {
 }
 
 function renderState(state) {
+  latestState = state;
   goalInput.value = state.goal;
   intervalInput.value = state.interval_seconds;
   thresholdInput.value = state.threshold;
@@ -400,6 +433,9 @@ function renderState(state) {
   guidedStatus.textContent = state.running
     ? "Big Brother is live. The tab will keep speaking interventions until the timer expires."
     : "Choose a session length, then launch Big Brother.";
+  if (Number(state.speech_grace_remaining_seconds || 0) > 0) {
+    guidedStatus.textContent = `Voice cooldown active. Reassessment resumes in ${formatDurationLabel(state.speech_grace_remaining_seconds)}.`;
+  }
   errorText.textContent = state.last_error || "";
   streakValue.textContent = String(state.off_task_streak);
   exportValue.textContent = String(state.last_export.count || 0);
@@ -448,13 +484,17 @@ async function summarizeSources(reason = "manual", requestedKeys = null) {
   if (sourceKeys.length === 0 || captureInFlight) {
     return;
   }
+  if (reason === "auto" && speechPauseActive()) {
+    captureStatusText.textContent = "Voice intervention pause active. Reassessment resumes in a few seconds.";
+    return;
+  }
 
   captureInFlight = true;
   syncCaptureBadges();
   errorText.textContent = "";
 
   try {
-    for (const sourceKey of sourceKeys) {
+    await Promise.all(sourceKeys.map(async (sourceKey) => {
       const source = captureSources[sourceKey];
       source.liveStatusEl.textContent =
         reason === "auto"
@@ -469,6 +509,10 @@ async function summarizeSources(reason = "manual", requestedKeys = null) {
       });
 
       source.liveStatusEl.textContent = `${source.label} updated at ${source.lastSnipAt}.`;
+    }));
+
+    if (latestState && latestState.running) {
+      await postJson("/api/run-once", payloadFromControls());
     }
 
     await loadState();
@@ -538,7 +582,7 @@ async function startGuidedSession() {
       if (!autoCaptureHandle) {
         autoCaptureHandle = window.setInterval(
           () => summarizeSources("auto"),
-          Number(intervalInput.value || 4) * 1000
+          Number(intervalInput.value || 3) * 1000
         );
         autoCaptureButton.textContent = "Pause auto capture";
       }
@@ -573,6 +617,7 @@ async function resetStats() {
       window.speechSynthesis.cancel();
     }
     lastSpokenPersonalityEventId = "";
+    clearSnipPreviews();
     personalityAudio.pause();
     personalityAudio.removeAttribute("src");
     personalityAudio.load();
@@ -648,9 +693,9 @@ autoCaptureButton.addEventListener("click", async () => {
     return;
   }
 
-  const seconds = Number(intervalInput.value || 4);
-  if (!Number.isFinite(seconds) || seconds < 4) {
-    errorText.textContent = "Choose an interval of at least 4 seconds.";
+  const seconds = Number(intervalInput.value || 3);
+  if (!Number.isFinite(seconds) || seconds < 3) {
+    errorText.textContent = "Choose an interval of at least 3 seconds.";
     return;
   }
 

@@ -35,6 +35,8 @@ const pathsText = document.getElementById("paths");
 const actorStageGrid = document.getElementById("actorStageGrid");
 const debugLogPath = document.getElementById("debugLogPath");
 const debugEventLog = document.getElementById("debugEventLog");
+const turnSnapshotPanel = document.getElementById("turnSnapshotPanel");
+const turnHistoryPanel = document.getElementById("turnHistoryPanel");
 
 const webcamOutput = document.getElementById("webcamOutput");
 const screenshareOutput = document.getElementById("screenshareOutput");
@@ -482,6 +484,152 @@ function formatDebugEvents(events) {
     .join("\n\n");
 }
 
+function formatTurnReason(reason) {
+  return String(reason || "unspecified")
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function trimPreview(text, maxLength = 220) {
+  const normalized = String(text || "").trim();
+  if (!normalized) {
+    return "No text captured.";
+  }
+  if (normalized.length <= maxLength) {
+    return normalized;
+  }
+  return `${normalized.slice(0, maxLength - 1)}…`;
+}
+
+function formatSourceBadges(sourceNames = [], className = "subtle") {
+  if (!sourceNames.length) {
+    return `<span class="badge ${className}">None</span>`;
+  }
+  return sourceNames
+    .map((name) => `<span class="badge ${className}">${escapeHtml(name)}</span>`)
+    .join("");
+}
+
+function renderTurnSnapshot(snapshot) {
+  if (!snapshot || !snapshot.turn_id) {
+    turnSnapshotPanel.innerHTML =
+      '<p class="muted-text">The latest deliberate turn snapshot will appear here after a cycle runs.</p>';
+    return;
+  }
+
+  const resources = snapshot.resources || {};
+  const browserExport = snapshot.browser_export || {};
+  const lastAnalysis = snapshot.last_analysis || {};
+  const availableSources = Array.isArray(snapshot.available_sources) ? snapshot.available_sources : [];
+  const missingSources = Array.isArray(snapshot.missing_sources) ? snapshot.missing_sources : [];
+  const createdAt = snapshot.created_at || "Unknown time";
+  const analysisSources = Object.keys(lastAnalysis);
+
+  turnSnapshotPanel.innerHTML = `
+    <div class="turn-summary-card">
+      <div class="turn-summary-head">
+        <div>
+          <h3>Turn ${escapeHtml(snapshot.turn_id)}</h3>
+          <p class="turn-summary-meta">${escapeHtml(createdAt)} · ${escapeHtml(formatTurnReason(snapshot.reason))}</p>
+        </div>
+        <span class="badge running">Revision ${escapeHtml(snapshot.resource_revision ?? 0)}</span>
+      </div>
+      <p class="status-text">${escapeHtml(snapshot.goal || "No study goal provided.")}</p>
+      <div class="turn-badge-row">
+        ${formatSourceBadges(availableSources, "running")}
+      </div>
+      <div class="turn-badge-row">
+        ${missingSources.length ? formatSourceBadges(missingSources, "alert") : '<span class="badge subtle">No missing sources</span>'}
+      </div>
+    </div>
+
+    <div class="turn-resource-grid">
+      <article class="turn-resource-card">
+        <div class="resource-head">
+          <h3>Frozen watcher prompt</h3>
+          <span class="badge subtle">Exact turn input</span>
+        </div>
+        <pre class="turn-pre">${escapeHtml(snapshot.prompt_text || "No prompt text was captured.")}</pre>
+      </article>
+
+      <article class="turn-resource-card">
+        <div class="resource-head">
+          <h3>Browser export snapshot</h3>
+          <span class="badge subtle">${escapeHtml(browserExport.browser || "browser")}</span>
+        </div>
+        <p class="turn-card-meta">Tabs exported: ${escapeHtml(browserExport.count ?? 0)}</p>
+        <p class="turn-card-meta">Exported at: ${escapeHtml(browserExport.exported_at || "Unknown")}</p>
+        <pre class="turn-pre">${escapeHtml(resources.browser || "No browser resource text found.")}</pre>
+      </article>
+
+      <article class="turn-resource-card">
+        <div class="resource-head">
+          <h3>Webcam VLM snapshot</h3>
+          <span class="badge subtle">Vision input</span>
+        </div>
+        <pre class="turn-pre">${escapeHtml(resources.webcam || "No webcam resource text found.")}</pre>
+      </article>
+
+      <article class="turn-resource-card">
+        <div class="resource-head">
+          <h3>Screenshare VLM snapshot</h3>
+          <span class="badge subtle">Vision input</span>
+        </div>
+        <pre class="turn-pre">${escapeHtml(resources.screenshare || "No screenshare resource text found.")}</pre>
+      </article>
+
+      <article class="turn-resource-card">
+        <div class="resource-head">
+          <h3>Latest analysis metadata</h3>
+          <span class="badge subtle">${escapeHtml(analysisSources.length)} source(s)</span>
+        </div>
+        <pre class="turn-pre">${escapeHtml(
+          analysisSources.length ? JSON.stringify(lastAnalysis, null, 2) : "No analysis metadata recorded."
+        )}</pre>
+      </article>
+    </div>
+  `;
+}
+
+function renderTurnHistory(history) {
+  if (!history || history.length === 0) {
+    turnHistoryPanel.innerHTML =
+      '<p class="muted-text">Recent turn history will appear here after a cycle runs.</p>';
+    return;
+  }
+
+  const latestTurns = [...history].slice().reverse();
+  turnHistoryPanel.innerHTML = latestTurns
+    .map((turn) => {
+      const availableSources = Array.isArray(turn.available_sources) ? turn.available_sources : [];
+      const missingSources = Array.isArray(turn.missing_sources) ? turn.missing_sources : [];
+      return `
+        <article class="turn-history-card">
+          <div class="turn-history-head">
+            <div>
+              <h3>Turn ${escapeHtml(turn.turn_id || "?")}</h3>
+              <p class="turn-summary-meta">${escapeHtml(turn.created_at || "Unknown time")} · ${escapeHtml(
+                formatTurnReason(turn.reason)
+              )}</p>
+            </div>
+            <span class="badge subtle">Revision ${escapeHtml(turn.resource_revision ?? 0)}</span>
+          </div>
+          <p class="turn-card-meta"><strong>Goal:</strong> ${escapeHtml(trimPreview(turn.goal || "", 120))}</p>
+          <p class="turn-card-meta"><strong>Available:</strong> ${escapeHtml(
+            availableSources.length ? availableSources.join(", ") : "None"
+          )}</p>
+          <p class="turn-card-meta"><strong>Missing:</strong> ${escapeHtml(
+            missingSources.length ? missingSources.join(", ") : "None"
+          )}</p>
+          <p class="turn-card-meta"><strong>Frozen prompt:</strong> ${escapeHtml(
+            trimPreview(turn.prompt_text || "", 260)
+          )}</p>
+        </article>
+      `;
+    })
+    .join("");
+}
+
 function playActorStageUpdates(actorStages) {
   for (const [actorKey, stage] of Object.entries(actorStages || {})) {
     const version = Number(stage.version || 0);
@@ -595,7 +743,7 @@ function renderState(state) {
   statusText.textContent = state.status || "Ready.";
   captureStatusText.textContent = `${state.capture_status} Vision model: ${state.vision_model}`;
   guidedStatus.textContent = state.running
-    ? "Big Brother is live. The tab will keep speaking interventions until the timer expires."
+    ? state.cycle_status || "Big Brother is live. Waiting for the next deliberate cycle."
     : "Choose a session length, then launch Big Brother.";
   if (Number(state.speech_grace_remaining_seconds || 0) > 0) {
     guidedStatus.textContent = `Voice cooldown active. Reassessment resumes in ${formatDurationLabel(state.speech_grace_remaining_seconds)}.`;
@@ -635,6 +783,8 @@ function renderState(state) {
     (state.debug_events || []).length
   }`;
   debugEventLog.textContent = formatDebugEvents(state.debug_events || []);
+  renderTurnSnapshot(state.last_turn_snapshot || {});
+  renderTurnHistory(state.turn_history || []);
 
   const paths = state.paths || {};
   pathsText.textContent = `Files in use: webcam ${paths.webcam || ""} | screenshare ${paths.screenshare || ""} | browser ${paths.browser || ""}`;
@@ -682,7 +832,10 @@ async function summarizeSources(reason = "manual", requestedKeys = null) {
     }));
 
     if (latestState && latestState.running) {
-      await postJson("/api/run-once", payloadFromControls());
+      await postJson("/api/run-once", {
+        ...payloadFromControls(),
+        reason: reason === "auto" ? "auto_capture_cycle" : "manual_capture_cycle",
+      });
     }
 
     await loadState();
@@ -699,7 +852,10 @@ async function summarizeSources(reason = "manual", requestedKeys = null) {
 async function runOnce() {
   runOnceButton.disabled = true;
   try {
-    await postJson("/api/run-once", payloadFromControls());
+    await postJson("/api/run-once", {
+      ...payloadFromControls(),
+      reason: "manual_run",
+    });
     await loadState();
   } finally {
     runOnceButton.disabled = false;

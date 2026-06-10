@@ -463,6 +463,55 @@ audio {
   margin-top: 10px;
 }
 
+.turn-panel-shell,
+.turn-history-list {
+  display: grid;
+  gap: 14px;
+}
+
+.turn-summary-card,
+.turn-history-card,
+.turn-resource-card {
+  padding: 14px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(44, 63, 82, 0.1);
+}
+
+.turn-summary-head,
+.turn-history-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.turn-summary-meta,
+.turn-card-meta {
+  margin-bottom: 8px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.turn-badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.turn-resource-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.turn-pre {
+  min-height: 120px;
+  max-height: 260px;
+}
+
 .preview-panel {
   display: grid;
   gap: 14px;
@@ -593,7 +642,8 @@ pre {
 
   .control-row,
   .mini-stats,
-  .actor-stage-grid {
+  .actor-stage-grid,
+  .turn-resource-grid {
     grid-template-columns: 1fr;
   }
 

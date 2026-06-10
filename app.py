@@ -42,6 +42,7 @@ DEFAULT_OFF_TASK_THRESHOLD = 1
 DEFAULT_POST_INTERVENTION_COOLDOWN_SECONDS = 15
 MAX_DEBUG_EVENTS = 160
 DEFAULT_POST_SPEECH_PAUSE_SECONDS = 5
+MAX_TURN_HISTORY = 24
 
 
 def ensure_output_dirs():
@@ -139,6 +140,46 @@ def shorten_text(value: str, limit: int = 220) -> str:
     return f"{text[: max(0, limit - 3)]}..."
 
 
+def snapshot_resources_payload(resources) -> dict:
+    return {
+        "webcam_text": resources.webcam_text,
+        "screenshare_text": resources.screenshare_text,
+        "browser_text": resources.browser_text,
+        "missing_sources": list(resources.missing_sources),
+        "source_metadata": dict(resources.source_metadata),
+        "prompt_text": resources.as_prompt_text(),
+    }
+
+
+class FrozenTurnResources:
+    def __init__(self, payload: dict):
+        self.webcam_text = str(payload.get("webcam_text", ""))
+        self.screenshare_text = str(payload.get("screenshare_text", ""))
+        self.browser_text = str(payload.get("browser_text", ""))
+        self.missing_sources = list(payload.get("missing_sources", []))
+        self.source_metadata = dict(payload.get("source_metadata", {}))
+        self._prompt_text = str(payload.get("prompt_text", ""))
+
+    def iter_sources(self, include_stale=False):
+        pairs = [
+            ("webcam", self.webcam_text),
+            ("screenshare", self.screenshare_text),
+            ("browser", self.browser_text),
+        ]
+        visible_pairs = []
+        for name, text in pairs:
+            if not text:
+                continue
+            metadata = self.source_metadata.get(name, {})
+            if metadata.get("stale") and not include_stale:
+                continue
+            visible_pairs.append((name, text))
+        return visible_pairs
+
+    def as_prompt_text(self):
+        return self._prompt_text
+
+
 class DashboardState:
     def __init__(self):
         self.lock = threading.RLock()
@@ -205,6 +246,10 @@ class DashboardState:
             "summary": "",
             "writtenFiles": {},
         }
+        self.last_turn_snapshot = {}
+        self.turn_history = []
+        self.turns_completed = 0
+        self.cycle_status = "Idle."
         self.debug_events = []
         self.event_sequence = 0
         self.actor_stages = {
@@ -268,6 +313,10 @@ class DashboardState:
                 "paths": resource_loader.describe_paths(),
                 "last_export": dict(self.last_export),
                 "last_analysis": dict(self.last_analysis),
+                "last_turn_snapshot": dict(self.last_turn_snapshot),
+                "turn_history": list(self.turn_history),
+                "turns_completed": self.turns_completed,
+                "cycle_status": self.cycle_status,
                 "actor_stages": {
                     key: dict(value) for key, value in self.actor_stages.items()
                 },
@@ -408,6 +457,7 @@ class WatcherDashboardApp:
         preserve_running=False,
         preserve_deadline=False,
         preserve_speech_grace=False,
+        preserve_turn_history=False,
         clear_resource_records=False,
         status="Session stats reset.",
     ):
@@ -447,6 +497,60 @@ class WatcherDashboardApp:
                 "summary": "",
                 "writtenFiles": {},
             }
+        if not preserve_turn_history:
+            self.state.last_turn_snapshot = {}
+            self.state.turn_history = []
+            self.state.turns_completed = 0
+        self.state.cycle_status = "Idle."
+
+    def _record_turn_snapshot(self, turn_snapshot: dict):
+        compact = {
+            "turn_id": turn_snapshot.get("turn_id"),
+            "created_at": turn_snapshot.get("created_at", ""),
+            "reason": turn_snapshot.get("reason", ""),
+            "goal": turn_snapshot.get("goal", ""),
+            "resource_revision": turn_snapshot.get("resource_revision", 0),
+            "available_sources": list(turn_snapshot.get("available_sources", [])),
+            "missing_sources": list(turn_snapshot.get("missing_sources", [])),
+            "prompt_text": turn_snapshot.get("prompt_text", ""),
+        }
+        with self.state.lock:
+            self.state.last_turn_snapshot = dict(turn_snapshot)
+            self.state.turn_history.append(compact)
+            self.state.turn_history = self.state.turn_history[-MAX_TURN_HISTORY:]
+
+    def _collect_turn_snapshot(self, *, reason: str):
+        turn_id = self._next_turn_id()
+        self._log_event("turn", "collecting", "Collecting deliberate turn snapshot.", {
+            "turn_id": turn_id,
+            "reason": reason,
+        })
+        with self.state.lock:
+            self.state.cycle_status = f"Collecting turn {turn_id} snapshot..."
+            self.state.status = f"Collecting turn {turn_id} snapshot..."
+
+        self._sync_browser_export(retries=1, delay_seconds=0.2)
+        resources = self._refresh_resource_debug()
+        with self.state.lock:
+            snapshot = {
+                "turn_id": turn_id,
+                "created_at": now_iso(),
+                "reason": reason,
+                "goal": self.state.goal,
+                "threshold": self.state.threshold,
+                "resource_revision": self.state.resource_revision,
+                "browser_export": dict(self.state.last_export),
+                "resources": snapshot_resources_payload(resources),
+                "available_sources": [name for name, _ in resources.iter_sources(include_stale=False)],
+                "missing_sources": list(resources.missing_sources),
+                "prompt_text": resources.as_prompt_text(),
+                "last_analysis": dict(self.state.last_analysis),
+            }
+            self.state.cycle_status = f"Turn {turn_id} snapshot frozen."
+
+        self._record_turn_snapshot(snapshot)
+        self._log_event("turn", "snapshot_frozen", "Deliberate turn snapshot frozen.", snapshot)
+        return snapshot
 
     def configure_browser(self, browser_name: str | None = None, browser_url: str | None = None):
         with self.state.lock:
@@ -498,7 +602,8 @@ class WatcherDashboardApp:
             self.state.session_deadline_at = time.time() + max(
                 DEFAULT_TICK_SECONDS, int(self.state.session_duration_seconds)
             )
-            self.state.status = "Monitoring started."
+            self.state.status = "Monitoring active. Waiting for the next deliberate cycle."
+            self.state.cycle_status = "Armed and waiting for the next cycle."
             self.state.last_error = ""
         self._log_event("session", "start", "Monitoring session started.", {
             "goal": self.state.goal,
@@ -539,7 +644,7 @@ class WatcherDashboardApp:
         self._set_actor_stage("personality", "idle", "Personality reset.")
         self._log_event("session", "reset", "Session stats reset.")
 
-    def run_once(self, goal=None, interval_seconds=None, threshold=None):
+    def run_once(self, goal=None, interval_seconds=None, threshold=None, reason="manual_run"):
         with self.state.lock:
             if goal is not None and goal.strip():
                 self.state.goal = goal.strip()
@@ -547,9 +652,11 @@ class WatcherDashboardApp:
                 self.state.interval_seconds = max(DEFAULT_TICK_SECONDS, int(interval_seconds))
             if threshold is not None:
                 self.state.threshold = max(1, int(threshold))
-            self.state.status = "Checking resources once..."
+            self.state.status = "Running one deliberate cycle..."
+            self.state.cycle_status = "Preparing one deliberate cycle..."
             self.state.last_error = ""
-        self._run_single_turn()
+        turn_snapshot = self._collect_turn_snapshot(reason=reason)
+        self._evaluate_turn_snapshot(turn_snapshot)
 
     def _expire_session_if_needed(self):
         with self.state.lock:
@@ -575,6 +682,7 @@ class WatcherDashboardApp:
                 preserve_running=True,
                 preserve_deadline=True,
                 preserve_speech_grace=True,
+                preserve_turn_history=True,
                 clear_resource_records=True,
                 status=(
                     f"Post-intervention pause for {pause_window} seconds."
@@ -799,13 +907,11 @@ class WatcherDashboardApp:
             if grace_remaining > 0:
                 self.stop_event.wait(min(float(self.state.interval_seconds), grace_remaining))
                 continue
-            self._run_single_turn()
-            if self._expire_session_if_needed():
-                break
             with self.state.lock:
                 interval_seconds = self.state.interval_seconds
                 running = self.state.running
                 deadline_at = self.state.session_deadline_at
+                self.state.cycle_status = "Waiting for the next deliberate cycle."
             if not running:
                 break
             remaining = max(0.0, deadline_at - time.time()) if deadline_at else float(interval_seconds)
@@ -830,21 +936,12 @@ class WatcherDashboardApp:
         })
         return resources
 
-    def _run_single_turn(self):
-        turn_id = self._next_turn_id()
+    def _evaluate_turn_snapshot(self, turn_snapshot: dict):
+        turn_id = int(turn_snapshot.get("turn_id", self._next_turn_id()))
         try:
-            self._log_event("turn", "start", "Watcher turn started.", {"turn_id": turn_id})
             with self.state.lock:
-                self.state.status = "Refreshing browser export..."
-            self._sync_browser_export(retries=1, delay_seconds=0.2)
-            self._log_event("browser", "export_tick", "Browser export refreshed for watcher turn.", {
-                "turn_id": turn_id,
-                "export": dict(self.state.last_export),
-            })
-            with self.state.lock:
-                self.state.status = "Loading resource files..."
-            resources = self._refresh_resource_debug()
-            with self.state.lock:
+                self.state.status = f"Evaluating turn {turn_id} snapshot..."
+                self.state.cycle_status = f"Evaluating turn {turn_id} snapshot..."
                 cooldown_remaining = max(0.0, self.state.cooldown_until - time.time())
                 if cooldown_remaining > 0:
                     self.pending_watcher_hits = []
@@ -884,11 +981,13 @@ class WatcherDashboardApp:
                     })
                     return
                 self.state.status = "Watcher reviewing evidence..."
+                self.state.cycle_status = f"Watcher evaluating turn {turn_id}."
                 goal = self.state.goal
                 threshold = self.state.threshold
                 cooldown_seconds = max(0, self.state.post_intervention_cooldown_seconds)
-                current_revision = self.state.resource_revision
+                current_revision = int(turn_snapshot.get("resource_revision", self.state.resource_revision))
                 required_revision = self.state.required_reassessment_revision
+            resources = FrozenTurnResources(dict(turn_snapshot.get("resources", {})))
             if current_revision < required_revision:
                 with self.state.lock:
                     self.state.watcher_output = {
@@ -919,7 +1018,8 @@ class WatcherDashboardApp:
             self._log_event("watcher", "reading", "Watcher received fresh resources.", {
                 "turn_id": turn_id,
                 "goal": goal,
-                "resources_prompt": resources.as_prompt_text(),
+                "resources_prompt": turn_snapshot.get("prompt_text", ""),
+                "snapshot_reason": turn_snapshot.get("reason", ""),
             })
             self._set_actor_stage("watcher", "processing", "Watcher is evaluating whether the user is off-task.")
             self._log_event("watcher", "processing", "Watcher model evaluation started.", {
@@ -1097,6 +1197,7 @@ class WatcherDashboardApp:
                     "actor_mode": decision.actor_mode,
                 }
                 self.state.required_reassessment_revision = 0
+                self.state.turns_completed += 1
                 if isinstance(mpa_result, dict):
                     self.state.mpa_output = dict(mpa_result)
                 else:
@@ -1123,6 +1224,7 @@ class WatcherDashboardApp:
                     self.state.status = f"{state_label} ({decision.confidence:.0%}): {decision.summary}"
                 self.state.last_turn_at = turn_time
                 self.state.last_error = ""
+                self.state.cycle_status = f"Turn {turn_id} complete."
             self._set_actor_stage("watcher", "idle", "Watcher is idle until the next tick.")
             if isinstance(mpa_result, dict):
                 self._set_actor_stage("mpa", "idle", "MPA is idle until the next threshold event.")
@@ -1136,6 +1238,7 @@ class WatcherDashboardApp:
             )
             self._log_event("turn", "complete", "Watcher turn completed.", {
                 "turn_id": turn_id,
+                "reason": turn_snapshot.get("reason", ""),
                 "decision_off_task": decision.off_task,
                 "streak": self.state.off_task_streak,
                 "threshold_progress": self.state.threshold_progress,
@@ -1182,6 +1285,7 @@ class AppHandler(BaseHTTPRequestHandler):
                     goal=payload.get("goal"),
                     interval_seconds=payload.get("interval_seconds", APP.state.interval_seconds),
                     threshold=payload.get("threshold", APP.state.threshold),
+                    reason=payload.get("reason", "manual_run"),
                 )
                 return self._json_response({"ok": True, "state": APP.state.snapshot(APP.watcher, APP.mpa, APP.personality, APP.resource_loader)})
 

@@ -317,6 +317,34 @@
         </article>
       </section>
 
+      <section class="debug-grid">
+        <article class="panel debug-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="section-kicker">Turn Snapshot</p>
+              <h2>Current deliberate world state</h2>
+            </div>
+            <span class="badge subtle">Frozen inputs for the latest turn</span>
+          </div>
+          <div id="turnSnapshotPanel" class="turn-panel-shell">
+            <p class="muted-text">The latest deliberate turn snapshot will appear here after a cycle runs.</p>
+          </div>
+        </article>
+
+        <article class="panel debug-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="section-kicker">Turn History</p>
+              <h2>Recent deliberate cycles</h2>
+            </div>
+            <span class="badge subtle">Most recent frozen turns</span>
+          </div>
+          <div id="turnHistoryPanel" class="turn-history-list">
+            <p class="muted-text">Recent turn history will appear here after a cycle runs.</p>
+          </div>
+        </article>
+      </section>
+
       <section class="inspector-grid">
         <article class="panel inspector-panel">
           <div class="panel-heading">

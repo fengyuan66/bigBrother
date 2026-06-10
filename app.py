@@ -37,10 +37,11 @@ MODE_TO_SUMMARY_PATH = {
     "webcam": SUMMARIES_DIR / "webcam_summary.json",
     "screen": SUMMARIES_DIR / "screen_summary.json",
 }
-DEFAULT_TICK_SECONDS = 4
+DEFAULT_TICK_SECONDS = 3
 DEFAULT_OFF_TASK_THRESHOLD = 1
 DEFAULT_POST_INTERVENTION_COOLDOWN_SECONDS = 15
 MAX_DEBUG_EVENTS = 160
+DEFAULT_POST_SPEECH_PAUSE_SECONDS = 5
 
 
 def ensure_output_dirs():
@@ -152,8 +153,14 @@ class DashboardState:
         self.off_task_streak = 0
         self.threshold_progress = 0
         self.cooldown_until = 0.0
+        self.resource_revision = 0
+        self.required_reassessment_revision = 0
         self.session_duration_seconds = env_int("BIG_BROTHER_SESSION_DURATION_SECONDS", 900)
         self.session_deadline_at = 0.0
+        self.post_speech_pause_seconds = env_int(
+            "BIG_BROTHER_POST_SPEECH_PAUSE_SECONDS", DEFAULT_POST_SPEECH_PAUSE_SECONDS
+        )
+        self.speech_grace_until = 0.0
         self.status = "Ready."
         self.last_error = ""
         self.last_turn_at = ""
@@ -223,6 +230,8 @@ class DashboardState:
                 )
                 if self.cooldown_until
                 else 0,
+                "resource_revision": self.resource_revision,
+                "required_reassessment_revision": self.required_reassessment_revision,
                 "session_duration_seconds": self.session_duration_seconds,
                 "session_deadline_at": self.session_deadline_at,
                 "session_remaining_seconds": max(
@@ -230,6 +239,13 @@ class DashboardState:
                     int(self.session_deadline_at - time.time()),
                 )
                 if self.running and self.session_deadline_at
+                else 0,
+                "post_speech_pause_seconds": self.post_speech_pause_seconds,
+                "speech_grace_remaining_seconds": max(
+                    0,
+                    int(self.speech_grace_until - time.time()),
+                )
+                if self.speech_grace_until
                 else 0,
                 "status": self.status,
                 "last_error": self.last_error,
@@ -359,6 +375,79 @@ class WatcherDashboardApp:
             "actor_mode": "idle",
         }
 
+    def _resource_record_paths(self):
+        candidate_groups = [
+            getattr(self.resource_loader, "webcam_candidates", []),
+            getattr(self.resource_loader, "screenshare_candidates", []),
+            getattr(self.resource_loader, "browser_candidates", []),
+            list(MODE_TO_SUMMARY_PATH.values()),
+        ]
+        seen = set()
+        ordered_paths = []
+        for group in candidate_groups:
+            for path in group:
+                resolved = Path(path)
+                key = str(resolved)
+                if key in seen:
+                    continue
+                seen.add(key)
+                ordered_paths.append(resolved)
+        return ordered_paths
+
+    def _clear_resource_records(self):
+        for path in self._resource_record_paths():
+            try:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("", encoding="utf-8")
+            except OSError:
+                continue
+
+    def _clear_runtime_stats(
+        self,
+        *,
+        preserve_running=False,
+        preserve_deadline=False,
+        preserve_speech_grace=False,
+        clear_resource_records=False,
+        status="Session stats reset.",
+    ):
+        if not preserve_running:
+            self.state.running = False
+        self.state.off_task_streak = 0
+        self.state.threshold_progress = 0
+        self.state.required_reassessment_revision = 0
+        if not preserve_deadline:
+            self.state.session_deadline_at = 0.0
+        if not preserve_speech_grace:
+            self.state.speech_grace_until = 0.0
+        self.state.status = status
+        self.state.last_error = ""
+        self.state.last_turn_at = ""
+        self.state.watcher_output = {
+            "off_task": False,
+            "confidence": 0.0,
+            "summary": "Watcher output will appear here after a run.",
+            "relevant_evidence": [],
+            "actor_mode": "unknown",
+        }
+        self.state.mpa_output = self._idle_mpa_output()
+        self.state.personality_output = self._idle_personality_output()
+        self.pending_watcher_hits = []
+        if clear_resource_records:
+            self.state.required_reassessment_revision = self.state.resource_revision + 1
+            self._clear_resource_records()
+            self.state.resources = {
+                "webcam": "Waiting for webcam resource text.",
+                "screenshare": "Waiting for screenshare resource text.",
+                "browser": "Waiting for browser export text.",
+            }
+            self.state.last_export = {"path": "", "count": 0}
+            self.state.last_analysis = {
+                "analysisMode": "",
+                "summary": "",
+                "writtenFiles": {},
+            }
+
     def configure_browser(self, browser_name: str | None = None, browser_url: str | None = None):
         with self.state.lock:
             if browser_name:
@@ -401,6 +490,8 @@ class WatcherDashboardApp:
             self.state.off_task_streak = 0
             self.state.threshold_progress = 0
             self.state.cooldown_until = 0.0
+            self.state.required_reassessment_revision = 0
+            self.state.speech_grace_until = 0.0
             self.state.mpa_output = self._idle_mpa_output()
             self.state.personality_output = self._idle_personality_output()
             self.state.running = True
@@ -427,6 +518,7 @@ class WatcherDashboardApp:
             self.state.running = False
             self.state.session_deadline_at = 0.0
             self.state.cooldown_until = 0.0
+            self.state.speech_grace_until = 0.0
             self.state.status = "Monitoring stopped."
         self._set_actor_stage("watcher", "idle", "Watcher stopped.")
         self._set_actor_stage("mpa", "idle", "MPA stopped.")
@@ -437,28 +529,15 @@ class WatcherDashboardApp:
     def reset_stats(self):
         self.stop_event.set()
         with self.state.lock:
-            self.state.running = False
-            self.state.off_task_streak = 0
-            self.state.threshold_progress = 0
+            self._clear_runtime_stats(
+                clear_resource_records=True,
+                status="Session stats reset.",
+            )
             self.state.cooldown_until = 0.0
-            self.state.session_deadline_at = 0.0
-            self.state.status = "Session stats reset."
-            self.state.last_error = ""
-            self.state.last_turn_at = ""
-            self.state.watcher_output = {
-                "off_task": False,
-                "confidence": 0.0,
-                "summary": "Watcher output will appear here after a run.",
-                "relevant_evidence": [],
-                "actor_mode": "unknown",
-            }
-            self.state.mpa_output = self._idle_mpa_output()
-            self.state.personality_output = self._idle_personality_output()
         self._set_actor_stage("watcher", "idle", "Watcher reset.")
         self._set_actor_stage("mpa", "idle", "MPA reset.")
         self._set_actor_stage("personality", "idle", "Personality reset.")
         self._log_event("session", "reset", "Session stats reset.")
-        self.pending_watcher_hits = []
 
     def run_once(self, goal=None, interval_seconds=None, threshold=None):
         with self.state.lock:
@@ -483,6 +562,35 @@ class WatcherDashboardApp:
             self.state.status = "Timed session complete."
         self.stop_event.set()
         return True
+
+    def note_speech_finished(self, pause_seconds=None):
+        pause_window = (
+            self.state.post_speech_pause_seconds
+            if pause_seconds is None
+            else max(0, int(pause_seconds))
+        )
+        with self.state.lock:
+            self.state.speech_grace_until = time.time() + pause_window if pause_window else 0.0
+            self._clear_runtime_stats(
+                preserve_running=True,
+                preserve_deadline=True,
+                preserve_speech_grace=True,
+                clear_resource_records=True,
+                status=(
+                    f"Post-intervention pause for {pause_window} seconds."
+                    if pause_window
+                    else "Voice playback finished."
+                ),
+            )
+        return pause_window
+
+    def _speech_grace_remaining(self):
+        with self.state.lock:
+            grace_until = self.state.speech_grace_until
+            running = self.state.running
+        if not running or not grace_until:
+            return 0.0
+        return max(0.0, grace_until - time.time())
 
     def export_tabs(self):
         self._log_event("browser", "export_start", "Refreshing browser tab export.")
@@ -515,6 +623,7 @@ class WatcherDashboardApp:
         )
         with self.state.lock:
             self.state.last_export = {"path": str(path), "count": count}
+            self.state.resource_revision += 1
             self.state.status = f"Exported {count} browser tabs to {path.name}."
         return path, count
 
@@ -658,6 +767,7 @@ class WatcherDashboardApp:
         written_files = write_local_outputs(analysis_mode, prompt.strip(), message)
         self._refresh_resource_debug()
         with self.state.lock:
+            self.state.resource_revision += 1
             self.state.capture_status = (
                 "Webcam summary updated."
                 if analysis_mode == "webcam"
@@ -685,6 +795,10 @@ class WatcherDashboardApp:
         while not self.stop_event.is_set():
             if self._expire_session_if_needed():
                 break
+            grace_remaining = self._speech_grace_remaining()
+            if grace_remaining > 0:
+                self.stop_event.wait(min(float(self.state.interval_seconds), grace_remaining))
+                continue
             self._run_single_turn()
             if self._expire_session_if_needed():
                 break
@@ -773,6 +887,34 @@ class WatcherDashboardApp:
                 goal = self.state.goal
                 threshold = self.state.threshold
                 cooldown_seconds = max(0, self.state.post_intervention_cooldown_seconds)
+                current_revision = self.state.resource_revision
+                required_revision = self.state.required_reassessment_revision
+            if current_revision < required_revision:
+                with self.state.lock:
+                    self.state.watcher_output = {
+                        "off_task": False,
+                        "confidence": 0.0,
+                        "summary": "Waiting for fresh post-reset resource updates before reassessing.",
+                        "relevant_evidence": [],
+                        "actor_mode": "idle",
+                    }
+                    self.state.mpa_output = self._idle_mpa_output()
+                    self.state.personality_output = self._idle_personality_output()
+                    self.state.status = "Waiting for a fresh post-reset reassessment cycle."
+                    self.state.last_error = ""
+                    self.state.last_turn_at = time.strftime("%Y-%m-%d %H:%M:%S")
+                self._set_actor_stage("watcher", "idle", "Waiting for fresh post-reset resource updates.")
+                self._set_actor_stage("mpa", "idle", "MPA waiting for reassessment gate.")
+                self._set_actor_stage("personality", "idle", "Personality waiting for reassessment gate.")
+                self._log_event("watcher", "idle", "Watcher blocked pending fresh reassessment resources.", {
+                    "turn_id": turn_id,
+                    "resource_revision": current_revision,
+                    "required_reassessment_revision": required_revision,
+                })
+                self._log_event("turn", "complete", "Watcher turn skipped pending reassessment resources.", {
+                    "turn_id": turn_id,
+                })
+                return
             self._set_actor_stage("watcher", "reading", "Watcher reading goal and current resources.")
             self._log_event("watcher", "reading", "Watcher received fresh resources.", {
                 "turn_id": turn_id,
@@ -954,6 +1096,7 @@ class WatcherDashboardApp:
                     "relevant_evidence": list(decision.relevant_evidence),
                     "actor_mode": decision.actor_mode,
                 }
+                self.state.required_reassessment_revision = 0
                 if isinstance(mpa_result, dict):
                     self.state.mpa_output = dict(mpa_result)
                 else:
@@ -1057,6 +1200,10 @@ class AppHandler(BaseHTTPRequestHandler):
 
             if parsed.path == "/api/reset-stats":
                 APP.reset_stats()
+                return self._json_response({"ok": True, "state": APP.state.snapshot(APP.watcher, APP.mpa, APP.personality, APP.resource_loader)})
+
+            if parsed.path == "/api/speech-finished":
+                APP.note_speech_finished(payload.get("pause_seconds"))
                 return self._json_response({"ok": True, "state": APP.state.snapshot(APP.watcher, APP.mpa, APP.personality, APP.resource_loader)})
 
             if parsed.path == "/api/export-tabs":

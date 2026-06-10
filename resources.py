@@ -1,5 +1,6 @@
 import json
 import os
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -19,24 +20,64 @@ class StudyResources:
     screenshare_text: str
     browser_text: str
     missing_sources: list[str]
+    source_metadata: dict[str, dict]
 
-    def iter_sources(self):
+    def iter_sources(self, include_stale=False):
         pairs = [
             ("webcam", self.webcam_text),
             ("screenshare", self.screenshare_text),
             ("browser", self.browser_text),
         ]
-        return [(name, text) for name, text in pairs if text]
+        visible_pairs = []
+        for name, text in pairs:
+            if not text:
+                continue
+            metadata = self.source_metadata.get(name, {})
+            if metadata.get("stale") and not include_stale:
+                continue
+            visible_pairs.append((name, text))
+        return visible_pairs
+
+    def describe_source(self, source_name):
+        metadata = self.source_metadata.get(source_name, {})
+        text = {
+            "webcam": self.webcam_text,
+            "screenshare": self.screenshare_text,
+            "browser": self.browser_text,
+        }.get(source_name, "")
+
+        if not text:
+            return ""
+
+        if metadata.get("stale"):
+            age_seconds = metadata.get("age_seconds")
+            if age_seconds is not None:
+                age_label = f"{age_seconds:.1f}s old"
+            else:
+                age_label = "age unknown"
+            return f"[STALE: {age_label}]\n{text}"
+
+        return text
 
     def as_prompt_text(self):
         sections = []
         for source_name, text in self.iter_sources():
             sections.append(f"[{source_name}]\n{text.strip()}")
 
+        stale_sources = [
+            name
+            for name, metadata in self.source_metadata.items()
+            if metadata.get("stale")
+        ]
+        if stale_sources:
+            sections.append(f"[stale_sources]\n{', '.join(stale_sources)}")
+
         if self.missing_sources:
             sections.append(f"[missing_sources]\n{', '.join(self.missing_sources)}")
 
-        return "\n\n".join(sections) if sections else "[resources]\nNo resource text available."
+        if sections:
+            return "\n\n".join(sections)
+        return "[resources]\nNo fresh resource text available."
 
 
 class ResourceLoader:
@@ -74,12 +115,22 @@ class ResourceLoader:
             ],
         )
 
-    def load(self):
-        webcam_text, webcam_missing = self._read_optional(self.webcam_candidates, "webcam")
-        screenshare_text, screenshare_missing = self._read_optional(
-            self.screenshare_candidates, "screenshare"
+    def load(self, max_age_seconds=None):
+        webcam_text, webcam_missing, webcam_metadata = self._read_optional(
+            self.webcam_candidates,
+            "webcam",
+            max_age_seconds=max_age_seconds,
         )
-        browser_text, browser_missing = self._read_optional(self.browser_candidates, "browser")
+        screenshare_text, screenshare_missing, screenshare_metadata = self._read_optional(
+            self.screenshare_candidates,
+            "screenshare",
+            max_age_seconds=max_age_seconds,
+        )
+        browser_text, browser_missing, browser_metadata = self._read_optional(
+            self.browser_candidates,
+            "browser",
+            max_age_seconds=max_age_seconds,
+        )
 
         missing_sources = []
         for name in [webcam_missing, screenshare_missing, browser_missing]:
@@ -91,6 +142,11 @@ class ResourceLoader:
             screenshare_text=screenshare_text,
             browser_text=browser_text,
             missing_sources=missing_sources,
+            source_metadata={
+                "webcam": webcam_metadata,
+                "screenshare": screenshare_metadata,
+                "browser": browser_metadata,
+            },
         )
 
     def describe_paths(self):
@@ -107,19 +163,20 @@ class ResourceLoader:
             "browser": self._path_status(self._resolve_primary_path(self.browser_candidates)),
         }
 
-    def _read_optional(self, candidates, source_name):
+    def _read_optional(self, candidates, source_name, max_age_seconds=None):
         path = self._resolve_primary_path(candidates)
+        metadata = self._build_metadata(path, max_age_seconds=max_age_seconds)
         if not path.exists():
-            return "", source_name
+            return "", source_name, metadata
 
         try:
             text = self._read_resource_text(path)
         except OSError:
-            return "", source_name
+            return "", source_name, metadata
 
         if not text:
-            return "", source_name
-        return text, ""
+            return "", source_name, metadata
+        return text, "", metadata
 
     def _build_candidates(self, env_var, default_path, fallbacks):
         configured = os.getenv(env_var)
@@ -184,3 +241,21 @@ class ResourceLoader:
         except OSError:
             size = 0
         return {"path": str(path), "exists": True, "bytes": size}
+
+    def _build_metadata(self, path, max_age_seconds=None):
+        metadata = {
+            "path": str(path),
+            "exists": path.exists(),
+            "age_seconds": None,
+            "stale": False,
+        }
+        if not path.exists():
+            return metadata
+        try:
+            age_seconds = max(0.0, time.time() - path.stat().st_mtime)
+        except OSError:
+            return metadata
+        metadata["age_seconds"] = age_seconds
+        if max_age_seconds is not None and age_seconds > max_age_seconds:
+            metadata["stale"] = True
+        return metadata

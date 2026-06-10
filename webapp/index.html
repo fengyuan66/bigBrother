@@ -100,6 +100,7 @@
             <span id="statusBadge" class="badge idle">Idle</span>
             <span id="turnBadge" class="badge subtle">No turns yet</span>
             <span id="thresholdBadge" class="badge subtle">Threshold loading...</span>
+            <span id="cooldownBadge" class="badge subtle">Cooldown idle</span>
           </div>
           <p id="paths" class="hint"></p>
         </article>
@@ -281,6 +282,39 @@
             </article>
           </div>
         </div>
+      </section>
+
+      <section class="debug-grid">
+        <article class="panel debug-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="section-kicker">Actor Debugger</p>
+              <h2>Live stage monitor</h2>
+            </div>
+            <span class="badge subtle">Reading · Processing · Writing · Idle</span>
+          </div>
+          <div id="actorStageGrid" class="actor-stage-grid">
+            <article class="actor-stage-card stage-idle">
+              <div class="actor-stage-head">
+                <h3>Watcher</h3>
+                <span class="badge subtle">idle</span>
+              </div>
+              <p class="status-text">Waiting for stage data.</p>
+            </article>
+          </div>
+        </article>
+
+        <article class="panel debug-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="section-kicker">Run Trace</p>
+              <h2>Recent timeline</h2>
+            </div>
+            <span class="badge subtle">Tail of debug log</span>
+          </div>
+          <p id="debugLogPath" class="hint">Debug log path will appear here.</p>
+          <pre id="debugEventLog">Debug events will appear here after a run.</pre>
+        </article>
       </section>
 
       <section class="inspector-grid">

@@ -12,6 +12,24 @@ DEFAULT_BASE_URL = os.getenv("BIG_BROTHER_BASE_URL", "https://api.openai.com/v1"
 DEFAULT_WATCHER_MODEL = os.getenv("BIG_BROTHER_WATCHER_MODEL", "generic-light-llm")
 DEFAULT_MPA_MODEL = os.getenv("BIG_BROTHER_MPA_MODEL", DEFAULT_WATCHER_MODEL)
 DEFAULT_PERSONALITY_MODEL = os.getenv("BIG_BROTHER_PERSONALITY_MODEL", DEFAULT_MPA_MODEL)
+DISTRACTION_TERMS = [
+    "phone",
+    "selfie",
+    "scrolling",
+    "youtube",
+    "netflix",
+    "tiktok",
+    "instagram",
+    "discord",
+    "game",
+    "gaming",
+    "shopping",
+    "social media",
+    "roblox",
+    "x.com",
+    "twitter",
+    "twitch",
+]
 
 
 @dataclass
@@ -56,6 +74,15 @@ class WatcherActor:
         return self.client is not None
 
     def evaluate(self, session_goal, resources):
+        if not resources.iter_sources():
+            return WatcherDecision(
+                off_task=False,
+                confidence=0.0,
+                summary="No fresh resource text available for the watcher.",
+                relevant_evidence=[],
+                actor_mode="no-fresh-resources",
+            )
+
         if not self.client:
             return self._fallback(session_goal, resources)
 
@@ -63,6 +90,9 @@ class WatcherActor:
             "You are the Watcher actor in a study-support agent system.\n"
             "Your job is to review evidence from available resources and decide whether there is "
             "relevant information suggesting the user is off-task.\n"
+            "Treat the supplied resources as the complete current world state. "
+            "Do not carry facts over from earlier turns. "
+            "If a distraction is not present in the current resources, do not mention it.\n"
             "Only include evidence that matters to the study intention. Ignore decorative or "
             "identity details unless they are directly relevant.\n"
             "Be matter-of-fact, concise, and non-judgmental.\n"
@@ -83,35 +113,21 @@ class WatcherActor:
         )
 
         data = json.loads(response.choices[0].message.content or "{}")
-        return WatcherDecision(
+        decision = WatcherDecision(
             off_task=bool(data.get("off_task")),
             confidence=float(data.get("confidence", 0.5)),
             summary=str(data.get("summary", "No summary provided.")),
             relevant_evidence=self._normalize_evidence(data.get("relevant_evidence")),
             actor_mode=f"llm:{self.model}",
         )
+        return self._validate_grounding(decision, resources)
 
     def _fallback(self, session_goal, resources):
         evidence = []
-        suspicious_terms = [
-            "phone",
-            "selfie",
-            "scrolling",
-            "youtube",
-            "netflix",
-            "tiktok",
-            "instagram",
-            "discord",
-            "game",
-            "gaming",
-            "shopping",
-            "social media",
-        ]
-
         goal_lower = session_goal.lower()
         for source_name, text in resources.iter_sources():
             lowered = text.lower()
-            for term in suspicious_terms:
+            for term in DISTRACTION_TERMS:
                 if term in lowered and term not in goal_lower:
                     evidence.append(f"{source_name}: {self._extract_sentence(text, term)}")
                     break
@@ -142,6 +158,34 @@ class WatcherActor:
             if term in chunk.lower():
                 return chunk.strip()[:180]
         return text.strip()[:180]
+
+    def _validate_grounding(self, decision, resources):
+        if not decision.off_task:
+            return decision
+
+        resource_text = "\n".join(text for _, text in resources.iter_sources()).lower()
+        if not resource_text.strip():
+            return WatcherDecision(
+                off_task=False,
+                confidence=0.0,
+                summary="No fresh resource text available for the watcher.",
+                relevant_evidence=[],
+                actor_mode=f"{decision.actor_mode}:ungrounded",
+            )
+
+        claimed_text = " ".join([decision.summary, *decision.relevant_evidence]).lower()
+        claimed_terms = [term for term in DISTRACTION_TERMS if term in claimed_text]
+
+        if claimed_terms and not any(term in resource_text for term in claimed_terms):
+            return WatcherDecision(
+                off_task=False,
+                confidence=0.0,
+                summary="Watcher rejected an ungrounded off-task claim from the current resources.",
+                relevant_evidence=[],
+                actor_mode=f"{decision.actor_mode}:ungrounded",
+            )
+
+        return decision
 
 
 class MainProcessingActor:

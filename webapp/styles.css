@@ -345,6 +345,11 @@ button:disabled {
   color: #8a4d14;
 }
 
+.badge.warm {
+  background: rgba(216, 140, 71, 0.22);
+  color: #8a4d14;
+}
+
 .overview-grid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   margin-bottom: 20px;
@@ -387,6 +392,75 @@ audio {
 .workspace-grid {
   grid-template-columns: minmax(320px, 0.95fr) minmax(420px, 1.05fr);
   margin-bottom: 20px;
+}
+
+.debug-grid {
+  display: grid;
+  grid-template-columns: minmax(360px, 0.95fr) minmax(420px, 1.05fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.debug-panel {
+  padding: 22px;
+}
+
+.actor-stage-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.actor-stage-card {
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(44, 63, 82, 0.12);
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+}
+
+.actor-stage-card.stage-idle {
+  background: rgba(255, 255, 255, 0.76);
+}
+
+.actor-stage-card.stage-reading {
+  background: rgba(216, 140, 71, 0.12);
+  border-color: rgba(216, 140, 71, 0.24);
+}
+
+.actor-stage-card.stage-processing {
+  background: rgba(29, 143, 92, 0.1);
+  border-color: rgba(29, 143, 92, 0.22);
+}
+
+.actor-stage-card.stage-writing {
+  background: rgba(31, 122, 140, 0.1);
+  border-color: rgba(31, 122, 140, 0.24);
+}
+
+.actor-stage-card.stage-cooldown {
+  background: rgba(216, 140, 71, 0.18);
+  border-color: rgba(216, 140, 71, 0.28);
+}
+
+.actor-stage-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.actor-stage-meta {
+  margin-bottom: 8px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.actor-stage-output {
+  min-height: 94px;
+  max-height: 160px;
+  margin-top: 10px;
 }
 
 .preview-panel {
@@ -497,6 +571,7 @@ pre {
   .control-layout,
   .overview-grid,
   .workspace-grid,
+  .debug-grid,
   .inspector-grid {
     grid-template-columns: 1fr;
   }
@@ -517,7 +592,8 @@ pre {
   }
 
   .control-row,
-  .mini-stats {
+  .mini-stats,
+  .actor-stage-grid {
     grid-template-columns: 1fr;
   }
 

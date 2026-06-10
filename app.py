@@ -20,8 +20,10 @@ APP_DIR = Path(__file__).resolve().parent
 WEB_DIR = APP_DIR / "webapp"
 SOURCES_DIR = APP_DIR / "sources"
 SUMMARIES_DIR = APP_DIR / "summaries"
+STATE_DIR = APP_DIR / "state"
 PERSONALITY_AUDIO_PATH = SUMMARIES_DIR / "personality_latest.mp3"
 PERSONALITY_JSON_PATH = SUMMARIES_DIR / "personality_latest.json"
+DEBUG_LOG_PATH = STATE_DIR / "debug_events.jsonl"
 load_env_file(APP_DIR / ".env")
 
 VISION_MODEL = os.getenv("BIG_BROTHER_VISION_MODEL", "qwen/qwen3-vl-235b-a22b-instruct")
@@ -37,6 +39,8 @@ MODE_TO_SUMMARY_PATH = {
 }
 DEFAULT_TICK_SECONDS = 4
 DEFAULT_OFF_TASK_THRESHOLD = 1
+DEFAULT_POST_INTERVENTION_COOLDOWN_SECONDS = 15
+MAX_DEBUG_EVENTS = 160
 
 
 def ensure_output_dirs():
@@ -44,6 +48,7 @@ def ensure_output_dirs():
         path.mkdir(parents=True, exist_ok=True)
     (SOURCES_DIR / "browser").mkdir(parents=True, exist_ok=True)
     SUMMARIES_DIR.mkdir(parents=True, exist_ok=True)
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def parse_data_url(data_url: str) -> str:
@@ -107,15 +112,46 @@ def write_local_outputs(analysis_mode: str, prompt: str, summary: str) -> dict:
     }
 
 
+def now_iso():
+    return datetime.now().isoformat(timespec="milliseconds")
+
+
+def make_actor_stage(key: str, label: str, model: str = "") -> dict:
+    return {
+        "key": key,
+        "label": label,
+        "model": model,
+        "status": "idle",
+        "detail": "Waiting for work.",
+        "updated_at": "",
+        "updated_at_unix": 0.0,
+        "last_output_at": "",
+        "last_output_preview": "",
+        "version": 0,
+    }
+
+
+def shorten_text(value: str, limit: int = 220) -> str:
+    text = str(value or "").strip()
+    if len(text) <= limit:
+        return text
+    return f"{text[: max(0, limit - 3)]}..."
+
+
 class DashboardState:
     def __init__(self):
-        self.lock = threading.Lock()
+        self.lock = threading.RLock()
         self.goal = "I am studying calculus"
         self.interval_seconds = env_int("BIG_BROTHER_INTERVAL_SECONDS", DEFAULT_TICK_SECONDS)
         self.threshold = env_int("BIG_BROTHER_OFF_TASK_THRESHOLD", DEFAULT_OFF_TASK_THRESHOLD)
+        self.post_intervention_cooldown_seconds = env_int(
+            "BIG_BROTHER_POST_SPEECH_PAUSE_SECONDS",
+            DEFAULT_POST_INTERVENTION_COOLDOWN_SECONDS,
+        )
         self.running = False
         self.off_task_streak = 0
         self.threshold_progress = 0
+        self.cooldown_until = 0.0
         self.session_duration_seconds = env_int("BIG_BROTHER_SESSION_DURATION_SECONDS", 900)
         self.session_deadline_at = 0.0
         self.status = "Ready."
@@ -162,6 +198,13 @@ class DashboardState:
             "summary": "",
             "writtenFiles": {},
         }
+        self.debug_events = []
+        self.event_sequence = 0
+        self.actor_stages = {
+            "watcher": make_actor_stage("watcher", "Watcher"),
+            "mpa": make_actor_stage("mpa", "MPA"),
+            "personality": make_actor_stage("personality", "Personality"),
+        }
 
     def snapshot(self, watcher, mpa, personality, resource_loader):
         with self.lock:
@@ -169,9 +212,17 @@ class DashboardState:
                 "goal": self.goal,
                 "interval_seconds": self.interval_seconds,
                 "threshold": self.threshold,
+                "post_intervention_cooldown_seconds": self.post_intervention_cooldown_seconds,
                 "running": self.running,
                 "off_task_streak": self.off_task_streak,
                 "threshold_progress": self.threshold_progress,
+                "cooldown_until": self.cooldown_until,
+                "cooldown_remaining_seconds": max(
+                    0,
+                    int(self.cooldown_until - time.time()),
+                )
+                if self.cooldown_until
+                else 0,
                 "session_duration_seconds": self.session_duration_seconds,
                 "session_deadline_at": self.session_deadline_at,
                 "session_remaining_seconds": max(
@@ -201,6 +252,12 @@ class DashboardState:
                 "paths": resource_loader.describe_paths(),
                 "last_export": dict(self.last_export),
                 "last_analysis": dict(self.last_analysis),
+                "actor_stages": {
+                    key: dict(value) for key, value in self.actor_stages.items()
+                },
+                "debug_events": list(self.debug_events),
+                "debug_log_path": str(DEBUG_LOG_PATH.relative_to(APP_DIR)),
+                "snapshot_at": now_iso(),
             }
 
 
@@ -216,6 +273,81 @@ class WatcherDashboardApp:
         self.stop_event = threading.Event()
         self.worker = None
         self.pending_watcher_hits = []
+        self.turn_counter = 0
+        self._set_actor_stage("watcher", "idle", "Watcher ready.", model=self.watcher.model)
+        self._set_actor_stage("mpa", "idle", "MPA ready.", model=self.mpa.model)
+        self._set_actor_stage("personality", "idle", "Personality ready.", model=self.personality.model)
+        self._log_event("system", "startup", "Debug instrumentation initialized.", {
+            "watcher_model": self.watcher.model,
+            "mpa_model": self.mpa.model,
+            "personality_model": self.personality.model,
+            "vision_model": VISION_MODEL,
+        })
+
+    def _next_turn_id(self):
+        with self.state.lock:
+            self.turn_counter += 1
+            return self.turn_counter
+
+    def _log_event(self, component: str, phase: str, message: str, payload=None):
+        ensure_output_dirs()
+        event = {
+            "timestamp": now_iso(),
+            "component": component,
+            "phase": phase,
+            "message": message,
+        }
+        if payload is not None:
+            event["payload"] = payload
+
+        with self.state.lock:
+            self.state.event_sequence += 1
+            event["seq"] = self.state.event_sequence
+            self.state.debug_events.append(event)
+            self.state.debug_events = self.state.debug_events[-MAX_DEBUG_EVENTS:]
+
+        try:
+            with DEBUG_LOG_PATH.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(event, ensure_ascii=False) + "\n")
+        except OSError:
+            pass
+
+        return event
+
+    def _set_actor_stage(self, actor_key: str, status: str, detail: str, *, output_preview: str = "", model: str | None = None):
+        updated_at = now_iso()
+        updated_at_unix = time.time()
+        with self.state.lock:
+            stage = self.state.actor_stages.setdefault(
+                actor_key,
+                make_actor_stage(actor_key, actor_key.title(), model or ""),
+            )
+            next_model = model if model is not None else stage.get("model", "")
+            next_output_preview = shorten_text(output_preview, 240) if output_preview else stage.get("last_output_preview", "")
+            changed = (
+                stage.get("status") != status
+                or stage.get("detail") != detail
+                or stage.get("model") != next_model
+                or stage.get("last_output_preview", "") != next_output_preview
+            )
+            if not changed:
+                return stage.get("updated_at", "")
+            if model is not None:
+                stage["model"] = model
+            stage["status"] = status
+            stage["detail"] = detail
+            stage["updated_at"] = updated_at
+            stage["updated_at_unix"] = updated_at_unix
+            stage["version"] = int(stage.get("version", 0)) + 1
+            if output_preview:
+                stage["last_output_at"] = updated_at
+                stage["last_output_preview"] = next_output_preview
+        return updated_at
+
+    def _resource_max_age_seconds(self):
+        with self.state.lock:
+            interval_seconds = self.state.interval_seconds
+        return max(10, int(interval_seconds) * 2 + 2)
 
     def _idle_mpa_output(self):
         return {
@@ -243,12 +375,20 @@ class WatcherDashboardApp:
         with self.state.lock:
             launch_url = self.state.browser_url
             current_browser = self.state.browser_name
+        self._log_event("browser", "launch_start", "Launching tracked browser.", {
+            "browser": current_browser,
+            "url": launch_url,
+        })
         self.tab_reader.launch(launch_url)
         self._sync_browser_export(retries=6, delay_seconds=0.5)
         self._refresh_resource_debug()
         with self.state.lock:
             self.state.capture_status = f"Launched {current_browser} for browser monitoring."
             self.state.status = f"Browser launched at {launch_url}"
+        self._log_event("browser", "launch_complete", "Tracked browser launched.", {
+            "browser": current_browser,
+            "url": launch_url,
+        })
         return {"browser": current_browser, "url": launch_url}
 
     def start_monitoring(self, goal, interval_seconds, threshold, duration_seconds=None):
@@ -260,6 +400,7 @@ class WatcherDashboardApp:
                 self.state.session_duration_seconds = max(DEFAULT_TICK_SECONDS, int(duration_seconds))
             self.state.off_task_streak = 0
             self.state.threshold_progress = 0
+            self.state.cooldown_until = 0.0
             self.state.mpa_output = self._idle_mpa_output()
             self.state.personality_output = self._idle_personality_output()
             self.state.running = True
@@ -268,6 +409,13 @@ class WatcherDashboardApp:
             )
             self.state.status = "Monitoring started."
             self.state.last_error = ""
+        self._log_event("session", "start", "Monitoring session started.", {
+            "goal": self.state.goal,
+            "interval_seconds": self.state.interval_seconds,
+            "threshold": self.state.threshold,
+            "duration_seconds": self.state.session_duration_seconds,
+            "cooldown_seconds": self.state.post_intervention_cooldown_seconds,
+        })
         self.pending_watcher_hits = []
         self.stop_event.clear()
         if not self.worker or not self.worker.is_alive():
@@ -278,7 +426,12 @@ class WatcherDashboardApp:
         with self.state.lock:
             self.state.running = False
             self.state.session_deadline_at = 0.0
+            self.state.cooldown_until = 0.0
             self.state.status = "Monitoring stopped."
+        self._set_actor_stage("watcher", "idle", "Watcher stopped.")
+        self._set_actor_stage("mpa", "idle", "MPA stopped.")
+        self._set_actor_stage("personality", "idle", "Personality stopped.")
+        self._log_event("session", "stop", "Monitoring session stopped.")
         self.stop_event.set()
 
     def reset_stats(self):
@@ -287,6 +440,7 @@ class WatcherDashboardApp:
             self.state.running = False
             self.state.off_task_streak = 0
             self.state.threshold_progress = 0
+            self.state.cooldown_until = 0.0
             self.state.session_deadline_at = 0.0
             self.state.status = "Session stats reset."
             self.state.last_error = ""
@@ -300,6 +454,10 @@ class WatcherDashboardApp:
             }
             self.state.mpa_output = self._idle_mpa_output()
             self.state.personality_output = self._idle_personality_output()
+        self._set_actor_stage("watcher", "idle", "Watcher reset.")
+        self._set_actor_stage("mpa", "idle", "MPA reset.")
+        self._set_actor_stage("personality", "idle", "Personality reset.")
+        self._log_event("session", "reset", "Session stats reset.")
         self.pending_watcher_hits = []
 
     def run_once(self, goal=None, interval_seconds=None, threshold=None):
@@ -327,8 +485,13 @@ class WatcherDashboardApp:
         return True
 
     def export_tabs(self):
+        self._log_event("browser", "export_start", "Refreshing browser tab export.")
         path, count = self._sync_browser_export(retries=4, delay_seconds=0.5)
         self._refresh_resource_debug()
+        self._log_event("browser", "export_complete", "Browser tab export refreshed.", {
+            "path": str(path),
+            "count": count,
+        })
         return {"path": str(path), "count": count}
 
     def _idle_personality_output(self):
@@ -441,6 +604,10 @@ class WatcherDashboardApp:
         analysis_mode = analysis_mode.strip().lower()
         if analysis_mode not in MODE_TO_SOURCE_DIR:
             raise ValueError("analysisMode must be 'webcam' or 'screen'.")
+        self._log_event("capture", "analyze_start", "Capture analysis requested.", {
+            "analysis_mode": analysis_mode,
+            "prompt": prompt.strip(),
+        })
 
         api_key = (os.getenv("BIG_BROTHER_API_KEY") or os.getenv("HACKCLUB_API_KEY") or "").strip()
         if not api_key:
@@ -501,6 +668,11 @@ class WatcherDashboardApp:
                 "summary": message,
                 "writtenFiles": written_files,
             }
+        self._log_event("capture", "analyze_complete", "Capture analysis complete.", {
+            "analysis_mode": analysis_mode,
+            "summary": message,
+            "written_files": written_files,
+        })
 
         return {
             "summary": message,
@@ -527,29 +699,109 @@ class WatcherDashboardApp:
             self.stop_event.wait(wait_seconds)
 
     def _refresh_resource_debug(self):
-        resources = self.resource_loader.load()
+        resources = self.resource_loader.load(max_age_seconds=self._resource_max_age_seconds())
         with self.state.lock:
             self.state.resources = {
-                "webcam": resources.webcam_text or "No webcam resource text found.",
-                "screenshare": resources.screenshare_text or "No screenshare resource text found.",
-                "browser": resources.browser_text or "No browser resource text found.",
+                "webcam": resources.describe_source("webcam") or "No webcam resource text found.",
+                "screenshare": resources.describe_source("screenshare") or "No screenshare resource text found.",
+                "browser": resources.describe_source("browser") or "No browser resource text found.",
             }
+        self._log_event("resources", "refresh", "Loaded current watcher resources.", {
+            "webcam": resources.describe_source("webcam"),
+            "screenshare": resources.describe_source("screenshare"),
+            "browser": resources.describe_source("browser"),
+            "prompt_text": resources.as_prompt_text(),
+            "source_metadata": resources.source_metadata,
+            "missing_sources": resources.missing_sources,
+        })
         return resources
 
     def _run_single_turn(self):
+        turn_id = self._next_turn_id()
         try:
+            self._log_event("turn", "start", "Watcher turn started.", {"turn_id": turn_id})
             with self.state.lock:
                 self.state.status = "Refreshing browser export..."
             self._sync_browser_export(retries=1, delay_seconds=0.2)
+            self._log_event("browser", "export_tick", "Browser export refreshed for watcher turn.", {
+                "turn_id": turn_id,
+                "export": dict(self.state.last_export),
+            })
             with self.state.lock:
                 self.state.status = "Loading resource files..."
             resources = self._refresh_resource_debug()
             with self.state.lock:
+                cooldown_remaining = max(0.0, self.state.cooldown_until - time.time())
+                if cooldown_remaining > 0:
+                    self.pending_watcher_hits = []
+                    self.state.off_task_streak = 0
+                    self.state.threshold_progress = 0
+                    self._set_actor_stage(
+                        "watcher",
+                        "cooldown",
+                        f"Cooldown active for {cooldown_remaining:.1f}s.",
+                    )
+                    self._set_actor_stage("mpa", "idle", "MPA waiting during watcher cooldown.")
+                    self._set_actor_stage("personality", "idle", "Personality waiting during watcher cooldown.")
+                    self.state.watcher_output = {
+                        "off_task": False,
+                        "confidence": 0.0,
+                        "summary": (
+                            f"Watcher paused for cooldown ({cooldown_remaining:.1f}s remaining). "
+                            "Resource panels may keep updating, but no new off-task decision will be made yet."
+                        ),
+                        "relevant_evidence": [],
+                        "actor_mode": "cooldown",
+                    }
+                    self.state.mpa_output = self._idle_mpa_output()
+                    self.state.personality_output = self._idle_personality_output()
+                    self.state.status = (
+                        f"Cooldown active for {cooldown_remaining:.1f}s. "
+                        "Waiting before evaluating new off-task signals."
+                    )
+                    self.state.last_error = ""
+                    self.state.last_turn_at = time.strftime("%Y-%m-%d %H:%M:%S")
+                    self._log_event("watcher", "cooldown", "Watcher turn skipped due to cooldown.", {
+                        "turn_id": turn_id,
+                        "cooldown_remaining_seconds": round(cooldown_remaining, 2),
+                    })
+                    self._log_event("turn", "complete", "Watcher turn ended during cooldown.", {
+                        "turn_id": turn_id,
+                    })
+                    return
                 self.state.status = "Watcher reviewing evidence..."
                 goal = self.state.goal
                 threshold = self.state.threshold
+                cooldown_seconds = max(0, self.state.post_intervention_cooldown_seconds)
+            self._set_actor_stage("watcher", "reading", "Watcher reading goal and current resources.")
+            self._log_event("watcher", "reading", "Watcher received fresh resources.", {
+                "turn_id": turn_id,
+                "goal": goal,
+                "resources_prompt": resources.as_prompt_text(),
+            })
+            self._set_actor_stage("watcher", "processing", "Watcher is evaluating whether the user is off-task.")
+            self._log_event("watcher", "processing", "Watcher model evaluation started.", {
+                "turn_id": turn_id,
+                "model": self.watcher.model,
+            })
             decision = self.watcher.evaluate(goal, resources)
             turn_time = time.strftime("%Y-%m-%d %H:%M:%S")
+            self._set_actor_stage(
+                "watcher",
+                "writing",
+                "Watcher wrote its decision.",
+                output_preview=decision.summary,
+            )
+            self._log_event("watcher", "writing", "Watcher decision received.", {
+                "turn_id": turn_id,
+                "output": {
+                    "off_task": decision.off_task,
+                    "confidence": decision.confidence,
+                    "summary": decision.summary,
+                    "relevant_evidence": list(decision.relevant_evidence),
+                    "actor_mode": decision.actor_mode,
+                },
+            })
             if decision.off_task:
                 self.pending_watcher_hits.append(decision)
                 self.pending_watcher_hits = self.pending_watcher_hits[-max(1, threshold):]
@@ -557,7 +809,43 @@ class WatcherDashboardApp:
                 self.pending_watcher_hits = []
 
             if len(self.pending_watcher_hits) >= threshold:
+                self._set_actor_stage("mpa", "reading", "MPA reading watcher-approved evidence.")
+                self._log_event("mpa", "reading", "MPA received watcher-approved evidence.", {
+                    "turn_id": turn_id,
+                    "threshold": threshold,
+                    "positive_hits": len(self.pending_watcher_hits),
+                    "watcher_hits": [
+                        {
+                            "summary": hit.summary,
+                            "relevant_evidence": list(hit.relevant_evidence),
+                            "confidence": hit.confidence,
+                        }
+                        for hit in self.pending_watcher_hits
+                    ],
+                })
+                self._set_actor_stage("mpa", "processing", "MPA is converting evidence into an agenda.")
+                self._log_event("mpa", "processing", "MPA evaluation started.", {
+                    "turn_id": turn_id,
+                    "model": self.mpa.model,
+                })
                 mpa_result = self.mpa.evaluate(goal, list(self.pending_watcher_hits))
+                self._set_actor_stage(
+                    "mpa",
+                    "writing",
+                    "MPA wrote its agenda output.",
+                    output_preview=mpa_result.agenda,
+                )
+                self._log_event("mpa", "writing", "MPA result received.", {
+                    "turn_id": turn_id,
+                    "output": {
+                        "triggered": mpa_result.triggered,
+                        "should_intervene": mpa_result.should_intervene,
+                        "agenda": mpa_result.agenda,
+                        "rationale": mpa_result.rationale,
+                        "supporting_points": list(mpa_result.supporting_points),
+                        "actor_mode": mpa_result.actor_mode,
+                    },
+                })
             else:
                 turns_left = max(0, threshold - len(self.pending_watcher_hits))
                 mpa_result = {
@@ -572,9 +860,36 @@ class WatcherDashboardApp:
                     "supporting_points": [],
                     "actor_mode": "idle",
                 }
+                self._set_actor_stage(
+                    "mpa",
+                    "idle",
+                    f"Waiting for watcher threshold. {turns_left} positive turn(s) remaining.",
+                )
+                self._log_event("mpa", "idle", "MPA skipped because threshold not met.", {
+                    "turn_id": turn_id,
+                    "threshold": threshold,
+                    "positive_hits": len(self.pending_watcher_hits),
+                    "turns_left": turns_left,
+                })
             if isinstance(mpa_result, dict) or not mpa_result.triggered or not mpa_result.should_intervene:
                 personality_output = self._idle_personality_output()
+                self._set_actor_stage("personality", "idle", "Personality waiting for an intervention agenda.")
+                self._log_event("personality", "idle", "Personality skipped because no intervention was requested.", {
+                    "turn_id": turn_id,
+                })
             else:
+                self._set_actor_stage("personality", "reading", "Personality reading the MPA agenda and watcher evidence.")
+                self._log_event("personality", "reading", "Personality received agenda and evidence.", {
+                    "turn_id": turn_id,
+                    "agenda": mpa_result.agenda,
+                    "rationale": mpa_result.rationale,
+                    "supporting_points": list(mpa_result.supporting_points),
+                })
+                self._set_actor_stage("personality", "processing", "Personality is generating the spoken intervention.")
+                self._log_event("personality", "processing", "Personality evaluation started.", {
+                    "turn_id": turn_id,
+                    "model": self.personality.model,
+                })
                 personality_result = self.personality.evaluate(goal, mpa_result, list(self.pending_watcher_hits))
                 personality_output = {
                     "triggered": personality_result.triggered,
@@ -587,8 +902,42 @@ class WatcherDashboardApp:
                     "audio_url": "",
                     "audio_error": "",
                 }
+                self._set_actor_stage(
+                    "personality",
+                    "writing",
+                    "Personality wrote the spoken intervention.",
+                    output_preview=personality_result.spoken_text,
+                )
+                self._log_event("personality", "writing", "Personality result received.", {
+                    "turn_id": turn_id,
+                    "output": {
+                        "triggered": personality_result.triggered,
+                        "should_speak": personality_result.should_speak,
+                        "spoken_text": personality_result.spoken_text,
+                        "delivery_notes": personality_result.delivery_notes,
+                        "actor_mode": personality_result.actor_mode,
+                    },
+                })
                 if personality_result.should_speak:
+                    self._log_event("audio", "processing", "Starting ElevenLabs synthesis.", {
+                        "turn_id": turn_id,
+                        "text": personality_result.spoken_text,
+                    })
                     personality_output.update(self._synthesize_personality_audio(personality_result.spoken_text))
+                    self._log_event("audio", "writing", "Audio synthesis finished.", {
+                        "turn_id": turn_id,
+                        "audio_generated": personality_output.get("audio_generated", False),
+                        "audio_url": personality_output.get("audio_url", ""),
+                        "audio_error": personality_output.get("audio_error", ""),
+                    })
+                    if cooldown_seconds > 0:
+                        with self.state.lock:
+                            self.state.cooldown_until = time.time() + cooldown_seconds
+                        self.pending_watcher_hits = []
+                        self._log_event("watcher", "cooldown_scheduled", "Post-intervention cooldown scheduled.", {
+                            "turn_id": turn_id,
+                            "cooldown_seconds": cooldown_seconds,
+                        })
             with self.state.lock:
                 if decision.off_task:
                     self.state.off_task_streak += 1
@@ -631,7 +980,31 @@ class WatcherDashboardApp:
                     self.state.status = f"{state_label} ({decision.confidence:.0%}): {decision.summary}"
                 self.state.last_turn_at = turn_time
                 self.state.last_error = ""
+            self._set_actor_stage("watcher", "idle", "Watcher is idle until the next tick.")
+            if isinstance(mpa_result, dict):
+                self._set_actor_stage("mpa", "idle", "MPA is idle until the next threshold event.")
+            else:
+                self._set_actor_stage("mpa", "idle", "MPA is idle until the next threshold event.", output_preview=mpa_result.agenda)
+            self._set_actor_stage(
+                "personality",
+                "idle",
+                "Personality is idle until the next intervention agenda.",
+                output_preview=personality_output.get("spoken_text", ""),
+            )
+            self._log_event("turn", "complete", "Watcher turn completed.", {
+                "turn_id": turn_id,
+                "decision_off_task": decision.off_task,
+                "streak": self.state.off_task_streak,
+                "threshold_progress": self.state.threshold_progress,
+            })
         except Exception as exc:
+            self._set_actor_stage("watcher", "idle", f"Watcher error: {exc}")
+            self._set_actor_stage("mpa", "idle", "MPA halted due to upstream error.")
+            self._set_actor_stage("personality", "idle", "Personality halted due to upstream error.")
+            self._log_event("turn", "error", "Watcher turn failed.", {
+                "turn_id": turn_id,
+                "error": str(exc),
+            })
             with self.state.lock:
                 self.state.last_error = str(exc)
                 self.state.status = f"Error: {exc}"
@@ -651,6 +1024,8 @@ class AppHandler(BaseHTTPRequestHandler):
             return self._serve_file(WEB_DIR / "styles.css", "text/css; charset=utf-8")
         if parsed.path == "/artifacts/personality-latest.mp3":
             return self._serve_file(PERSONALITY_AUDIO_PATH, "audio/mpeg")
+        if parsed.path == "/artifacts/debug-events.jsonl":
+            return self._serve_file(DEBUG_LOG_PATH, "application/jsonl; charset=utf-8")
         if parsed.path == "/api/state":
             return self._json_response(APP.state.snapshot(APP.watcher, APP.mpa, APP.personality, APP.resource_loader))
         self.send_error(HTTPStatus.NOT_FOUND, "Not found")

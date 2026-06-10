@@ -13,6 +13,7 @@ const runningBadge = document.getElementById("runningBadge");
 const turnBadge = document.getElementById("turnBadge");
 const actorModeBadge = document.getElementById("actorModeBadge");
 const thresholdBadge = document.getElementById("thresholdBadge");
+const cooldownBadge = document.getElementById("cooldownBadge");
 const mpaBadge = document.getElementById("mpaBadge");
 const personalityBadge = document.getElementById("personalityBadge");
 const guidedBadge = document.getElementById("guidedBadge");
@@ -31,6 +32,9 @@ const sessionDurationValue = document.getElementById("sessionDurationValue");
 const sessionCountdown = document.getElementById("sessionCountdown");
 const evidenceList = document.getElementById("evidenceList");
 const pathsText = document.getElementById("paths");
+const actorStageGrid = document.getElementById("actorStageGrid");
+const debugLogPath = document.getElementById("debugLogPath");
+const debugEventLog = document.getElementById("debugEventLog");
 
 const webcamOutput = document.getElementById("webcamOutput");
 const screenshareOutput = document.getElementById("screenshareOutput");
@@ -83,6 +87,8 @@ let autoCaptureHandle = null;
 let captureInFlight = false;
 let lastSpokenPersonalityEventId = "";
 let availableSpeechVoices = [];
+let audioContext = null;
+const lastActorStageVersions = {};
 
 function refreshSpeechVoices() {
   if (!("speechSynthesis" in window)) {
@@ -90,6 +96,48 @@ function refreshSpeechVoices() {
     return;
   }
   availableSpeechVoices = window.speechSynthesis.getVoices();
+}
+
+function ensureAudioContext() {
+  if (audioContext) {
+    if (audioContext.state === "suspended") {
+      audioContext.resume().catch(() => {});
+    }
+    return audioContext;
+  }
+  const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextCtor) {
+    return null;
+  }
+  audioContext = new AudioContextCtor();
+  return audioContext;
+}
+
+function playStatusCue(status) {
+  const context = ensureAudioContext();
+  if (!context) {
+    return;
+  }
+  const frequencies = {
+    reading: 420,
+    processing: 560,
+    writing: 740,
+    idle: 320,
+    cooldown: 500,
+  };
+  const frequency = frequencies[status] || 360;
+  const oscillator = context.createOscillator();
+  const gain = context.createGain();
+  const now = context.currentTime;
+  oscillator.type = status === "writing" ? "triangle" : "sine";
+  oscillator.frequency.setValueAtTime(frequency, now);
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(0.04, now + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+  oscillator.connect(gain);
+  gain.connect(context.destination);
+  oscillator.start(now);
+  oscillator.stop(now + 0.2);
 }
 
 refreshSpeechVoices();
@@ -333,6 +381,109 @@ function renderPersonality(personality) {
   }
 }
 
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
+function formatAgeFromUnix(unixSeconds, snapshotAtIso = "") {
+  if (!unixSeconds) {
+    return "No updates yet";
+  }
+  const nowMillis = snapshotAtIso ? Date.parse(snapshotAtIso) : Date.now();
+  if (!Number.isFinite(nowMillis)) {
+    return "Updated just now";
+  }
+  const seconds = Math.max(0, Math.round((nowMillis - unixSeconds * 1000) / 1000));
+  return `Updated ${formatDurationLabel(seconds)} ago`;
+}
+
+function renderActorStages(actorStages, snapshotAtIso = "") {
+  const stageEntries = Object.values(actorStages || {});
+  if (stageEntries.length === 0) {
+    actorStageGrid.innerHTML = `
+      <article class="actor-stage-card stage-idle">
+        <div class="actor-stage-head">
+          <h3>No actors</h3>
+          <span class="badge subtle">idle</span>
+        </div>
+        <p class="status-text">No actor stage data is available yet.</p>
+      </article>
+    `;
+    return;
+  }
+
+  actorStageGrid.innerHTML = stageEntries
+    .map((stage) => {
+      const status = String(stage.status || "idle").toLowerCase();
+      const badgeClass =
+        status === "reading"
+          ? "ready"
+          : status === "processing"
+            ? "running"
+            : status === "writing"
+              ? "warm"
+              : status === "cooldown"
+                ? "warm"
+                : "subtle";
+      const detail = escapeHtml(stage.detail || "Waiting for work.");
+      const outputPreview = escapeHtml(stage.last_output_preview || "No output yet.");
+      const model = escapeHtml(stage.model || "No model");
+      const updatedLabel = escapeHtml(formatAgeFromUnix(Number(stage.updated_at_unix || 0), snapshotAtIso));
+      const lastOutputAt = escapeHtml(stage.last_output_at || "No output yet");
+
+      return `
+        <article class="actor-stage-card stage-${status}">
+          <div class="actor-stage-head">
+            <h3>${escapeHtml(stage.label || stage.key || "Actor")}</h3>
+            <span class="badge ${badgeClass}">${escapeHtml(status)}</span>
+          </div>
+          <p class="status-text">${detail}</p>
+          <p class="actor-stage-meta"><strong>Model:</strong> ${model}</p>
+          <p class="actor-stage-meta"><strong>Timer:</strong> ${updatedLabel}</p>
+          <p class="actor-stage-meta"><strong>Last output:</strong> ${lastOutputAt}</p>
+          <pre class="actor-stage-output">${outputPreview}</pre>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+function formatDebugEvents(events) {
+  if (!events || events.length === 0) {
+    return "Debug events will appear here after a run.";
+  }
+
+  const latestEvents = [...events].slice(-40).reverse();
+  return latestEvents
+    .map((event) => {
+      const header = `${event.timestamp || ""}  [${event.component || "?"}/${event.phase || "?"}]  ${event.message || ""}`;
+      if (event.payload === undefined) {
+        return header;
+      }
+      return `${header}\n${JSON.stringify(event.payload, null, 2)}`;
+    })
+    .join("\n\n");
+}
+
+function playActorStageUpdates(actorStages) {
+  for (const [actorKey, stage] of Object.entries(actorStages || {})) {
+    const version = Number(stage.version || 0);
+    if (!version) {
+      continue;
+    }
+    const previousVersion = Number(lastActorStageVersions[actorKey] || 0);
+    if (version !== previousVersion) {
+      if (previousVersion !== 0) {
+        playStatusCue(String(stage.status || "idle").toLowerCase());
+      }
+      lastActorStageVersions[actorKey] = version;
+    }
+  }
+}
+
 function speakPersonalityIfNeeded(personality, turnLabel = "") {
   if (!("speechSynthesis" in window)) {
     return;
@@ -391,8 +542,21 @@ function renderState(state) {
   guidedBadge.textContent = state.running ? "Session active" : "Ready to launch";
   guidedBadge.className = `badge ${state.running ? "running" : "subtle"}`;
 
-  statusBadge.textContent = state.watcher_output.off_task ? "Watcher says off task" : "Watcher says on task";
-  statusBadge.className = `badge ${state.watcher_output.off_task ? "alert" : "idle"}`;
+  const cooldownRemaining = Number(state.cooldown_remaining_seconds || 0);
+  statusBadge.textContent =
+    cooldownRemaining > 0
+      ? "Watcher cooldown active"
+      : state.watcher_output.off_task
+        ? "Watcher says off task"
+        : "Watcher says on task";
+  statusBadge.className = `badge ${
+    cooldownRemaining > 0 ? "warm" : state.watcher_output.off_task ? "alert" : "idle"
+  }`;
+  cooldownBadge.textContent =
+    cooldownRemaining > 0
+      ? `Cooldown: ${formatDurationLabel(cooldownRemaining)}`
+      : "Cooldown idle";
+  cooldownBadge.className = `badge ${cooldownRemaining > 0 ? "warm" : "subtle"}`;
 
   turnBadge.textContent = state.last_turn_at ? `Last turn: ${state.last_turn_at}` : "No turns yet";
   statusText.textContent = state.status || "Ready.";
@@ -429,6 +593,12 @@ function renderState(state) {
   const personality = state.personality_output || {};
   renderPersonality(personality);
   speakPersonalityIfNeeded(personality, state.last_turn_at || "");
+  renderActorStages(state.actor_stages || {}, state.snapshot_at || "");
+  playActorStageUpdates(state.actor_stages || {});
+  debugLogPath.textContent = `Debug log file: ${state.debug_log_path || "state/debug_events.jsonl"} | Live events in memory: ${
+    (state.debug_events || []).length
+  }`;
+  debugEventLog.textContent = formatDebugEvents(state.debug_events || []);
 
   const paths = state.paths || {};
   pathsText.textContent = `Files in use: webcam ${paths.webcam || ""} | screenshare ${paths.screenshare || ""} | browser ${paths.browser || ""}`;
@@ -674,6 +844,13 @@ exportTabsButton.addEventListener("click", exportTabs);
 launchBrowserButton.addEventListener("click", launchBrowser);
 guidedStartButton.addEventListener("click", startGuidedSession);
 sessionDurationSlider.addEventListener("input", syncSessionDurationLabel);
+document.addEventListener(
+  "pointerdown",
+  () => {
+    ensureAudioContext();
+  },
+  { once: true }
+);
 
 captureSources.webcam.liveStatusEl.textContent = "Webcam not connected.";
 captureSources.screen.liveStatusEl.textContent = "Screenshare not connected.";

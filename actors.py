@@ -1,5 +1,6 @@
 import json
 import os
+import time
 from dataclasses import dataclass
 
 try:
@@ -7,8 +8,48 @@ try:
 except ImportError:
     OpenAI = None
 
+from agent_core import estimate_text_tokens
+
 
 DEFAULT_BASE_URL = os.getenv("BIG_BROTHER_BASE_URL", "https://api.openai.com/v1")
+MAX_RESOURCE_PROMPT_CHARS = int(os.getenv("BIG_BROTHER_MAX_RESOURCE_CHARS", "4000"))
+ACTOR_TIMEOUT_SECONDS = int(os.getenv("BIG_BROTHER_ACTOR_TIMEOUT_SECONDS", "60"))
+ACTOR_RETRIES = int(os.getenv("BIG_BROTHER_ACTOR_RETRIES", "2"))
+
+
+def truncate_for_prompt(text: str, limit: int = MAX_RESOURCE_PROMPT_CHARS) -> str:
+    text = str(text or "")
+    if len(text) <= limit:
+        return text
+    return text[: max(0, limit - 22)] + "\n...[truncated]..."
+
+
+def chat_json(client, model, prompt, *, temperature, max_tokens, ledger=None, component=""):
+    """Single JSON-mode chat call with retries, timeout, and ledger accounting."""
+    last_error = None
+    for attempt in range(max(1, ACTOR_RETRIES + 1)):
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=temperature,
+                max_tokens=max_tokens,
+                timeout=ACTOR_TIMEOUT_SECONDS,
+                response_format={"type": "json_object"},
+            )
+            content = response.choices[0].message.content or "{}"
+            if ledger is not None:
+                usage = getattr(response, "usage", None)
+                prompt_tokens = getattr(usage, "prompt_tokens", 0) or estimate_text_tokens(prompt)
+                completion_tokens = getattr(usage, "completion_tokens", 0) or estimate_text_tokens(content)
+                ledger.record_call(component or model, prompt_tokens, completion_tokens)
+            return json.loads(content)
+        except json.JSONDecodeError:
+            return {}
+        except Exception as exc:
+            last_error = exc
+            time.sleep(0.5 * (2**attempt))
+    raise last_error
 DEFAULT_WATCHER_MODEL = os.getenv("BIG_BROTHER_WATCHER_MODEL", "generic-light-llm")
 DEFAULT_MPA_MODEL = os.getenv("BIG_BROTHER_MPA_MODEL", DEFAULT_WATCHER_MODEL)
 DEFAULT_PERSONALITY_MODEL = os.getenv("BIG_BROTHER_PERSONALITY_MODEL", DEFAULT_MPA_MODEL)
@@ -61,10 +102,11 @@ class PersonalityResult:
 
 
 class WatcherActor:
-    def __init__(self):
+    def __init__(self, ledger=None):
         api_key = os.getenv("BIG_BROTHER_API_KEY") or os.getenv("OPENAI_API_KEY")
         self.base_url = os.getenv("BIG_BROTHER_BASE_URL", DEFAULT_BASE_URL)
         self.model = os.getenv("BIG_BROTHER_WATCHER_MODEL", DEFAULT_WATCHER_MODEL)
+        self.ledger = ledger
         self.client = (
             OpenAI(api_key=api_key, base_url=self.base_url) if api_key and OpenAI else None
         )
@@ -102,17 +144,18 @@ class WatcherActor:
             "summary: string under 180 characters\n"
             "relevant_evidence: array of strings, each under 180 characters\n\n"
             f"Study intention:\n{session_goal}\n\n"
-            f"Available resources:\n{resources.as_prompt_text()}"
+            f"Available resources:\n{truncate_for_prompt(resources.as_prompt_text())}"
         )
 
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=[{"role": "user", "content": prompt}],
+        data = chat_json(
+            self.client,
+            self.model,
+            prompt,
             temperature=0,
-            response_format={"type": "json_object"},
+            max_tokens=220,
+            ledger=self.ledger,
+            component="watcher",
         )
-
-        data = json.loads(response.choices[0].message.content or "{}")
         decision = WatcherDecision(
             off_task=bool(data.get("off_task")),
             confidence=float(data.get("confidence", 0.5)),
@@ -189,10 +232,11 @@ class WatcherActor:
 
 
 class MainProcessingActor:
-    def __init__(self):
+    def __init__(self, ledger=None):
         api_key = os.getenv("BIG_BROTHER_API_KEY") or os.getenv("OPENAI_API_KEY")
         self.base_url = os.getenv("BIG_BROTHER_BASE_URL", DEFAULT_BASE_URL)
         self.model = os.getenv("BIG_BROTHER_MPA_MODEL", DEFAULT_MPA_MODEL)
+        self.ledger = ledger
         self.client = (
             OpenAI(api_key=api_key, base_url=self.base_url) if api_key and OpenAI else None
         )
@@ -241,14 +285,15 @@ class MainProcessingActor:
             f"{chr(10).join(evidence_lines) if evidence_lines else 'None'}"
         )
 
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=[{"role": "user", "content": prompt}],
+        data = chat_json(
+            self.client,
+            self.model,
+            prompt,
             temperature=0,
-            response_format={"type": "json_object"},
+            max_tokens=280,
+            ledger=self.ledger,
+            component="mpa",
         )
-
-        data = json.loads(response.choices[0].message.content or "{}")
         return MPAResult(
             triggered=True,
             should_intervene=bool(data.get("should_intervene", True)),
@@ -288,7 +333,8 @@ class MainProcessingActor:
 
 
 class PersonalityActor:
-    def __init__(self):
+    def __init__(self, ledger=None):
+        self.ledger = ledger
         api_key = os.getenv("BIG_BROTHER_API_KEY") or os.getenv("OPENAI_API_KEY")
         self.base_url = os.getenv("BIG_BROTHER_BASE_URL", DEFAULT_BASE_URL)
         self.model = os.getenv("BIG_BROTHER_PERSONALITY_MODEL", DEFAULT_PERSONALITY_MODEL)
@@ -354,14 +400,15 @@ class PersonalityActor:
             f"{chr(10).join('- ' + item for item in evidence_lines) or '- None'}"
         )
 
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=[{"role": "user", "content": prompt}],
+        data = chat_json(
+            self.client,
+            self.model,
+            prompt,
             temperature=0.6,
-            response_format={"type": "json_object"},
+            max_tokens=240,
+            ledger=self.ledger,
+            component="personality",
         )
-
-        data = json.loads(response.choices[0].message.content or "{}")
         return PersonalityResult(
             triggered=True,
             should_speak=bool(data.get("should_speak", True)),

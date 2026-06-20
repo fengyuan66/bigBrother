@@ -1,0 +1,43 @@
+# "Get resource" priority:
+
+Stimulus by screen content
+
+1. Call a scan of current browser tabs and header
+2. Call a VLM with prompt / specific query (thing the MPA wants to find out / get clear about). VLM should only report relevant info according to the prompt given from MPA; MPA should make the judgement since it has the context.
+
+Stimulus by inactivity:
+
+1. Call a scan of current browser tabs and header
+(User may be watching video or doing something relevant but inactive)
+(ask questions if necessary)
+
+Every 30 seconds:
+
+2. Trigger stimuli to scan camera
+
+
+
+An agent has access to a to-do-list, memory, and status file
+
+To-do-list allows agents to basically programmatically set an alarm (a stimuli or call) for themselves (with notes attached) using simple syntax
+
+Memory is a timestamped list of user movements and other notes. The Agent doesn't have to reference it, but it can use RAG to reference it at its choosing
+
+A status file is more recommended to frequently access. This contains the current state of things and status of the user and their activity, including those derived from what the user said in response to (for ex, ) questions. The Agent can change this in the loop, as indicated in the diagram
+
+
+List of stimuli right now:
+
+- New browser tab opens
+- Browser tab closes
+- Browser page refresh
+
+NUANCE: mass openings, refreshes, and closes are buffered, meaning that there will be some time after a stimuli of a type where that type cannot be triggered (stimuli not regarded) (ex, 2 seconds)
+
+- Inactivity for 60 seconds
+
+NUANCE: We must develop a system to robustly designated "re-activity" instead of one mouse or keyboard event.
+
+- Custom stimuli as indicated in to do list
+
+- Custom stimuli in pre-formulated response instructions (e.g., 30 second camera-VLM scan stimuli triggers while inactivity)

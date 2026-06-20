@@ -1,4 +1,5 @@
 import base64
+import hashlib
 import json
 import os
 import threading
@@ -11,8 +12,18 @@ from urllib import error, request
 from urllib.parse import urlparse
 
 from actors import MainProcessingActor, PersonalityActor, WatcherActor
+from agent_core import (
+    AgentMemory,
+    StatusFile,
+    StimulusBus,
+    TodoList,
+    TokenLedger,
+    estimate_image_tokens,
+    estimate_text_tokens,
+)
 from browser_live_demo import BROWSERS, TAB_OUTPUT_PATH, BrowserLiveReader
 from config import env_int, load_env_file
+from orchestrator import AgentOrchestrator
 from resources import ResourceLoader
 
 
@@ -116,6 +127,21 @@ def write_local_outputs(analysis_mode: str, prompt: str, summary: str) -> dict:
 
 def now_iso():
     return datetime.now().isoformat(timespec="milliseconds")
+
+
+VOLATILE_LINE_PREFIXES = ("created:", "updated:", "exported", "timestamp")
+
+
+def evidence_fingerprint(goal: str, prompt_text: str) -> str:
+    """Hash of the evidence with volatile timestamp lines stripped, so that
+    re-exports of identical content do not defeat the watcher gate."""
+    stable_lines = [
+        line
+        for line in str(prompt_text or "").splitlines()
+        if not line.strip().lower().startswith(VOLATILE_LINE_PREFIXES)
+    ]
+    digest_input = f"{goal}\n" + "\n".join(stable_lines)
+    return hashlib.sha1(digest_input.encode("utf-8")).hexdigest()
 
 
 def make_actor_stage(key: str, label: str, model: str = "") -> dict:
@@ -327,18 +353,30 @@ class DashboardState:
 
 
 class WatcherDashboardApp:
-    def __init__(self):
+    def __init__(self, start_orchestrator=True):
         ensure_output_dirs()
         self.state = DashboardState()
         self.resource_loader = ResourceLoader()
-        self.watcher = WatcherActor()
-        self.mpa = MainProcessingActor()
-        self.personality = PersonalityActor()
+        self.ledger = TokenLedger()
+        self.memory = AgentMemory()
+        self.status_file = StatusFile()
+        self.todos = TodoList()
+        self.bus = StimulusBus()
+        self.watcher = WatcherActor(ledger=self.ledger)
+        self.mpa = MainProcessingActor(ledger=self.ledger)
+        self.personality = PersonalityActor(ledger=self.ledger)
         self.tab_reader = BrowserLiveReader(BROWSERS[self.state.browser_name])
         self.stop_event = threading.Event()
         self.worker = None
         self.pending_watcher_hits = []
         self.turn_counter = 0
+        self._capture_hashes = {}
+        self._capture_cache = {}
+        self._last_watcher_fingerprint = ""
+        self._last_watcher_decision = None
+        self.orchestrator = AgentOrchestrator(self)
+        if start_orchestrator:
+            self.orchestrator.start()
         self._set_actor_stage("watcher", "idle", "Watcher ready.", model=self.watcher.model)
         self._set_actor_stage("mpa", "idle", "MPA ready.", model=self.mpa.model)
         self._set_actor_stage("personality", "idle", "Personality ready.", model=self.personality.model)
@@ -348,6 +386,18 @@ class WatcherDashboardApp:
             "personality_model": self.personality.model,
             "vision_model": VISION_MODEL,
         })
+
+    def snapshot(self):
+        snap = self.state.snapshot(self.watcher, self.mpa, self.personality, self.resource_loader)
+        snap["agent"] = {
+            "status": self.status_file.get(),
+            "todos": self.todos.list_all(),
+            "memory_recent": self.memory.recent(10),
+            "last_stimulus": dict(self.bus.last_stimulus),
+            "token_ledger": self.ledger.snapshot(),
+            "heartbeat_seconds": self.orchestrator.heartbeat_seconds,
+        }
+        return snap
 
     def _next_turn_id(self):
         with self.state.lock:
@@ -613,7 +663,10 @@ class WatcherDashboardApp:
             "cooldown_seconds": self.state.post_intervention_cooldown_seconds,
         })
         self.pending_watcher_hits = []
+        self._last_watcher_fingerprint = ""
+        self._last_watcher_decision = None
         self.stop_event.clear()
+        self.orchestrator.note_session_started()
         if not self.worker or not self.worker.is_alive():
             self.worker = threading.Thread(target=self._monitor_loop, daemon=True)
             self.worker.start()
@@ -629,6 +682,7 @@ class WatcherDashboardApp:
         self._set_actor_stage("mpa", "idle", "MPA stopped.")
         self._set_actor_stage("personality", "idle", "Personality stopped.")
         self._log_event("session", "stop", "Monitoring session stopped.")
+        self.orchestrator.note_session_stopped()
         self.stop_event.set()
 
     def reset_stats(self):
@@ -657,6 +711,41 @@ class WatcherDashboardApp:
             self.state.last_error = ""
         turn_snapshot = self._collect_turn_snapshot(reason=reason)
         self._evaluate_turn_snapshot(turn_snapshot)
+
+    def run_turn(self, reason="agent_stimulus"):
+        """Orchestrator-driven deliberate turn using current session settings."""
+        with self.state.lock:
+            self.state.status = f"Running agent turn ({reason})..."
+            self.state.cycle_status = f"Agent turn pending ({reason})."
+        turn_snapshot = self._collect_turn_snapshot(reason=reason)
+        self._evaluate_turn_snapshot(turn_snapshot)
+
+    def ingest_stimulus(self, stimulus_type: str, payload: dict | None = None):
+        """Client-reported stimuli (inactivity, activity, frame_unchanged, manual)."""
+        stimulus_type = str(stimulus_type or "").strip()
+        allowed = {"inactivity", "activity", "frame_unchanged", "manual"}
+        if stimulus_type not in allowed:
+            raise ValueError(f"Unknown stimulus type '{stimulus_type}'.")
+        payload = dict(payload or {})
+
+        if stimulus_type == "frame_unchanged":
+            # Zero-token freshness refresh for an unchanged client frame.
+            mode = str(payload.get("mode", "")).strip().lower()
+            cached = self._capture_cache.get(mode)
+            if mode in MODE_TO_SOURCE_DIR and cached:
+                write_local_outputs(mode, "", cached)
+                self.ledger.record_skip(
+                    f"vlm:{mode}",
+                    estimate_image_tokens(
+                        width=int(payload.get("width", 0) or 0),
+                        height=int(payload.get("height", 0) or 0),
+                    )
+                    + 400,
+                )
+                with self.state.lock:
+                    self.state.resource_revision += 1
+        accepted = self.bus.emit(stimulus_type, payload)
+        return {"accepted": accepted, "type": stimulus_type}
 
     def _expire_session_if_needed(self):
         with self.state.lock:
@@ -833,10 +922,36 @@ class WatcherDashboardApp:
         image_data_url = parse_data_url(image_data_url)
         request_prompt = build_vision_prompt(analysis_mode, prompt.strip())
 
+        # VLM dedupe: an identical frame returns the cached summary with zero
+        # tokens, refreshing the resource files so freshness tracking holds.
+        image_hash = hashlib.sha1(image_data_url.encode("utf-8")).hexdigest()
+        cached_summary = self._capture_cache.get(analysis_mode)
+        if cached_summary and self._capture_hashes.get(analysis_mode) == image_hash:
+            written_files = write_local_outputs(analysis_mode, prompt.strip(), cached_summary)
+            self.ledger.record_skip(
+                f"vlm:{analysis_mode}",
+                estimate_image_tokens(base64_length=len(image_data_url))
+                + estimate_text_tokens(request_prompt)
+                + estimate_text_tokens(cached_summary),
+            )
+            self._refresh_resource_debug()
+            with self.state.lock:
+                self.state.resource_revision += 1
+            self._log_event("capture", "analyze_cached", "Identical frame; VLM call skipped.", {
+                "analysis_mode": analysis_mode,
+            })
+            return {
+                "summary": cached_summary,
+                "model": VISION_MODEL,
+                "analysisMode": analysis_mode,
+                "writtenFiles": written_files,
+                "cached": True,
+            }
+
         upstream_body = {
             "model": VISION_MODEL,
             "temperature": 0.2,
-            "max_tokens": 500,
+            "max_tokens": 300,
             "messages": [
                 {
                     "role": "user",
@@ -872,6 +987,18 @@ class WatcherDashboardApp:
         except (KeyError, IndexError, TypeError) as exc:
             raise RuntimeError(f"Unexpected response from Hack Club API: {response_data}") from exc
 
+        usage = response_data.get("usage") or {}
+        self.ledger.record_call(
+            f"vlm:{analysis_mode}",
+            usage.get("prompt_tokens")
+            or estimate_image_tokens(base64_length=len(image_data_url))
+            + estimate_text_tokens(request_prompt),
+            usage.get("completion_tokens") or estimate_text_tokens(message),
+        )
+        summary_changed = self._capture_cache.get(analysis_mode) != message
+        self._capture_hashes[analysis_mode] = image_hash
+        self._capture_cache[analysis_mode] = message
+
         written_files = write_local_outputs(analysis_mode, prompt.strip(), message)
         self._refresh_resource_debug()
         with self.state.lock:
@@ -891,6 +1018,9 @@ class WatcherDashboardApp:
             "summary": message,
             "written_files": written_files,
         })
+        if summary_changed:
+            self.memory.append("observation", f"{analysis_mode} summary updated.", meta={"summary": message[:300]})
+            self.bus.emit("capture_updated", {"analysis_mode": analysis_mode})
 
         return {
             "summary": message,
@@ -1014,6 +1144,32 @@ class WatcherDashboardApp:
                     "turn_id": turn_id,
                 })
                 return
+            # Fingerprint gate: identical goal + frozen resource text means no
+            # new evidence, so the watcher LLM call is skipped entirely.
+            prompt_text = str(turn_snapshot.get("prompt_text", ""))
+            fingerprint = evidence_fingerprint(goal, prompt_text)
+            if (
+                fingerprint == self._last_watcher_fingerprint
+                and self._last_watcher_decision is not None
+            ):
+                self.ledger.record_skip(
+                    "watcher",
+                    estimate_text_tokens(prompt_text) + 400,
+                )
+                with self.state.lock:
+                    self.state.status = "No new evidence since the last turn; watcher call skipped."
+                    self.state.cycle_status = f"Turn {turn_id} skipped (unchanged evidence)."
+                    self.state.last_turn_at = time.strftime("%Y-%m-%d %H:%M:%S")
+                    self.state.last_error = ""
+                self._set_actor_stage("watcher", "idle", "Skipped: evidence unchanged since last turn.")
+                self._log_event("watcher", "cached", "Watcher skipped: unchanged evidence fingerprint.", {
+                    "turn_id": turn_id,
+                    "fingerprint": fingerprint[:12],
+                })
+                self._log_event("turn", "complete", "Turn skipped with unchanged evidence.", {
+                    "turn_id": turn_id,
+                })
+                return
             self._set_actor_stage("watcher", "reading", "Watcher reading goal and current resources.")
             self._log_event("watcher", "reading", "Watcher received fresh resources.", {
                 "turn_id": turn_id,
@@ -1027,6 +1183,8 @@ class WatcherDashboardApp:
                 "model": self.watcher.model,
             })
             decision = self.watcher.evaluate(goal, resources)
+            self._last_watcher_fingerprint = fingerprint
+            self._last_watcher_decision = decision
             turn_time = time.strftime("%Y-%m-%d %H:%M:%S")
             self._set_actor_stage(
                 "watcher",
@@ -1273,7 +1431,7 @@ class AppHandler(BaseHTTPRequestHandler):
         if parsed.path == "/artifacts/debug-events.jsonl":
             return self._serve_file(DEBUG_LOG_PATH, "application/jsonl; charset=utf-8")
         if parsed.path == "/api/state":
-            return self._json_response(APP.state.snapshot(APP.watcher, APP.mpa, APP.personality, APP.resource_loader))
+            return self._json_response(APP.snapshot())
         self.send_error(HTTPStatus.NOT_FOUND, "Not found")
 
     def do_POST(self):
@@ -1287,7 +1445,7 @@ class AppHandler(BaseHTTPRequestHandler):
                     threshold=payload.get("threshold", APP.state.threshold),
                     reason=payload.get("reason", "manual_run"),
                 )
-                return self._json_response({"ok": True, "state": APP.state.snapshot(APP.watcher, APP.mpa, APP.personality, APP.resource_loader)})
+                return self._json_response({"ok": True, "state": APP.snapshot()})
 
             if parsed.path == "/api/start":
                 APP.start_monitoring(
@@ -1296,19 +1454,26 @@ class AppHandler(BaseHTTPRequestHandler):
                     threshold=payload.get("threshold", APP.state.threshold),
                     duration_seconds=payload.get("duration_seconds", APP.state.session_duration_seconds),
                 )
-                return self._json_response({"ok": True, "state": APP.state.snapshot(APP.watcher, APP.mpa, APP.personality, APP.resource_loader)})
+                return self._json_response({"ok": True, "state": APP.snapshot()})
 
             if parsed.path == "/api/stop":
                 APP.stop_monitoring()
-                return self._json_response({"ok": True, "state": APP.state.snapshot(APP.watcher, APP.mpa, APP.personality, APP.resource_loader)})
+                return self._json_response({"ok": True, "state": APP.snapshot()})
 
             if parsed.path == "/api/reset-stats":
                 APP.reset_stats()
-                return self._json_response({"ok": True, "state": APP.state.snapshot(APP.watcher, APP.mpa, APP.personality, APP.resource_loader)})
+                return self._json_response({"ok": True, "state": APP.snapshot()})
+
+            if parsed.path == "/api/stimulus":
+                result = APP.ingest_stimulus(
+                    stimulus_type=payload.get("type", ""),
+                    payload=payload.get("payload", {}),
+                )
+                return self._json_response({"ok": True, "stimulus": result})
 
             if parsed.path == "/api/speech-finished":
                 APP.note_speech_finished(payload.get("pause_seconds"))
-                return self._json_response({"ok": True, "state": APP.state.snapshot(APP.watcher, APP.mpa, APP.personality, APP.resource_loader)})
+                return self._json_response({"ok": True, "state": APP.snapshot()})
 
             if parsed.path == "/api/export-tabs":
                 APP.configure_browser(
@@ -1316,14 +1481,14 @@ class AppHandler(BaseHTTPRequestHandler):
                     browser_url=payload.get("browser_url"),
                 )
                 export_info = APP.export_tabs()
-                return self._json_response({"ok": True, "export": export_info, "state": APP.state.snapshot(APP.watcher, APP.mpa, APP.personality, APP.resource_loader)})
+                return self._json_response({"ok": True, "export": export_info, "state": APP.snapshot()})
 
             if parsed.path == "/api/launch-browser":
                 launch_info = APP.launch_browser(
                     browser_name=payload.get("browser_name"),
                     browser_url=payload.get("browser_url"),
                 )
-                return self._json_response({"ok": True, "launch": launch_info, "state": APP.state.snapshot(APP.watcher, APP.mpa, APP.personality, APP.resource_loader)})
+                return self._json_response({"ok": True, "launch": launch_info, "state": APP.snapshot()})
 
             if parsed.path == "/api/analyze":
                 result = APP.analyze_capture(
@@ -1331,7 +1496,7 @@ class AppHandler(BaseHTTPRequestHandler):
                     prompt=payload.get("prompt", ""),
                     image_data_url=payload.get("imageDataUrl", ""),
                 )
-                return self._json_response({"ok": True, **result, "state": APP.state.snapshot(APP.watcher, APP.mpa, APP.personality, APP.resource_loader)})
+                return self._json_response({"ok": True, **result, "state": APP.snapshot()})
         except ValueError as exc:
             return self._json_response({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
         except RuntimeError as exc:

@@ -38,6 +38,17 @@ const debugEventLog = document.getElementById("debugEventLog");
 const turnSnapshotPanel = document.getElementById("turnSnapshotPanel");
 const turnHistoryPanel = document.getElementById("turnHistoryPanel");
 
+const efficiencyBadge = document.getElementById("efficiencyBadge");
+const ledgerCalls = document.getElementById("ledgerCalls");
+const ledgerSkips = document.getElementById("ledgerSkips");
+const ledgerUsed = document.getElementById("ledgerUsed");
+const ledgerSaved = document.getElementById("ledgerSaved");
+const agentLedger = document.getElementById("agentLedger");
+const agentStimulusBadge = document.getElementById("agentStimulusBadge");
+const agentStatusText = document.getElementById("agentStatusText");
+const agentTodos = document.getElementById("agentTodos");
+const agentMemory = document.getElementById("agentMemory");
+
 const webcamOutput = document.getElementById("webcamOutput");
 const screenshareOutput = document.getElementById("screenshareOutput");
 const browserOutput = document.getElementById("browserOutput");
@@ -59,6 +70,14 @@ const exportTabsButton = document.getElementById("exportTabsButton");
 const launchBrowserButton = document.getElementById("launchBrowserButton");
 const guidedStartButton = document.getElementById("guidedStartButton");
 
+const FRAME_DIFF_THRESHOLD = 5; // mean absolute grayscale delta (0-255)
+const STRONG_MOTION_THRESHOLD = FRAME_DIFF_THRESHOLD * 3;
+const WEBCAM_MIN_PERIOD_MS = 30000;
+const INACTIVITY_AFTER_MS = 60000;
+const REACTIVITY_CHANGED_TICKS = 2;
+const MAX_UPLOAD_WIDTH = { webcam: 640, screen: 1024 };
+const UPLOAD_JPEG_QUALITY = 0.7;
+
 const captureSources = {
   webcam: {
     key: "webcam",
@@ -70,6 +89,10 @@ const captureSources = {
     liveStatusEl: document.getElementById("webcamLiveStatus"),
     stream: null,
     lastSnipAt: "",
+    prevSignature: null,
+    lastSentAt: 0,
+    sentCount: 0,
+    skippedCount: 0,
   },
   screen: {
     key: "screen",
@@ -81,8 +104,20 @@ const captureSources = {
     liveStatusEl: document.getElementById("screenLiveStatus"),
     stream: null,
     lastSnipAt: "",
+    prevSignature: null,
+    lastSentAt: 0,
+    sentCount: 0,
+    skippedCount: 0,
   },
 };
+
+const signatureCanvas = document.createElement("canvas");
+signatureCanvas.width = 64;
+signatureCanvas.height = 36;
+
+let inactivityReported = false;
+let unchangedSinceMs = 0;
+let consecutiveChangedTicks = 0;
 
 let pollHandle = null;
 let autoCaptureHandle = null;
@@ -279,20 +314,78 @@ async function startSource(sourceKey) {
 
 function captureSourceFrame(sourceKey) {
   const source = captureSources[sourceKey];
-  const width = source.videoEl.videoWidth;
-  const height = source.videoEl.videoHeight;
-  if (!width || !height) {
+  const nativeWidth = source.videoEl.videoWidth;
+  const nativeHeight = source.videoEl.videoHeight;
+  if (!nativeWidth || !nativeHeight) {
     throw new Error(`${source.label} stream is not ready yet.`);
   }
+
+  // Downscale before upload: image tokens scale with area.
+  const maxWidth = MAX_UPLOAD_WIDTH[sourceKey] || 1024;
+  const scale = Math.min(1, maxWidth / nativeWidth);
+  const width = Math.round(nativeWidth * scale);
+  const height = Math.round(nativeHeight * scale);
 
   source.canvasEl.width = width;
   source.canvasEl.height = height;
   const context = source.canvasEl.getContext("2d");
   context.drawImage(source.videoEl, 0, 0, width, height);
-  const imageDataUrl = source.canvasEl.toDataURL("image/jpeg", 0.92);
+  const imageDataUrl = source.canvasEl.toDataURL("image/jpeg", UPLOAD_JPEG_QUALITY);
   source.snapshotEl.src = imageDataUrl;
   source.lastSnipAt = new Date().toLocaleTimeString();
-  return imageDataUrl;
+  return { imageDataUrl, width, height };
+}
+
+function computeFrameSignature(sourceKey) {
+  const source = captureSources[sourceKey];
+  if (!source.videoEl.videoWidth || !source.videoEl.videoHeight) {
+    return null;
+  }
+  const context = signatureCanvas.getContext("2d", { willReadFrequently: true });
+  context.drawImage(source.videoEl, 0, 0, signatureCanvas.width, signatureCanvas.height);
+  const pixels = context.getImageData(0, 0, signatureCanvas.width, signatureCanvas.height).data;
+  const gray = new Uint8Array(pixels.length / 4);
+  for (let i = 0; i < gray.length; i += 1) {
+    const offset = i * 4;
+    gray[i] = (pixels[offset] + pixels[offset + 1] + pixels[offset + 2]) / 3;
+  }
+  return gray;
+}
+
+function signatureDiff(a, b) {
+  if (!a || !b || a.length !== b.length) {
+    return Infinity;
+  }
+  let total = 0;
+  for (let i = 0; i < a.length; i += 1) {
+    total += Math.abs(a[i] - b[i]);
+  }
+  return total / a.length;
+}
+
+function postStimulus(type, payload = {}) {
+  return postJson("/api/stimulus", { type, payload }).catch(() => {});
+}
+
+function updateActivityTracking(changed) {
+  const now = Date.now();
+  if (changed) {
+    consecutiveChangedTicks += 1;
+    unchangedSinceMs = 0;
+    if (inactivityReported && consecutiveChangedTicks >= REACTIVITY_CHANGED_TICKS) {
+      inactivityReported = false;
+      postStimulus("activity");
+    }
+    return;
+  }
+  consecutiveChangedTicks = 0;
+  if (!unchangedSinceMs) {
+    unchangedSinceMs = now;
+  }
+  if (!inactivityReported && now - unchangedSinceMs >= INACTIVITY_AFTER_MS) {
+    inactivityReported = true;
+    postStimulus("inactivity", { idle_ms: now - unchangedSinceMs });
+  }
 }
 
 async function postJson(url, payload = {}) {
@@ -694,6 +787,46 @@ function speakPersonalityIfNeeded(personality, turnLabel = "") {
   lastSpokenPersonalityEventId = eventId;
 }
 
+function renderAgent(agent) {
+  if (!agent) {
+    return;
+  }
+  const ledger = agent.token_ledger || {};
+  ledgerCalls.textContent = String(ledger.total_calls || 0);
+  ledgerSkips.textContent = String(ledger.total_skipped_calls || 0);
+  ledgerUsed.textContent = String(ledger.total_tokens_used || 0);
+  ledgerSaved.textContent = String(ledger.total_estimated_tokens_saved || 0);
+  const multiplier = Number(ledger.efficiency_multiplier || 0);
+  if (multiplier > 0) {
+    efficiencyBadge.textContent = `~${multiplier}x efficiency`;
+    efficiencyBadge.className = `badge ${multiplier >= 5 ? "ready" : "subtle"}`;
+  } else {
+    efficiencyBadge.textContent = "No calls yet";
+    efficiencyBadge.className = "badge subtle";
+  }
+  agentLedger.textContent = JSON.stringify(ledger.components || {}, null, 2);
+
+  const status = agent.status || {};
+  agentStatusText.textContent = `Focus: ${status.focus_state || "unknown"} · Last turn: ${
+    status.last_turn_reason || "none"
+  } · ${status.notes || ""}`;
+  const lastStimulus = agent.last_stimulus || {};
+  agentStimulusBadge.textContent = lastStimulus.type
+    ? `Last stimulus: ${lastStimulus.type}`
+    : "No stimulus yet";
+
+  const todos = agent.todos || [];
+  agentTodos.textContent = todos.length
+    ? todos.map((item) => `[${item.kind}] ${item.note}`).join("\n")
+    : "No pending agent alarms.";
+  const memoryEntries = agent.memory_recent || [];
+  agentMemory.textContent = memoryEntries.length
+    ? memoryEntries
+        .map((entry) => `${entry.timestamp || ""}  [${entry.kind || "?"}]  ${entry.text || ""}`)
+        .join("\n")
+    : "Agent memory tail will appear here.";
+}
+
 function renderState(state) {
   latestState = state;
   goalInput.value = state.goal;
@@ -777,6 +910,7 @@ function renderState(state) {
   const personality = state.personality_output || {};
   renderPersonality(personality);
   speakPersonalityIfNeeded(personality, state.last_turn_at || "");
+  renderAgent(state.agent || null);
   renderActorStages(state.actor_stages || {}, state.snapshot_at || "");
   playActorStageUpdates(state.actor_stages || {});
   debugLogPath.textContent = `Debug log file: ${state.debug_log_path || "state/debug_events.jsonl"} | Live events in memory: ${
@@ -812,34 +946,81 @@ async function summarizeSources(reason = "manual", requestedKeys = null) {
   captureInFlight = true;
   syncCaptureBadges();
   errorText.textContent = "";
+  let analyzedCount = 0;
+  let skippedCount = 0;
 
   try {
     await Promise.all(sourceKeys.map(async (sourceKey) => {
       const source = captureSources[sourceKey];
+      const now = Date.now();
+
+      const signature = computeFrameSignature(sourceKey);
+      const diff = source.prevSignature ? signatureDiff(signature, source.prevSignature) : Infinity;
+      if (signature) {
+        source.prevSignature = signature;
+      }
+      const changed = diff >= FRAME_DIFF_THRESHOLD;
+
+      if (sourceKey === "screen" && reason === "auto") {
+        updateActivityTracking(changed);
+      }
+
+      // Send policy: manual captures always go through; the screen goes
+      // through only when it changed; the webcam holds a slow cadence
+      // unless there is strong motion.
+      let shouldSend = true;
+      if (reason === "auto") {
+        if (sourceKey === "webcam") {
+          const webcamDue = now - source.lastSentAt >= WEBCAM_MIN_PERIOD_MS;
+          shouldSend = !source.lastSentAt || diff >= STRONG_MOTION_THRESHOLD || (changed && webcamDue);
+        } else {
+          shouldSend = changed;
+        }
+      }
+
+      if (!shouldSend) {
+        skippedCount += 1;
+        source.skippedCount += 1;
+        source.liveStatusEl.textContent = `${source.label} unchanged — VLM skipped (${source.skippedCount} saved).`;
+        postStimulus("frame_unchanged", {
+          mode: source.analysisMode,
+          width: source.videoEl.videoWidth,
+          height: source.videoEl.videoHeight,
+        });
+        return;
+      }
+
       source.liveStatusEl.textContent =
         reason === "auto"
-          ? `${source.label} snipping on the current tick...`
+          ? `${source.label} changed — analyzing fresh frame...`
           : `${source.label} capturing a fresh frame...`;
 
-      const imageDataUrl = captureSourceFrame(sourceKey);
+      const frame = captureSourceFrame(sourceKey);
       await postJson("/api/analyze", {
         analysisMode: source.analysisMode,
         prompt: capturePromptInput.value.trim(),
-        imageDataUrl,
+        imageDataUrl: frame.imageDataUrl,
       });
-
+      source.lastSentAt = Date.now();
+      source.sentCount += 1;
+      analyzedCount += 1;
       source.liveStatusEl.textContent = `${source.label} updated at ${source.lastSnipAt}.`;
     }));
 
-    if (latestState && latestState.running) {
+    // Auto turns are stimulus-driven by the server orchestrator; only manual
+    // captures force a turn from the client.
+    if (reason !== "auto" && latestState && latestState.running && analyzedCount > 0) {
       await postJson("/api/run-once", {
         ...payloadFromControls(),
-        reason: reason === "auto" ? "auto_capture_cycle" : "manual_capture_cycle",
+        reason: "manual_capture_cycle",
       });
     }
 
     await loadState();
-    captureStatusText.textContent = `Updated ${formatSourceList(sourceKeys)} on this tick.`;
+    captureStatusText.textContent =
+      analyzedCount > 0
+        ? `Analyzed ${analyzedCount} source(s), skipped ${skippedCount} unchanged on this tick.`
+        : `No visual change — skipped ${skippedCount} VLM call(s) on this tick.`;
   } catch (error) {
     errorText.textContent = error.message || "Capture failed.";
     stopAutoCapture();

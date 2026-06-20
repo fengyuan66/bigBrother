@@ -345,6 +345,50 @@
         </article>
       </section>
 
+      <section class="debug-grid">
+        <article class="panel debug-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="section-kicker">Agent &amp; Efficiency</p>
+              <h2>Token ledger and agent state</h2>
+            </div>
+            <span id="efficiencyBadge" class="badge subtle">No calls yet</span>
+          </div>
+          <div class="mini-stats">
+            <div class="mini-stat">
+              <span class="summary-label">Model calls made</span>
+              <strong id="ledgerCalls">0</strong>
+            </div>
+            <div class="mini-stat">
+              <span class="summary-label">Calls skipped</span>
+              <strong id="ledgerSkips">0</strong>
+            </div>
+            <div class="mini-stat">
+              <span class="summary-label">Tokens used</span>
+              <strong id="ledgerUsed">0</strong>
+            </div>
+            <div class="mini-stat">
+              <span class="summary-label">Est. tokens saved</span>
+              <strong id="ledgerSaved">0</strong>
+            </div>
+          </div>
+          <pre id="agentLedger">Token ledger detail will appear here.</pre>
+        </article>
+
+        <article class="panel debug-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="section-kicker">Agent State</p>
+              <h2>Status, alarms, and memory</h2>
+            </div>
+            <span id="agentStimulusBadge" class="badge subtle">No stimulus yet</span>
+          </div>
+          <p id="agentStatusText" class="status-text">Agent status will appear here.</p>
+          <pre id="agentTodos">No pending agent alarms.</pre>
+          <pre id="agentMemory">Agent memory tail will appear here.</pre>
+        </article>
+      </section>
+
       <section class="inspector-grid">
         <article class="panel inspector-panel">
           <div class="panel-heading">

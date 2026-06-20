@@ -1,0 +1,63 @@
+{"timestamp": "2026-06-10T22:46:26.658", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Fake summary #1: user at desk."}}
+{"timestamp": "2026-06-10T22:46:26.679", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Fake summary #2: user at desk."}}
+{"timestamp": "2026-06-10T22:46:29.771", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Fake summary #3: user at desk."}}
+{"timestamp": "2026-06-10T22:47:10.082", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Fake summary #1: user at desk."}}
+{"timestamp": "2026-06-10T22:47:10.094", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Fake summary #2: user at desk."}}
+{"timestamp": "2026-06-10T22:47:13.184", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Fake summary #3: user at desk."}}
+{"timestamp": "2026-06-10T22:47:16.240", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "webcam"}}
+{"timestamp": "2026-06-10T22:47:16.247", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "webcam"}}
+{"timestamp": "2026-06-10T22:47:16.249", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "webcam"}}
+{"timestamp": "2026-06-10T22:47:16.251", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 640, "height": 360}}
+{"timestamp": "2026-06-10T22:47:16.252", "kind": "stimulus", "text": "Stimulus received: tab_opened", "meta": {"count": 1}}
+{"timestamp": "2026-06-10T22:47:16.255", "kind": "stimulus", "text": "Stimulus received: heartbeat", "meta": {"idle_seconds": 100.0}}
+{"timestamp": "2026-06-10T22:47:16.257", "kind": "stimulus", "text": "Stimulus received: heartbeat"}
+{"timestamp": "2026-06-10T22:47:16.259", "kind": "stimulus", "text": "Stimulus received: manual"}
+{"timestamp": "2026-06-10T22:47:16.261", "kind": "stimulus", "text": "Stimulus received: heartbeat", "meta": {"idle_seconds": 100.0}}
+{"timestamp": "2026-06-10T22:47:16.263", "kind": "stimulus", "text": "Stimulus received: todo_due", "meta": {"todo": {"id": "dcdae04f52", "note": "alarm now", "kind": "scheduled", "created_at": "2026-06-10T22:47:16.254", "due_at_unix": 1781156836.2547538}}}
+{"timestamp": "2026-06-10T22:48:27.917", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Fake summary #1: user at desk."}}
+{"timestamp": "2026-06-10T22:48:27.929", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Fake summary #2: user at desk."}}
+{"timestamp": "2026-06-10T22:48:30.997", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Fake summary #3: user at desk."}}
+{"timestamp": "2026-06-10T22:48:34.087", "kind": "stimulus", "text": "Stimulus received: tab_opened", "meta": {"count": 1}}
+{"timestamp": "2026-06-10T22:48:34.090", "kind": "stimulus", "text": "Stimulus received: heartbeat", "meta": {"idle_seconds": 100.0}}
+{"timestamp": "2026-06-10T22:48:34.092", "kind": "stimulus", "text": "Stimulus received: heartbeat"}
+{"timestamp": "2026-06-10T22:48:34.094", "kind": "stimulus", "text": "Stimulus received: manual"}
+{"timestamp": "2026-06-10T22:48:34.096", "kind": "stimulus", "text": "Stimulus received: heartbeat", "meta": {"idle_seconds": 100.0}}
+{"timestamp": "2026-06-10T22:48:34.151", "kind": "stimulus", "text": "Stimulus received: todo_due", "meta": {"todo": {"id": "6da4c3e089", "note": "alarm now", "kind": "scheduled", "created_at": "2026-06-10T22:48:34.149", "due_at_unix": 1781156914.1494899}}}
+{"timestamp": "2026-06-10T22:48:34.155", "kind": "stimulus", "text": "Stimulus received: heartbeat", "meta": {"idle_seconds": 100.0}}
+{"timestamp": "2026-06-10T22:48:34.218", "kind": "stimulus", "text": "Stimulus received: heartbeat", "meta": {"idle_seconds": 35.0}}
+{"timestamp": "2026-06-10T22:48:36.794", "kind": "stimulus", "text": "Stimulus received: inactivity", "meta": {"idle_ms": 60000}}
+{"timestamp": "2026-06-10T22:48:36.812", "kind": "stimulus", "text": "Stimulus received: activity"}
+{"timestamp": "2026-06-10T23:01:46.006", "kind": "session", "text": "Monitoring session started."}
+{"timestamp": "2026-06-10T23:01:55.678", "kind": "stimulus", "text": "Stimulus received: tab_opened", "meta": {"count": 1, "urls": ["https://www.youtube.com/"]}}
+{"timestamp": "2026-06-10T23:02:00.767", "kind": "stimulus", "text": "Stimulus received: tab_refreshed", "meta": {"count": 1, "urls": ["https://www.youtube.com/watch?v=HEyqytq0-is"]}}
+{"timestamp": "2026-06-10T23:02:01.153", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Observations:\n- The image shows a ceiling and upper wall of an indoor room.\n- A single, bright, rectangular fluorescent or LED light fixture is mounted on the ceiling.\n- A second, warmer, diffuse light source is visible in the lower-left corner, possibly a lamp or window.\n- A portion of a doorway or"}}
+{"timestamp": "2026-06-10T23:02:07.889", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "webcam"}}
+{"timestamp": "2026-06-10T23:02:07.908", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-10T23:02:11.763", "kind": "observation", "text": "screen summary updated.", "meta": {"summary": "Observed Facts:\n\n- The screen displays a web-based application interface, likely a monitoring or analysis dashboard, running in a browser. The URL bar shows “27.0.0.1:8765”, indicating a local development or internal server.\n- The browser has multiple tabs open. The visible tab titles include:\n  - “"}}
+{"timestamp": "2026-06-10T23:02:11.763", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "screen"}}
+{"timestamp": "2026-06-10T23:02:13.033", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-10T23:02:22.390", "kind": "observation", "text": "screen summary updated.", "meta": {"summary": "Observed Facts:\n\n- The image shows a computer screen with a web-based dashboard interface, likely a local development or monitoring tool, accessed via a browser at address “27.0.0.1:8765”.\n- The browser has multiple tabs open. The visible tab titles include:\n  - “P4J How China Su...” (truncated)\n  -"}}
+{"timestamp": "2026-06-10T23:02:22.391", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "screen"}}
+{"timestamp": "2026-06-10T23:02:23.427", "kind": "stimulus", "text": "Stimulus received: tab_refreshed", "meta": {"count": 1, "urls": ["https://www.youtube.com/"]}}
+{"timestamp": "2026-06-10T23:02:25.027", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-10T23:02:31.903", "kind": "observation", "text": "screen summary updated.", "meta": {"summary": "Observed Facts:\n\n- The image displays a computer screen running a web-based dashboard interface, likely for local development, monitoring, or AI agent orchestration. The interface is accessed via a browser at the local IP address “27.0.0.1:8765”.\n\n- The browser has multiple tabs open. The visible ta"}}
+{"timestamp": "2026-06-10T23:02:32.750", "kind": "session", "text": "Monitoring session stopped."}
+{"timestamp": "2026-06-10T23:02:42.629", "kind": "session", "text": "Monitoring session started."}
+{"timestamp": "2026-06-10T23:02:46.237", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Observations:\n- No person is visible in the frame.\n- The image shows a ceiling with a bright, elongated fluorescent-style light fixture.\n- A warm light source is visible in the lower-left corner, possibly a lamp or window.\n- A wall and partial doorway are visible on the right; a framed picture or ar"}}
+{"timestamp": "2026-06-10T23:02:51.842", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "screen"}}
+{"timestamp": "2026-06-10T23:03:00.686", "kind": "observation", "text": "screen summary updated.", "meta": {"summary": "Observed Facts:\n\n- The image shows a web browser window, likely Microsoft Edge or a Chromium-based browser, based on the UI elements.\n- Two tabs are open:\n  - Left tab: Labeled “YouTube” with a small YouTube icon (red play button on white background).\n  - Right tab: Labeled “Calculus - Wikipedia” wi"}}
+{"timestamp": "2026-06-10T23:03:00.846", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "webcam"}}
+{"timestamp": "2026-06-10T23:03:05.693", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-10T23:03:05.695", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "screen"}}
+{"timestamp": "2026-06-10T23:03:05.713", "kind": "stimulus", "text": "Stimulus received: tab_refreshed", "meta": {"count": 1, "urls": ["https://www.youtube.com/watch?v=rwa_R6MnLLY"]}}
+{"timestamp": "2026-06-10T23:03:05.716", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-10T23:03:20.047", "kind": "observation", "text": "screen summary updated.", "meta": {"summary": "Observed Facts:\n\n- The screen shows a web browser with two tabs open.\n  - The active tab is titled “The Most SATISFYING Roblox...” and displays a YouTube video page.\n  - The inactive tab is titled “Calculus - Wikipedia” and appears to be a Wikipedia article.\n\n- The YouTube video is playing and featu"}}
+{"timestamp": "2026-06-10T23:03:20.048", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "screen"}}
+{"timestamp": "2026-06-10T23:03:20.455", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-10T23:03:28.588", "kind": "observation", "text": "screen summary updated.", "meta": {"summary": "Observed Facts:\n\n- The screen shows a web browser with two tabs open:\n  - Active tab: “The Most SATISFYING Roblox Game..” — this is a YouTube video page.\n  - Inactive tab: “Calculus - Wikipedia”.\n\n- Browser UI elements visible:\n  - Address bar shows: https://www.youtube.com/watch?v=rwa_R6MnLLY\n  - N"}}
+{"timestamp": "2026-06-10T23:03:28.588", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "screen"}}
+{"timestamp": "2026-06-10T23:03:36.388", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-10T23:03:36.391", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-10T23:03:36.393", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-10T23:03:59.605", "kind": "stimulus", "text": "Stimulus received: heartbeat", "meta": {"idle_seconds": 31.0}}
+{"timestamp": "2026-06-10T23:04:25.216", "kind": "session", "text": "Monitoring session stopped."}

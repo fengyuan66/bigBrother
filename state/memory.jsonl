@@ -61,3 +61,4 @@
 {"timestamp": "2026-06-10T23:03:36.393", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
 {"timestamp": "2026-06-10T23:03:59.605", "kind": "stimulus", "text": "Stimulus received: heartbeat", "meta": {"idle_seconds": 31.0}}
 {"timestamp": "2026-06-10T23:04:25.216", "kind": "session", "text": "Monitoring session stopped."}
+{"timestamp": "2026-06-20T17:13:25.873", "kind": "client_action", "text": "Completed client action screen_scan.", "meta": {"id": "4df7d01586", "type": "screen_scan", "payload": {"type": "screen_scan", "reason": "test", "source": "screen", "dedupe_key": "test-screen"}, "dedupe_key": "test-screen", "created_at": "2026-06-20T17:13:25.870", "completed_at": "2026-06-20T17:13:25.872", "result": {"ok": true}}}

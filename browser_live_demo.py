@@ -170,6 +170,38 @@ class BrowserLiveReader:
         output_path.write_text("\n".join(lines), encoding="utf-8")
         return output_path, len(tabs)
 
+    def sync_tab_records(self, tabs=None, tab_dir=BROWSER_TABS_DIR):
+        ensure_output_dirs()
+        tabs = self.read_tabs() if tabs is None else list(tabs)
+        tab_dir.mkdir(parents=True, exist_ok=True)
+        active_ids = set()
+        records = []
+
+        for tab in tabs:
+            tab_id = str(tab.get("id") or "")
+            if not tab_id:
+                continue
+            active_ids.add(tab_id)
+            record = {
+                "tab_id": tab_id,
+                "title": tab.get("title", ""),
+                "url": tab.get("url", ""),
+                "domain": urlparse(tab.get("url", "")).netloc,
+                "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "page_text": self.read_page_text(tab)[:12000],
+            }
+            (tab_dir / f"{tab_id}.json").write_text(json.dumps(record, indent=2), encoding="utf-8")
+            records.append(record)
+
+        for path in tab_dir.glob("*.json"):
+            if path.stem not in active_ids:
+                try:
+                    path.unlink()
+                except OSError:
+                    pass
+
+        return records
+
     def write_index(self, output_path=INDEX_OUTPUT_PATH, retries=4, delay_seconds=0.5):
         ensure_output_dirs()
         tabs = self.read_tabs(retries=retries, delay_seconds=delay_seconds)

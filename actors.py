@@ -101,6 +101,20 @@ class PersonalityResult:
     actor_mode: str
 
 
+@dataclass
+class AgentPlan:
+    sufficient: bool
+    focus_state: str
+    summary: str
+    evidence: list[str]
+    response_required: bool
+    response_text: str
+    requested_resources: list[dict]
+    todo_writes: list[dict]
+    notes: list[str]
+    actor_mode: str
+
+
 class WatcherActor:
     def __init__(self, ledger=None):
         api_key = os.getenv("BIG_BROTHER_API_KEY") or os.getenv("OPENAI_API_KEY")
@@ -381,10 +395,8 @@ class PersonalityActor:
             f"Voice brief:\n{self.personality_brief}\n\n"
             "You receive an MPA agenda and must turn it into the exact short line that should be "
             "spoken to the user.\n"
-            "Voice: blunt, alien, and zero-bullshit. Say exactly what you observe from the agenda, "
-            "then command the user exactly what to do next to return to focus. Use short, direct sentences. "
-            "Every spoken line must include a playful alien threat to shoot Earth with laser beams if the user "
-            "does not refocus. Keep it absurd.\n"
+            "Voice: direct, clear, and human. Say exactly what you observe from the agenda, "
+            "then tell the user exactly what to do next to return to focus. Use short, natural sentences.\n"
             "Stay grounded in the agenda and evidence. Do not invent facts. Do not mention internal "
             "actors, thresholds, or system architecture. Sound natural when read aloud.\n"
             "Return strict JSON with keys:\n"
@@ -446,3 +458,157 @@ class PersonalityActor:
             delivery_notes="Warm, firm, and conversational.",
             actor_mode="fallback",
         )
+
+
+class AgentActor:
+    def __init__(self, ledger=None):
+        api_key = os.getenv("BIG_BROTHER_API_KEY") or os.getenv("OPENAI_API_KEY")
+        self.base_url = os.getenv("BIG_BROTHER_BASE_URL", DEFAULT_BASE_URL)
+        self.model = os.getenv("BIG_BROTHER_MPA_MODEL", DEFAULT_MPA_MODEL)
+        self.ledger = ledger
+        self.client = (
+            OpenAI(api_key=api_key, base_url=self.base_url) if api_key and OpenAI else None
+        )
+
+    @property
+    def enabled(self):
+        return self.client is not None
+
+    def evaluate(
+        self,
+        session_goal,
+        resources,
+        *,
+        stimulus_type="",
+        current_context=None,
+        historic_context=None,
+    ):
+        current_context = current_context or {}
+        historic_context = historic_context or []
+        if not self.client:
+            return self._fallback(
+                session_goal,
+                resources,
+                stimulus_type=stimulus_type,
+                current_context=current_context,
+            )
+
+        prompt = (
+            "You are the main agent in a study-support system.\n"
+            "A stimulus happened. Your job is to decide if the current evidence is sufficient, "
+            "whether the user needs a response now, and what targeted resources should be fetched next.\n"
+            "Prefer cheap evidence first. Request extra scans only when needed.\n"
+            "Resource policy:\n"
+            "- For tab_opened/tab_refreshed: analyze browser logs first. If still ambiguous, request a screen scan.\n"
+            "- For inactivity: do not assume distraction. First inspect browser/tab context; if still inactive, "
+            "schedule a 30-second recheck and a webcam scan.\n"
+            "- Keep context grounded in the current evidence and short recent history.\n"
+            "Return strict JSON with keys:\n"
+            "sufficient: boolean\n"
+            "focus_state: string (focused, distracted, inactive, uncertain)\n"
+            "summary: short string under 220 characters\n"
+            "evidence: array of short strings\n"
+            "response_required: boolean\n"
+            "response_text: short string under 260 characters\n"
+            "requested_resources: array of objects with keys type, reason, source, due_in_seconds(optional), priority(optional)\n"
+            "todo_writes: array of objects with keys note, due_in_seconds, kind\n"
+            "notes: array of short strings\n\n"
+            f"Study goal:\n{session_goal}\n\n"
+            f"Stimulus:\n{stimulus_type or 'unknown'}\n\n"
+            f"Current context:\n{truncate_for_prompt(json.dumps(current_context, ensure_ascii=False), 1200)}\n\n"
+            f"Historic context:\n{truncate_for_prompt(json.dumps(historic_context[-5:], ensure_ascii=False), 1200)}\n\n"
+            f"Available resources:\n{truncate_for_prompt(resources.as_prompt_text())}"
+        )
+        data = chat_json(
+            self.client,
+            self.model,
+            prompt,
+            temperature=0,
+            max_tokens=360,
+            ledger=self.ledger,
+            component="agent",
+        )
+        return AgentPlan(
+            sufficient=bool(data.get("sufficient", True)),
+            focus_state=str(data.get("focus_state", "uncertain")),
+            summary=str(data.get("summary", "No summary provided.")),
+            evidence=self._normalize_strings(data.get("evidence")),
+            response_required=bool(data.get("response_required", False)),
+            response_text=str(data.get("response_text", "")),
+            requested_resources=self._normalize_actions(data.get("requested_resources")),
+            todo_writes=self._normalize_actions(data.get("todo_writes")),
+            notes=self._normalize_strings(data.get("notes")),
+            actor_mode=f"llm:{self.model}",
+        )
+
+    def _fallback(self, session_goal, resources, *, stimulus_type="", current_context=None):
+        current_context = current_context or {}
+        resource_text = resources.as_prompt_text().lower()
+        evidence = []
+        focus_state = "focused"
+        response_required = False
+        response_text = ""
+        requested_resources = []
+        todo_writes = []
+        notes = []
+
+        for term in DISTRACTION_TERMS:
+            if term in resource_text and term not in session_goal.lower():
+                evidence.append(f"Current resources mention {term}.")
+                focus_state = "distracted"
+                response_required = True
+                response_text = f"Come back to {session_goal}. If {term} is not helping that task, close it and refocus."
+                break
+
+        if stimulus_type in {"stimulus:tab_opened", "stimulus:tab_refreshed"}:
+            requested_resources.append(
+                {"type": "browser_rag", "reason": "Refresh page context for the changed tab.", "source": "browser", "priority": "high"}
+            )
+            if not resources.screenshare_text:
+                requested_resources.append(
+                    {"type": "screen_scan", "reason": "Need the visible screen to disambiguate the browser change.", "source": "screen", "priority": "high"}
+                )
+
+        if stimulus_type == "stimulus:inactivity":
+            focus_state = "inactive"
+            notes.append("User appears inactive; browser context may still be relevant.")
+            todo_writes.append({"note": "Re-check inactivity state.", "due_in_seconds": 30, "kind": "inactivity_recheck"})
+            requested_resources.append(
+                {"type": "webcam_scan", "reason": "Check whether the user is still physically present.", "source": "webcam", "due_in_seconds": 30, "priority": "medium"}
+            )
+
+        return AgentPlan(
+            sufficient=not requested_resources,
+            focus_state=focus_state,
+            summary=(
+                "Potential distraction found in the current resources."
+                if response_required
+                else "No immediate intervention. The agent may need more context."
+            ),
+            evidence=evidence,
+            response_required=response_required,
+            response_text=response_text,
+            requested_resources=requested_resources,
+            todo_writes=todo_writes,
+            notes=notes,
+            actor_mode="fallback",
+        )
+
+    def _normalize_strings(self, value):
+        if isinstance(value, list):
+            return [str(item).strip() for item in value if str(item).strip()]
+        if isinstance(value, str) and value.strip():
+            return [value.strip()]
+        return []
+
+    def _normalize_actions(self, value):
+        if not isinstance(value, list):
+            return []
+        cleaned = []
+        for item in value:
+            if not isinstance(item, dict):
+                continue
+            if not str(item.get("type", "")).strip() and not str(item.get("note", "")).strip():
+                continue
+            cleaned.append(dict(item))
+        return cleaned

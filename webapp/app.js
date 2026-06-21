@@ -129,6 +129,7 @@ const lastActorStageVersions = {};
 let latestState = null;
 let speechInFlight = false;
 let speechPauseUntilMs = 0;
+const completedClientActionIds = new Set();
 
 function refreshSpeechVoices() {
   if (!("speechSynthesis" in window)) {
@@ -401,6 +402,17 @@ async function postJson(url, payload = {}) {
   return data;
 }
 
+async function completeClientAction(actionId, result = {}) {
+  if (!actionId) {
+    return;
+  }
+  completedClientActionIds.add(actionId);
+  await postJson("/api/client-action-complete", {
+    action_id: actionId,
+    result,
+  }).catch(() => {});
+}
+
 async function loadState() {
   const response = await fetch("/api/state");
   if (!response.ok) {
@@ -458,7 +470,7 @@ function renderMPA(mpa) {
 
   mpaBadge.textContent = "Waiting";
   mpaBadge.className = "badge subtle";
-  mpaSummary.textContent = mpa.rationale || "MPA is waiting for enough consecutive watcher positives.";
+  mpaSummary.textContent = mpa.rationale || "Planner is waiting for the next agent turn.";
 }
 
 function renderPersonality(personality) {
@@ -825,6 +837,45 @@ function renderAgent(agent) {
         .map((entry) => `${entry.timestamp || ""}  [${entry.kind || "?"}]  ${entry.text || ""}`)
         .join("\n")
     : "Agent memory tail will appear here.";
+
+  if (Array.isArray(agent.pending_actions) && agent.pending_actions.length) {
+    agentTodos.textContent += `\n\nPending client actions:\n${agent.pending_actions
+      .map((item) => `[${item.type}] ${((item.payload && item.payload.reason) || "No reason provided.")}`)
+      .join("\n")}`;
+  }
+}
+
+async function processPendingAgentActions(actions) {
+  if (!Array.isArray(actions) || actions.length === 0 || captureInFlight) {
+    return;
+  }
+
+  for (const action of actions) {
+    if (!action || !action.id || completedClientActionIds.has(action.id)) {
+      continue;
+    }
+    if (action.type === "browser_rag") {
+      await completeClientAction(action.id, {
+        ok: true,
+        status: "server_side",
+        message: "Browser context is handled by the server tab export.",
+      });
+      continue;
+    }
+    if (action.type === "screen_scan") {
+      await summarizeSources("agent_action", ["screen"], action);
+      continue;
+    }
+    if (action.type === "webcam_scan") {
+      await summarizeSources("agent_action", ["webcam"], action);
+      continue;
+    }
+    await completeClientAction(action.id, {
+      ok: false,
+      status: "unsupported",
+      message: `Unsupported client action type: ${action.type}`,
+    });
+  }
 }
 
 function renderState(state) {
@@ -911,6 +962,9 @@ function renderState(state) {
   renderPersonality(personality);
   speakPersonalityIfNeeded(personality, state.last_turn_at || "");
   renderAgent(state.agent || null);
+  processPendingAgentActions((state.agent && state.agent.pending_actions) || []).catch((error) => {
+    errorText.textContent = error.message || "Agent action failed.";
+  });
   renderActorStages(state.actor_stages || {}, state.snapshot_at || "");
   playActorStageUpdates(state.actor_stages || {});
   debugLogPath.textContent = `Debug log file: ${state.debug_log_path || "state/debug_events.jsonl"} | Live events in memory: ${
@@ -933,9 +987,16 @@ function renderState(state) {
   syncCaptureBadges();
 }
 
-async function summarizeSources(reason = "manual", requestedKeys = null) {
+async function summarizeSources(reason = "manual", requestedKeys = null, actionRequest = null) {
   const sourceKeys = (requestedKeys || activeSourceKeys()).filter((key) => Boolean(captureSources[key].stream));
   if (sourceKeys.length === 0 || captureInFlight) {
+    if (actionRequest && actionRequest.id) {
+      await completeClientAction(actionRequest.id, {
+        ok: false,
+        status: "unavailable",
+        reason: "Requested capture source is not active.",
+      });
+    }
     return;
   }
   if (reason === "auto" && speechPauseActive()) {
@@ -1000,6 +1061,15 @@ async function summarizeSources(reason = "manual", requestedKeys = null) {
         analysisMode: source.analysisMode,
         prompt: capturePromptInput.value.trim(),
         imageDataUrl: frame.imageDataUrl,
+        metadata: actionRequest
+          ? {
+              action_id: actionRequest.id,
+              action_type: actionRequest.type,
+              tab_id: actionRequest.payload && actionRequest.payload.tab_id,
+              tab_url: actionRequest.payload && actionRequest.payload.tab_url,
+              reason,
+            }
+          : {},
       });
       source.lastSentAt = Date.now();
       source.sentCount += 1;
@@ -1017,12 +1087,27 @@ async function summarizeSources(reason = "manual", requestedKeys = null) {
     }
 
     await loadState();
+    if (actionRequest && actionRequest.id) {
+      await completeClientAction(actionRequest.id, {
+        ok: true,
+        status: "captured",
+        analyzed_count: analyzedCount,
+        skipped_count: skippedCount,
+      });
+    }
     captureStatusText.textContent =
       analyzedCount > 0
         ? `Analyzed ${analyzedCount} source(s), skipped ${skippedCount} unchanged on this tick.`
         : `No visual change — skipped ${skippedCount} VLM call(s) on this tick.`;
   } catch (error) {
     errorText.textContent = error.message || "Capture failed.";
+    if (actionRequest && actionRequest.id) {
+      await completeClientAction(actionRequest.id, {
+        ok: false,
+        status: "error",
+        message: error.message || "Capture failed.",
+      });
+    }
     stopAutoCapture();
   } finally {
     captureInFlight = false;

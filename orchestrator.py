@@ -102,19 +102,34 @@ class AgentOrchestrator(threading.Thread):
         if previous is None:
             return
 
-        opened = [tab_id for tab_id in signature if tab_id not in previous]
+        opened = [tab for tab in tabs if (tab.get("id") or tab.get("url", "")) not in previous]
         closed = [tab_id for tab_id in previous if tab_id not in signature]
         navigated = [
-            tab_id
-            for tab_id in signature
-            if tab_id in previous and signature[tab_id] != previous[tab_id]
+            tab
+            for tab in tabs
+            if (tab.get("id") or tab.get("url", "")) in previous
+            and signature[(tab.get("id") or tab.get("url", ""))] != previous[(tab.get("id") or tab.get("url", ""))]
         ]
         if opened:
-            self.bus.emit("tab_opened", {"count": len(opened), "urls": [signature[t] for t in opened][:5]})
+            self.bus.emit("tab_opened", {
+                "count": len(opened),
+                "urls": [tab.get("url", "") for tab in opened][:5],
+                "tabs": [
+                    {"id": str(tab.get("id", "")), "url": tab.get("url", ""), "title": tab.get("title", "")}
+                    for tab in opened[:5]
+                ],
+            })
         if closed:
             self.bus.emit("tab_closed", {"count": len(closed)})
         if navigated:
-            self.bus.emit("tab_refreshed", {"count": len(navigated), "urls": [signature[t] for t in navigated][:5]})
+            self.bus.emit("tab_refreshed", {
+                "count": len(navigated),
+                "urls": [tab.get("url", "") for tab in navigated][:5],
+                "tabs": [
+                    {"id": str(tab.get("id", "")), "url": tab.get("url", ""), "title": tab.get("title", "")}
+                    for tab in navigated[:5]
+                ],
+            })
 
     def _handle_stimulus(self, stimulus: dict):
         stimulus_type = stimulus.get("type", "")
@@ -124,6 +139,7 @@ class AgentOrchestrator(threading.Thread):
         self.status.update(
             last_stimulus=stimulus_type,
             last_stimulus_at=stimulus.get("emitted_at", ""),
+            last_stimulus_payload=payload,
         )
         self.app._log_event("agent", "stimulus", f"Stimulus: {stimulus_type}", payload)
 

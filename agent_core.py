@@ -19,6 +19,9 @@ LEDGER_PATH = STATE_DIR / "token_ledger.json"
 MEMORY_PATH = STATE_DIR / "memory.jsonl"
 STATUS_PATH = STATE_DIR / "status.json"
 TODOS_PATH = STATE_DIR / "todos.json"
+CURRENT_CONTEXT_PATH = STATE_DIR / "context_current.json"
+HISTORIC_CONTEXT_PATH = STATE_DIR / "context_history.jsonl"
+CLIENT_ACTIONS_PATH = STATE_DIR / "client_actions.json"
 
 
 def now_iso():
@@ -190,6 +193,7 @@ class StatusFile:
             "last_activity_at": "",
             "last_stimulus": "",
             "last_stimulus_at": "",
+            "last_stimulus_payload": {},
             "last_turn_at": "",
             "last_turn_reason": "",
             "last_intervention_at": "",
@@ -276,6 +280,173 @@ class TodoList:
     def list_all(self):
         with self.lock:
             return [dict(item) for item in self.items]
+
+
+class ContextFiles:
+    """Current + historic context snapshots for the main agent."""
+
+    def __init__(
+        self,
+        current_path: Path = CURRENT_CONTEXT_PATH,
+        historic_path: Path = HISTORIC_CONTEXT_PATH,
+        max_history: int = 200,
+    ):
+        self.current_path = Path(current_path)
+        self.historic_path = Path(historic_path)
+        self.max_history = max_history
+        self.lock = threading.RLock()
+        self.current = self._load_current()
+        self.history = self._load_history()
+
+    def _default_current(self):
+        return {
+            "updated_at": now_iso(),
+            "focus_state": "unknown",
+            "summary": "",
+            "active_notes": [],
+            "last_stimulus": "",
+            "last_turn_reason": "",
+            "resource_summary": {},
+            "open_tab_ids": [],
+        }
+
+    def _load_current(self):
+        if not self.current_path.exists():
+            return self._default_current()
+        try:
+            data = json.loads(self.current_path.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                baseline = self._default_current()
+                baseline.update(data)
+                return baseline
+        except (OSError, json.JSONDecodeError):
+            pass
+        return self._default_current()
+
+    def _load_history(self):
+        if not self.historic_path.exists():
+            return []
+        entries = []
+        try:
+            for line in self.historic_path.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entries.append(json.loads(line))
+                except json.JSONDecodeError:
+                    continue
+        except OSError:
+            return []
+        return entries[-self.max_history :]
+
+    def get_current(self):
+        with self.lock:
+            return dict(self.current)
+
+    def recent_history(self, limit: int = 8):
+        with self.lock:
+            return list(self.history[-max(1, int(limit)) :])
+
+    def write_snapshot(self, summary: str, *, focus_state: str = "", notes=None, meta=None):
+        notes = [str(item).strip() for item in (notes or []) if str(item).strip()]
+        meta = dict(meta or {})
+        entry = {
+            "timestamp": now_iso(),
+            "summary": str(summary or ""),
+            "focus_state": str(focus_state or self.current.get("focus_state", "unknown")),
+            "notes": notes,
+            "meta": meta,
+        }
+        with self.lock:
+            self.current.update(
+                {
+                    "updated_at": entry["timestamp"],
+                    "summary": entry["summary"],
+                    "focus_state": entry["focus_state"],
+                    "active_notes": notes,
+                }
+            )
+            for key, value in meta.items():
+                self.current[key] = value
+            self.history.append(entry)
+            self.history = self.history[-self.max_history :]
+            self._flush_locked(entry)
+        return entry
+
+    def _flush_locked(self, entry):
+        try:
+            self.current_path.parent.mkdir(parents=True, exist_ok=True)
+            self.current_path.write_text(json.dumps(self.current, indent=2), encoding="utf-8")
+            with self.historic_path.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        except OSError:
+            pass
+
+
+class ClientActionQueue:
+    """Queue of client-side capture/resource actions requested by the agent."""
+
+    def __init__(self, path: Path = CLIENT_ACTIONS_PATH):
+        self.path = Path(path)
+        self.lock = threading.RLock()
+        self.items = self._load()
+
+    def _load(self):
+        if not self.path.exists():
+            return []
+        try:
+            stored = json.loads(self.path.read_text(encoding="utf-8"))
+            if isinstance(stored, list):
+                return [item for item in stored if isinstance(item, dict)]
+        except (OSError, json.JSONDecodeError):
+            pass
+        return []
+
+    def _save_locked(self):
+        try:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            self.path.write_text(json.dumps(self.items, indent=2), encoding="utf-8")
+        except OSError:
+            pass
+
+    def enqueue(self, action_type: str, payload: dict | None = None, *, dedupe_key: str = ""):
+        payload = dict(payload or {})
+        action_type = str(action_type or "").strip()
+        dedupe_key = str(dedupe_key or "").strip()
+        with self.lock:
+            for item in self.items:
+                if item.get("completed_at"):
+                    continue
+                if dedupe_key and item.get("dedupe_key") == dedupe_key:
+                    return dict(item)
+            item = {
+                "id": uuid.uuid4().hex[:10],
+                "type": action_type,
+                "payload": payload,
+                "dedupe_key": dedupe_key,
+                "created_at": now_iso(),
+                "completed_at": "",
+                "result": {},
+            }
+            self.items.append(item)
+            self._save_locked()
+            return dict(item)
+
+    def pending(self):
+        with self.lock:
+            return [dict(item) for item in self.items if not item.get("completed_at")]
+
+    def complete(self, action_id: str, result: dict | None = None):
+        action_id = str(action_id or "").strip()
+        with self.lock:
+            for item in self.items:
+                if item.get("id") == action_id and not item.get("completed_at"):
+                    item["completed_at"] = now_iso()
+                    item["result"] = dict(result or {})
+                    self._save_locked()
+                    return dict(item)
+        return {}
 
 
 class StimulusBus:

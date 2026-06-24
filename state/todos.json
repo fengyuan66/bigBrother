@@ -1,1 +1,9 @@
-[]
+[
+  {
+    "id": "950c29c55d",
+    "note": "Follow up on user's activity on the Wikipedia page",
+    "kind": "checkin",
+    "created_at": "2026-06-24T12:48:15.334",
+    "due_at_unix": 1782330795.3346748
+  }
+]

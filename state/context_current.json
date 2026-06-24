@@ -1,12 +1,15 @@
 {
-  "updated_at": "2026-06-20T17:13:25.874",
-  "focus_state": "focused",
-  "summary": "Smoke test context",
-  "active_notes": [
-    "testing"
-  ],
-  "last_stimulus": "",
-  "last_turn_reason": "smoke",
-  "resource_summary": {},
-  "open_tab_ids": []
+  "updated_at": "2026-06-24T12:49:03.420",
+  "focus_state": "distracted",
+  "summary": "Browser export refreshed with 2 tab(s).",
+  "active_notes": [],
+  "last_stimulus": "stimulus:capture_updated",
+  "last_turn_reason": "stimulus:capture_updated",
+  "resource_summary": {
+    "browser_tab_count": 2
+  },
+  "open_tab_ids": [
+    "D97DE479CB48ED23EA52463DC0CD6293",
+    "5974177171B9979055FA5ED337D2912F"
+  ]
 }

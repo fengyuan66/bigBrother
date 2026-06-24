@@ -1,45 +1,38 @@
 {
-  "started_at": "2026-06-10T23:01:27.909",
+  "started_at": "2026-06-24T12:46:45.655",
   "components": {
-    "watcher": {
-      "calls": 7,
-      "skipped_calls": 0,
-      "prompt_tokens": 3534,
-      "completion_tokens": 1727,
-      "estimated_tokens_saved": 0
-    },
     "vlm:webcam": {
-      "calls": 2,
-      "skipped_calls": 8,
-      "prompt_tokens": 632,
-      "completion_tokens": 428,
-      "estimated_tokens_saved": 12200
+      "calls": 4,
+      "skipped_calls": 7,
+      "prompt_tokens": 1264,
+      "completion_tokens": 892,
+      "estimated_tokens_saved": 10675
     },
-    "mpa": {
-      "calls": 3,
-      "skipped_calls": 0,
-      "prompt_tokens": 533,
-      "completion_tokens": 375,
-      "estimated_tokens_saved": 0
-    },
-    "personality": {
-      "calls": 2,
-      "skipped_calls": 0,
-      "prompt_tokens": 685,
-      "completion_tokens": 161,
-      "estimated_tokens_saved": 0
-    },
-    "vlm:screen": {
+    "agent": {
       "calls": 6,
       "skipped_calls": 1,
-      "prompt_tokens": 4713,
-      "completion_tokens": 1800,
-      "estimated_tokens_saved": 1555
+      "prompt_tokens": 7845,
+      "completion_tokens": 1760,
+      "estimated_tokens_saved": 497
+    },
+    "vlm:screen": {
+      "calls": 5,
+      "skipped_calls": 7,
+      "prompt_tokens": 3104,
+      "completion_tokens": 1500,
+      "estimated_tokens_saved": 17896
+    },
+    "personality": {
+      "calls": 4,
+      "skipped_calls": 0,
+      "prompt_tokens": 1393,
+      "completion_tokens": 605,
+      "estimated_tokens_saved": 0
     }
   },
-  "total_calls": 20,
-  "total_skipped_calls": 9,
-  "total_tokens_used": 14588,
-  "total_estimated_tokens_saved": 13755,
-  "efficiency_multiplier": 1.94
+  "total_calls": 19,
+  "total_skipped_calls": 15,
+  "total_tokens_used": 18363,
+  "total_estimated_tokens_saved": 29068,
+  "efficiency_multiplier": 2.58
 }

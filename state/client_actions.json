@@ -14,5 +14,202 @@
     "result": {
       "ok": true
     }
+  },
+  {
+    "id": "d34dd667cb",
+    "type": "webcam",
+    "payload": {
+      "type": "webcam",
+      "reason": "Confirm user presence and activity in the room.",
+      "source": "webcam",
+      "due_in_seconds": 30,
+      "priority": "medium"
+    },
+    "dedupe_key": "webcam:webcam:Confirm user presence and activity in the room.",
+    "created_at": "2026-06-24T12:39:15.259",
+    "completed_at": "2026-06-24T12:39:57.608",
+    "result": {
+      "ok": false,
+      "status": "unsupported",
+      "message": "Unsupported client action type: webcam"
+    }
+  },
+  {
+    "id": "9161474a69",
+    "type": "webcam",
+    "payload": {
+      "type": "webcam",
+      "reason": "To confirm user's current activity and focus state.",
+      "source": "webcam"
+    },
+    "dedupe_key": "webcam:webcam:To confirm user's current activity and focus state.",
+    "created_at": "2026-06-24T12:39:21.148",
+    "completed_at": "2026-06-24T12:39:57.625",
+    "result": {
+      "ok": false,
+      "status": "unsupported",
+      "message": "Unsupported client action type: webcam"
+    }
+  },
+  {
+    "id": "698c3db486",
+    "type": "screen",
+    "payload": {
+      "type": "screen",
+      "reason": "To verify the context of the newly opened tab and ensure it's study-related.",
+      "source": "screenshare"
+    },
+    "dedupe_key": "screen:screenshare:To verify the context of the newly opened tab and ensure it's study-related.",
+    "created_at": "2026-06-24T12:39:21.150",
+    "completed_at": "2026-06-24T12:39:57.633",
+    "result": {
+      "ok": false,
+      "status": "unsupported",
+      "message": "Unsupported client action type: screen"
+    }
+  },
+  {
+    "id": "cbcfaa8ed8",
+    "type": "screen_scan",
+    "payload": {
+      "type": "screen_scan",
+      "reason": "Keep a record image for the changed tab.",
+      "source": "screen",
+      "tab_id": "08D134C2973F10933F50B59FF48FAC3B",
+      "tab_url": "https://www.youtube.com/watch?v=LbSDX43cMYE",
+      "dedupe_key": "screen_scan:08D134C2973F10933F50B59FF48FAC3B"
+    },
+    "dedupe_key": "screen_scan:08D134C2973F10933F50B59FF48FAC3B",
+    "created_at": "2026-06-24T12:39:21.152",
+    "completed_at": "2026-06-24T12:47:04.132",
+    "result": {
+      "ok": false,
+      "status": "unavailable",
+      "reason": "Requested capture source is not active."
+    }
+  },
+  {
+    "id": "ae03d893aa",
+    "type": "screen_scan",
+    "payload": {
+      "type": "screen_scan",
+      "reason": "Ambiguous focus state due to YouTube tab open",
+      "source": "browser_tabs"
+    },
+    "dedupe_key": "screen_scan:browser_tabs:Ambiguous focus state due to YouTube tab open",
+    "created_at": "2026-06-24T12:40:02.119",
+    "completed_at": "2026-06-24T12:47:04.140",
+    "result": {
+      "ok": false,
+      "status": "unavailable",
+      "reason": "Requested capture source is not active."
+    }
+  },
+  {
+    "id": "b2561441fc",
+    "type": "screen_scan",
+    "payload": {
+      "type": "screen_scan",
+      "reason": "Keep a record image for the changed tab.",
+      "source": "screen",
+      "tab_id": "255D69674B0CFEA5D53C725D613B2579",
+      "tab_url": "https://www.youtube.com/watch?v=VmZx07cRUJ4",
+      "dedupe_key": "screen_scan:255D69674B0CFEA5D53C725D613B2579"
+    },
+    "dedupe_key": "screen_scan:255D69674B0CFEA5D53C725D613B2579",
+    "created_at": "2026-06-24T12:40:09.039",
+    "completed_at": "2026-06-24T12:47:04.153",
+    "result": {
+      "ok": false,
+      "status": "unavailable",
+      "reason": "Requested capture source is not active."
+    }
+  },
+  {
+    "id": "fa6076f693",
+    "type": "screen_scan",
+    "payload": {
+      "type": "screen_scan",
+      "reason": "Ambiguous tab content; need to verify if studying calculus or distracted.",
+      "source": "browser"
+    },
+    "dedupe_key": "screen_scan:browser:Ambiguous tab content; need to verify if studying calculus or distracted.",
+    "created_at": "2026-06-24T12:40:22.652",
+    "completed_at": "2026-06-24T12:47:04.158",
+    "result": {
+      "ok": false,
+      "status": "unavailable",
+      "reason": "Requested capture source is not active."
+    }
+  },
+  {
+    "id": "57034ca5dd",
+    "type": "screen_scan",
+    "payload": {
+      "type": "screen_scan",
+      "reason": "Confirm if YouTube is for study or distraction and verify device interaction",
+      "source": "browser"
+    },
+    "dedupe_key": "screen_scan:browser:Confirm if YouTube is for study or distraction and verify device interaction",
+    "created_at": "2026-06-24T12:47:23.857",
+    "completed_at": "2026-06-24T12:47:41.451",
+    "result": {
+      "ok": true,
+      "status": "captured",
+      "analyzed_count": 1,
+      "skipped_count": 0
+    }
+  },
+  {
+    "id": "d4f4b7549c",
+    "type": "screen_scan",
+    "payload": {
+      "type": "screen_scan",
+      "reason": "Need to verify if user is actively studying from Wikipedia or using it as a reference",
+      "source": "browser_tab_count_change"
+    },
+    "dedupe_key": "screen_scan:browser_tab_count_change:Need to verify if user is actively studying from Wikipedia or using it as a reference",
+    "created_at": "2026-06-24T12:48:08.000",
+    "completed_at": "2026-06-24T12:48:19.485",
+    "result": {
+      "ok": true,
+      "status": "captured",
+      "analyzed_count": 1,
+      "skipped_count": 0
+    }
+  },
+  {
+    "id": "8bab95176f",
+    "type": "screen",
+    "payload": {
+      "type": "screen",
+      "reason": "Confirm if user is actively reading/studying the Wikipedia page or just viewing it passively",
+      "source": "uncertain focus state"
+    },
+    "dedupe_key": "screen:uncertain focus state:Confirm if user is actively reading/studying the Wikipedia page or just viewing it passively",
+    "created_at": "2026-06-24T12:48:15.332",
+    "completed_at": "2026-06-24T12:48:20.119",
+    "result": {
+      "ok": false,
+      "status": "unsupported",
+      "message": "Unsupported client action type: screen"
+    }
+  },
+  {
+    "id": "85b6a34f65",
+    "type": "webcam",
+    "payload": {
+      "type": "webcam",
+      "reason": "To confirm if user is actively watching the video or engaged in another activity",
+      "source": "webcam"
+    },
+    "dedupe_key": "webcam:webcam:To confirm if user is actively watching the video or engaged in another activity",
+    "created_at": "2026-06-24T12:48:58.198",
+    "completed_at": "2026-06-24T12:49:02.103",
+    "result": {
+      "ok": false,
+      "status": "unsupported",
+      "message": "Unsupported client action type: webcam"
+    }
   }
 ]

@@ -1332,9 +1332,11 @@ class WatcherDashboardApp:
                 "turn_id": turn_id,
                 "planner_output": mpa_result,
             })
-            if not decision.sufficient or not decision.response_required:
+            # If the agent explicitly asks for a response, let the response
+            # actor speak even when it also wants more evidence.
+            if not decision.response_required:
                 personality_output = self._idle_personality_output()
-                self._set_actor_stage("personality", "idle", "Response actor waiting until enough evidence exists.")
+                self._set_actor_stage("personality", "idle", "Response actor waiting because no response was requested.")
                 self._log_event("personality", "idle", "Response actor skipped because no response was requested.", {
                     "turn_id": turn_id,
                 })

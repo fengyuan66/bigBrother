@@ -456,7 +456,6 @@ class StimulusBus:
         "tab_opened": 0.5,
         "tab_closed": 0.5,
         "tab_refreshed": 0.5,
-        "frame_unchanged": 0.0,
         "inactivity": 10.0,
         "activity": 2.0,
         "heartbeat": 5.0,

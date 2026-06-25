@@ -48,13 +48,47 @@ class AgentOrchestrator(threading.Thread):
         self.todos = app.todos
         self.stop_event = threading.Event()
         self.heartbeat_seconds = env_int("BIG_BROTHER_HEARTBEAT_SECONDS", 30)
-        self.tab_poll_seconds = max(1, env_int("BIG_BROTHER_TAB_POLL_SECONDS", 1))
+        self.tab_poll_seconds = max(2, env_int("BIG_BROTHER_TAB_POLL_SECONDS", 5))
         self.last_turn_started = 0.0
         self.last_tab_poll = 0.0
         self.last_heartbeat_emitted_at = 0.0
         self.pending_ticket = None
         self._tab_signature = None
         self._warmup_until = 0.0
+
+    def _tabs_signature(self, tabs: list[dict]) -> dict:
+        signature = {}
+        for tab in tabs:
+            tab_id = str(tab.get("id") or tab.get("url") or "")
+            if not tab_id:
+                continue
+            signature[tab_id] = {
+                "url": str(tab.get("url", "")),
+                "title": str(tab.get("title", "")),
+            }
+        return signature
+
+    def _signature_preview(self, signature: dict, limit: int = 4) -> list[dict]:
+        preview = []
+        for tab_id, payload in list((signature or {}).items())[: max(1, int(limit))]:
+            preview.append(
+                {
+                    "id": tab_id,
+                    "title": str((payload or {}).get("title", ""))[:120],
+                    "url": str((payload or {}).get("url", ""))[:180],
+                }
+            )
+        return preview
+
+    def _seed_tab_signature(self):
+        tabs = self.app.refresh_browser_export(retries=1, delay_seconds=0.05, log_event=False)
+        self._tab_signature = self._tabs_signature(tabs)
+        self.app._log_event(
+            "browser",
+            "baseline",
+            "Browser tab baseline seeded for change detection.",
+            {"count": len(self._tab_signature), "tabs": self._signature_preview(self._tab_signature)},
+        )
 
     def stop(self):
         self.stop_event.set()
@@ -112,20 +146,35 @@ class AgentOrchestrator(threading.Thread):
             self.last_heartbeat_emitted_at = now
 
     def _poll_tabs(self):
+        poll_started_perf = time.perf_counter()
         tabs = self.app.refresh_browser_export(retries=1, delay_seconds=0.1, log_event=False)
-        signature = {}
-        for tab in tabs:
-            tab_id = str(tab.get("id") or tab.get("url") or "")
-            signature[tab_id] = {
-                "url": str(tab.get("url", "")),
-                "title": str(tab.get("title", "")),
-            }
-
+        signature = self._tabs_signature(tabs)
         previous = self._tab_signature
         self._tab_signature = signature
         if previous is None:
+            self.app._log_event(
+                "browser",
+                "baseline",
+                "Browser tab baseline created during polling.",
+                {
+                    "count": len(signature),
+                    "tabs": self._signature_preview(signature),
+                    "poll_duration_ms": round((time.perf_counter() - poll_started_perf) * 1000, 1),
+                },
+            )
             return
         if time.time() < self._warmup_until:
+            self.app._log_event(
+                "browser",
+                "warmup_skip",
+                "Browser diff observed during warmup; no stimuli emitted.",
+                {
+                    "count": len(signature),
+                    "previous_count": len(previous),
+                    "tabs": self._signature_preview(signature),
+                    "poll_duration_ms": round((time.perf_counter() - poll_started_perf) * 1000, 1),
+                },
+            )
             return
 
         opened = [tab for tab in tabs if str(tab.get("id") or tab.get("url") or "") not in previous]
@@ -139,6 +188,38 @@ class AgentOrchestrator(threading.Thread):
             after = signature[tab_id]
             if before != after:
                 refreshed.append(tab)
+
+        if opened or closed or refreshed:
+            self.app._log_event(
+                "browser",
+                "diff",
+                "Browser tab delta detected.",
+                {
+                    "opened": [
+                        {"id": str(tab.get("id", "")), "title": tab.get("title", ""), "url": tab.get("url", "")}
+                        for tab in opened[:5]
+                    ],
+                    "closed": closed[:5],
+                    "refreshed": [
+                        {"id": str(tab.get("id", "")), "title": tab.get("title", ""), "url": tab.get("url", "")}
+                        for tab in refreshed[:5]
+                    ],
+                    "previous_tabs": self._signature_preview(previous),
+                    "current_tabs": self._signature_preview(signature),
+                    "poll_duration_ms": round((time.perf_counter() - poll_started_perf) * 1000, 1),
+                },
+            )
+        else:
+            self.app._log_event(
+                "browser",
+                "poll_no_change",
+                "Browser poll completed with no tab delta.",
+                {
+                    "count": len(signature),
+                    "tabs": self._signature_preview(signature),
+                    "poll_duration_ms": round((time.perf_counter() - poll_started_perf) * 1000, 1),
+                },
+            )
 
         if opened:
             self.bus.emit(
@@ -177,9 +258,6 @@ class AgentOrchestrator(threading.Thread):
         )
         self.app._log_event("agent", "stimulus", f"Stimulus: {stimulus_type}", {"type": stimulus_type, **payload})
 
-        if stimulus_type == "frame_unchanged":
-            return
-
         if stimulus_type == "inactivity":
             self.status.update(focus_state="inactive", notes="Inactivity signal received.")
         elif stimulus_type == "activity":
@@ -194,8 +272,22 @@ class AgentOrchestrator(threading.Thread):
                 emitted_at=stimulus.get("emitted_at", ""),
                 priority=STIMULUS_PRIORITY.get(stimulus_type, 0),
             )
-            if self.pending_ticket is None or ticket.priority >= self.pending_ticket.priority:
+            if (
+                self.pending_ticket is None
+                or ticket.priority > self.pending_ticket.priority
+                or (ticket.priority == self.pending_ticket.priority and ticket.emitted_at >= self.pending_ticket.emitted_at)
+            ):
                 self.pending_ticket = ticket
+                self.app._log_event(
+                    "turn",
+                    "queued",
+                    "Agent turn ticket queued.",
+                    {
+                        "type": ticket.type,
+                        "priority": ticket.priority,
+                        "payload": dict(ticket.payload),
+                    },
+                )
 
     def _run_pending_turn_if_allowed(self):
         if self.pending_ticket is None or not self._running():
@@ -211,6 +303,12 @@ class AgentOrchestrator(threading.Thread):
         self.last_turn_started = now
         self.last_heartbeat_emitted_at = 0.0
         reason = f"stimulus:{ticket.type}"
+        self.app._log_event(
+            "turn",
+            "start",
+            "Agent turn starting from queued ticket.",
+            {"reason": reason, "payload": dict(ticket.payload), "priority": ticket.priority},
+        )
         try:
             self.app.run_turn(reason=reason)
             self.status.update(last_turn_at=self.app.state.last_turn_at, last_turn_reason=reason)
@@ -222,13 +320,14 @@ class AgentOrchestrator(threading.Thread):
         self.last_tab_poll = 0.0
         self.last_heartbeat_emitted_at = 0.0
         self.pending_ticket = StimulusTicket(type="manual", payload={}, emitted_at="", priority=100)
-        self._tab_signature = None
-        self._warmup_until = time.time() + 2.5
+        self._seed_tab_signature()
+        self._warmup_until = time.time() + 0.5
         self.status.update(focus_state="active", notes="Session started.")
         self.memory.append("session", "Monitoring session started.")
 
     def note_session_stopped(self):
         self.pending_ticket = None
         self.last_heartbeat_emitted_at = 0.0
+        self._tab_signature = None
         self.status.update(focus_state="unknown", notes="Session stopped.")
         self.memory.append("session", "Monitoring session stopped.")

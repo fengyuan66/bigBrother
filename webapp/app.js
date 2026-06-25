@@ -55,8 +55,6 @@ const metroLines = {
 
 const shareButton = document.getElementById("shareButton");
 const webcamButton = document.getElementById("webcamButton");
-const captureButton = document.getElementById("captureButton");
-const autoCaptureButton = document.getElementById("autoCaptureButton");
 const stopCaptureButton = document.getElementById("stopCaptureButton");
 const launchBrowserButton = document.getElementById("launchBrowserButton");
 const exportTabsButton = document.getElementById("exportTabsButton");
@@ -66,11 +64,6 @@ const startButton = document.getElementById("startButton");
 const stopButton = document.getElementById("stopButton");
 const resetStatsButton = document.getElementById("resetStatsButton");
 
-const FRAME_DIFF_THRESHOLD = 5;
-const STRONG_MOTION_THRESHOLD = 15;
-const WEBCAM_MIN_PERIOD_MS = 30000;
-const INACTIVITY_AFTER_MS = 60000;
-const REACTIVITY_CHANGED_TICKS = 2;
 const MAX_UPLOAD_WIDTH = { webcam: 640, screen: 1024 };
 const UPLOAD_JPEG_QUALITY = 0.7;
 
@@ -84,8 +77,6 @@ const captureSources = {
     snapshotEl: document.getElementById("webcamSnapshot"),
     liveStatusEl: document.getElementById("webcamLiveStatus"),
     stream: null,
-    prevSignature: null,
-    lastSentAt: 0,
   },
   screen: {
     key: "screen",
@@ -96,24 +87,15 @@ const captureSources = {
     snapshotEl: document.getElementById("screenSnapshot"),
     liveStatusEl: document.getElementById("screenLiveStatus"),
     stream: null,
-    prevSignature: null,
-    lastSentAt: 0,
   },
 };
 
-const signatureCanvas = document.createElement("canvas");
-signatureCanvas.width = 64;
-signatureCanvas.height = 36;
-
 let pollHandle = null;
-let autoCaptureHandle = null;
 let captureInFlight = false;
 let latestState = null;
-let inactivityReported = false;
-let unchangedSinceMs = 0;
-let consecutiveChangedTicks = 0;
 let currentSpeechEventId = "";
 let lastCompletedSpeechEventId = "";
+let lastStimulusCueKey = "";
 const completedClientActionIds = new Set();
 
 function payloadFromControls() {
@@ -150,8 +132,6 @@ function activeSourceKeys() {
 function syncCaptureButtons() {
   const activeKeys = activeSourceKeys();
   captureBadge.textContent = activeKeys.length ? activeKeys.join(" + ") : "No source";
-  captureButton.disabled = activeKeys.length === 0 || captureInFlight;
-  autoCaptureButton.disabled = activeKeys.length === 0 || captureInFlight;
   stopCaptureButton.disabled = activeKeys.length === 0;
 }
 
@@ -207,6 +187,53 @@ function renderPendingActions(actions) {
   }
   actionBadge.textContent = `${entries.length} queued`;
   actionBadge.className = "badge warm";
+}
+
+function playStimulusCue(stimulusType) {
+  if (!stimulusType || !window.AudioContext) {
+    return;
+  }
+  const context = new window.AudioContext();
+  const now = context.currentTime;
+  const gain = context.createGain();
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(0.06, now + 0.015);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
+  gain.connect(context.destination);
+
+  const first = context.createOscillator();
+  first.type = "triangle";
+  first.frequency.setValueAtTime(740, now);
+  first.connect(gain);
+  first.start(now);
+  first.stop(now + 0.11);
+
+  const second = context.createOscillator();
+  second.type = "sine";
+  second.frequency.setValueAtTime(988, now + 0.09);
+  second.connect(gain);
+  second.start(now + 0.09);
+  second.stop(now + 0.22);
+
+  setTimeout(() => {
+    context.close().catch(() => {});
+  }, 350);
+}
+
+function maybePlayStimulusCue(state) {
+  const agent = state.agent || {};
+  const lastStimulus = agent.last_stimulus || {};
+  const stimulusType = String(lastStimulus.type || "").trim();
+  const emittedAt = String(lastStimulus.emitted_at || lastStimulus.emitted_at_unix || "").trim();
+  if (!stimulusType || stimulusType === "heartbeat") {
+    return;
+  }
+  const cueKey = `${stimulusType}:${emittedAt}`;
+  if (!emittedAt || cueKey === lastStimulusCueKey) {
+    return;
+  }
+  lastStimulusCueKey = cueKey;
+  playStimulusCue(stimulusType);
 }
 
 function setMetroNodeState(name, state = "idle") {
@@ -389,6 +416,7 @@ function speakResponseIfNeeded(response) {
 
 function renderState(state) {
   latestState = state;
+  maybePlayStimulusCue(state);
 
   goalInput.value = state.goal || "";
   intervalInput.value = state.interval_seconds || 5;
@@ -432,6 +460,7 @@ function renderState(state) {
   renderAgentMetro(state);
 
   const response = state.personality_output || {};
+  const speechState = state.speech || {};
   responseSummary.textContent = response.spoken_text || "No spoken response yet.";
   responseNotes.textContent = response.delivery_notes || "Idle.";
   if (response.should_speak) {
@@ -451,6 +480,14 @@ function renderState(state) {
     personalityAudio.removeAttribute("src");
     personalityAudio.load();
     personalityAudio.hidden = true;
+  }
+  if (!response.should_speak && currentSpeechEventId && !speechState.in_progress) {
+    try {
+      window.speechSynthesis.cancel();
+    } catch (err) {
+      // Ignore cancellation errors from the browser TTS engine.
+    }
+    currentSpeechEventId = "";
   }
   speakResponseIfNeeded(response);
 
@@ -488,14 +525,6 @@ function renderState(state) {
   syncCaptureButtons();
 }
 
-function stopAutoCapture() {
-  if (autoCaptureHandle) {
-    clearInterval(autoCaptureHandle);
-    autoCaptureHandle = null;
-  }
-  autoCaptureButton.textContent = "Start auto capture";
-}
-
 function stopSource(sourceKey, endedMessage = "") {
   const source = captureSources[sourceKey];
   if (source.stream) {
@@ -505,9 +534,6 @@ function stopSource(sourceKey, endedMessage = "") {
   source.videoEl.srcObject = null;
   if (endedMessage) {
     source.liveStatusEl.textContent = endedMessage;
-  }
-  if (activeSourceKeys().length === 0) {
-    stopAutoCapture();
   }
   syncCaptureButtons();
 }
@@ -556,54 +582,6 @@ function captureSourceFrame(sourceKey) {
   return { imageDataUrl, width, height };
 }
 
-function computeFrameSignature(sourceKey) {
-  const source = captureSources[sourceKey];
-  if (!source.videoEl.videoWidth || !source.videoEl.videoHeight) {
-    return null;
-  }
-  const context = signatureCanvas.getContext("2d", { willReadFrequently: true });
-  context.drawImage(source.videoEl, 0, 0, signatureCanvas.width, signatureCanvas.height);
-  const pixels = context.getImageData(0, 0, signatureCanvas.width, signatureCanvas.height).data;
-  const gray = new Uint8Array(pixels.length / 4);
-  for (let i = 0; i < gray.length; i += 1) {
-    const offset = i * 4;
-    gray[i] = (pixels[offset] + pixels[offset + 1] + pixels[offset + 2]) / 3;
-  }
-  return gray;
-}
-
-function signatureDiff(a, b) {
-  if (!a || !b || a.length !== b.length) {
-    return Infinity;
-  }
-  let total = 0;
-  for (let i = 0; i < a.length; i += 1) {
-    total += Math.abs(a[i] - b[i]);
-  }
-  return total / a.length;
-}
-
-function updateActivityTracking(changed) {
-  const now = Date.now();
-  if (changed) {
-    consecutiveChangedTicks += 1;
-    unchangedSinceMs = 0;
-    if (inactivityReported && consecutiveChangedTicks >= REACTIVITY_CHANGED_TICKS) {
-      inactivityReported = false;
-      postStimulus("activity");
-    }
-    return;
-  }
-  consecutiveChangedTicks = 0;
-  if (!unchangedSinceMs) {
-    unchangedSinceMs = now;
-  }
-  if (!inactivityReported && now - unchangedSinceMs >= INACTIVITY_AFTER_MS) {
-    inactivityReported = true;
-    postStimulus("inactivity", { idle_ms: now - unchangedSinceMs });
-  }
-}
-
 async function completeClientAction(actionId, result = {}) {
   if (!actionId) {
     return;
@@ -641,18 +619,7 @@ async function processPendingAgentActions(actions) {
   }
 }
 
-function shouldAutoAnalyzeSource(sourceKey, changed, diff, now) {
-  if (sourceKey === "screen") {
-    updateActivityTracking(changed);
-    return hasPendingActionType("screen_scan") && changed;
-  }
-  if (sourceKey === "webcam") {
-    return hasPendingActionType("webcam_scan") || diff >= STRONG_MOTION_THRESHOLD || now - captureSources.webcam.lastSentAt >= WEBCAM_MIN_PERIOD_MS;
-  }
-  return false;
-}
-
-async function summarizeSources(reason = "manual", requestedKeys = null, actionRequest = null) {
+async function summarizeSources(reason = "agent_action", requestedKeys = null, actionRequest = null) {
   const sourceKeys = (requestedKeys || activeSourceKeys()).filter((key) => Boolean(captureSources[key].stream));
   if (!sourceKeys.length || captureInFlight) {
     if (actionRequest && actionRequest.id) {
@@ -670,28 +637,6 @@ async function summarizeSources(reason = "manual", requestedKeys = null, actionR
   try {
     await Promise.all(sourceKeys.map(async (sourceKey) => {
       const source = captureSources[sourceKey];
-      const now = Date.now();
-      const signature = computeFrameSignature(sourceKey);
-      const diff = source.prevSignature ? signatureDiff(signature, source.prevSignature) : Infinity;
-      if (signature) {
-        source.prevSignature = signature;
-      }
-      const changed = diff >= FRAME_DIFF_THRESHOLD;
-      let shouldSend = reason !== "auto";
-      if (reason === "auto") {
-        shouldSend = shouldAutoAnalyzeSource(sourceKey, changed, diff, now);
-      }
-
-      if (!shouldSend) {
-        skippedCount += 1;
-        postStimulus("frame_unchanged", {
-          mode: source.analysisMode,
-          width: source.videoEl.videoWidth,
-          height: source.videoEl.videoHeight,
-        });
-        return;
-      }
-
       const frame = captureSourceFrame(sourceKey);
       await postJson("/api/analyze", {
         analysisMode: source.analysisMode,
@@ -707,13 +652,8 @@ async function summarizeSources(reason = "manual", requestedKeys = null, actionR
             }
           : {},
       });
-      source.lastSentAt = Date.now();
       analyzedCount += 1;
     }));
-
-    if (reason === "manual" && latestState && latestState.running && analyzedCount > 0) {
-      await postJson("/api/run-once", { ...payloadFromControls(), reason: "manual_capture_cycle" });
-    }
 
     await loadState();
     if (actionRequest && actionRequest.id) {
@@ -733,7 +673,6 @@ async function summarizeSources(reason = "manual", requestedKeys = null, actionR
     if (actionRequest && actionRequest.id) {
       await completeClientAction(actionRequest.id, { ok: false, status: "error", message: err.message || "Capture failed." });
     }
-    stopAutoCapture();
   } finally {
     captureInFlight = false;
     syncCaptureButtons();
@@ -767,7 +706,6 @@ async function freshStart() {
 
   try {
     completedClientActionIds.clear();
-    stopAutoCapture();
     stopSource("webcam");
     stopSource("screen");
 
@@ -794,15 +732,6 @@ async function freshStart() {
       setupNotes.push(`screen skipped: ${err.message || "permission denied"}`);
     }
 
-    if (activeSourceKeys().length > 0) {
-      await summarizeSources("auto");
-      autoCaptureHandle = setInterval(
-        () => summarizeSources("auto"),
-        Math.max(1000, Number(intervalInput.value || 5) * 1000),
-      );
-      autoCaptureButton.textContent = "Stop auto capture";
-    }
-
     await loadState();
     statusText.textContent = setupNotes.length
       ? `Fresh session started: ${setupNotes.join(" · ")}.`
@@ -819,7 +748,6 @@ async function stopSession() {
   stopButton.disabled = true;
   try {
     await postJson("/api/stop");
-    stopAutoCapture();
     await loadState();
   } finally {
     stopButton.disabled = false;
@@ -832,7 +760,6 @@ async function resetStats() {
     completedClientActionIds.clear();
     currentSpeechEventId = "";
     lastCompletedSpeechEventId = "";
-    stopAutoCapture();
     if ("speechSynthesis" in window) {
       window.speechSynthesis.cancel();
     }
@@ -893,20 +820,7 @@ webcamButton.addEventListener("click", async () => {
   }
 });
 
-captureButton.addEventListener("click", () => summarizeSources("manual"));
-
-autoCaptureButton.addEventListener("click", async () => {
-  if (autoCaptureHandle) {
-    stopAutoCapture();
-    return;
-  }
-  await summarizeSources("auto");
-  autoCaptureHandle = setInterval(() => summarizeSources("auto"), Math.max(1000, Number(intervalInput.value || 5) * 1000));
-  autoCaptureButton.textContent = "Stop auto capture";
-});
-
 stopCaptureButton.addEventListener("click", () => {
-  stopAutoCapture();
   stopSource("webcam", "Webcam stopped.");
   stopSource("screen", "Screen share stopped.");
   captureStatusText.textContent = "All capture sources stopped.";

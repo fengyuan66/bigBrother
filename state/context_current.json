@@ -1,18 +1,16 @@
 {
-  "updated_at": "2026-06-25T00:39:53.135",
+  "updated_at": "2026-06-25T10:13:05.418",
   "focus_state": "focused",
-  "summary": "Browser confirms calculus study focus with relevant tabs open. Webcam shows attentive posture without clear distraction signals.",
+  "summary": "Browser tabs align with the study goal.",
   "active_notes": [
-    "Inactivity requires browser context first, then a presence check, then a scheduled recheck.",
-    "A requested capture arrived. Re-evaluate it together with the current browser context.",
-    "Hand-over-mouth gesture remains ambiguous but doesn't contradict focus",
-    "No screenshare needed as browser evidence is sufficient",
-    "Historic YouTube distraction appears resolved"
+    "A browser tab changed. Refresh browser data first and treat browser evidence as highest priority.",
+    "Browser-first judgement completed without using VLM."
   ],
-  "last_stimulus": "stimulus:inactivity",
-  "last_turn_reason": "stimulus:inactivity",
+  "last_stimulus": "stimulus:tab_opened",
+  "last_turn_reason": "stimulus:tab_opened",
   "resource_summary": {
     "missing_sources": [
+      "webcam",
       "screenshare"
     ]
   },

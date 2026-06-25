@@ -1,16 +1,18 @@
 {
-  "updated_at": "2026-06-25T00:39:53.176",
-  "focus_state": "focused",
+  "updated_at": "2026-06-25T10:14:37.714",
+  "focus_state": "unknown",
   "last_activity_at": "2026-06-25T00:38:17.178",
-  "last_stimulus": "frame_unchanged",
-  "last_stimulus_at": "2026-06-25T00:39:50.179",
+  "last_stimulus": "tab_closed",
+  "last_stimulus_at": "2026-06-25T10:13:43.753",
   "last_stimulus_payload": {
-    "mode": "screen",
-    "width": 1920,
-    "height": 1032
+    "count": 1,
+    "tab_ids": [
+      "8347418D70CB14C90501FA0D89EF4AF5"
+    ],
+    "source_event": "Target.targetDestroyed"
   },
-  "last_turn_at": "2026-06-25 00:39:53",
-  "last_turn_reason": "stimulus:inactivity",
-  "last_intervention_at": "2026-06-25T00:39:31.020",
-  "notes": "Browser confirms calculus study focus with relevant tabs open. Webcam shows attentive posture without clear distraction signals."
+  "last_turn_at": "2026-06-25 10:13:05",
+  "last_turn_reason": "stimulus:tab_opened",
+  "last_intervention_at": "2026-06-25T10:12:44.746",
+  "notes": "Session stopped."
 }

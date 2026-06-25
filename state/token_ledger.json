@@ -1,31 +1,24 @@
 {
-  "started_at": "2026-06-25T00:33:31.368",
+  "started_at": "2026-06-25T10:12:12.226",
   "components": {
-    "vlm:webcam": {
-      "calls": 14,
-      "skipped_calls": 89,
-      "prompt_tokens": 3738,
-      "completion_tokens": 3373,
-      "estimated_tokens_saved": 117925
-    },
     "mpa": {
-      "calls": 13,
+      "calls": 1,
       "skipped_calls": 0,
-      "prompt_tokens": 26541,
-      "completion_tokens": 4062,
+      "prompt_tokens": 867,
+      "completion_tokens": 125,
       "estimated_tokens_saved": 0
     },
     "personality": {
-      "calls": 11,
+      "calls": 2,
       "skipped_calls": 0,
-      "prompt_tokens": 1547,
-      "completion_tokens": 2185,
+      "prompt_tokens": 333,
+      "completion_tokens": 574,
       "estimated_tokens_saved": 0
     }
   },
-  "total_calls": 38,
-  "total_skipped_calls": 89,
-  "total_tokens_used": 41446,
-  "total_estimated_tokens_saved": 117925,
-  "efficiency_multiplier": 3.85
+  "total_calls": 3,
+  "total_skipped_calls": 0,
+  "total_tokens_used": 1899,
+  "total_estimated_tokens_saved": 0,
+  "efficiency_multiplier": 1.0
 }

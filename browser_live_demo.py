@@ -123,6 +123,11 @@ class BrowserLiveReader:
             tabs.append(page)
         return tabs
 
+    def browser_ws_url(self):
+        with urlopen(f"http://127.0.0.1:{self.config.port}/json/version", timeout=1.5) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+        return str(payload.get("webSocketDebuggerUrl", "")).strip()
+
     def read_tabs(self, retries=1, delay_seconds=0.35):
         attempts = max(1, int(retries))
         for attempt in range(attempts):
@@ -299,6 +304,159 @@ class BrowserLiveReader:
                     ) or "(No visible page text.)"
         except Exception as exc:
             return f"Could not read page text: {exc}"
+
+
+class BrowserEventMonitor(threading.Thread):
+    EVENT_METHODS = {
+        "Target.targetCreated": "tab_opened",
+        "Target.targetDestroyed": "tab_closed",
+        "Target.targetInfoChanged": "tab_refreshed",
+    }
+
+    def __init__(self, config, callback, logger=None):
+        super().__init__(daemon=True, name=f"browser-event-monitor-{config.name.lower()}")
+        self.config = config
+        self.callback = callback
+        self.logger = logger
+        self.stop_event = threading.Event()
+        self._message_id = 0
+
+    def stop(self):
+        self.stop_event.set()
+
+    def _log(self, phase: str, message: str, payload=None):
+        if self.logger:
+            self.logger("browser_event", phase, message, payload or {})
+
+    def _next_id(self) -> int:
+        self._message_id += 1
+        return self._message_id
+
+    def _send(self, ws, method: str, params: dict | None = None):
+        ws.send(
+            json.dumps(
+                {
+                    "id": self._next_id(),
+                    "method": method,
+                    "params": params or {},
+                }
+            )
+        )
+
+    def _target_info_from_message(self, message: dict) -> dict:
+        params = dict(message.get("params") or {})
+        if "targetInfo" in params and isinstance(params.get("targetInfo"), dict):
+            return dict(params.get("targetInfo") or {})
+        return {}
+
+    def _is_page_target(self, target_info: dict) -> bool:
+        if str(target_info.get("type", "")).strip().lower() != "page":
+            return False
+        url = str(target_info.get("url", "")).strip().lower()
+        if url.startswith(("devtools://", "chrome://", "edge://", "brave://")):
+            return False
+        return True
+
+    def _normalize_event(self, message: dict) -> dict | None:
+        method = str(message.get("method", "")).strip()
+        stimulus_type = self.EVENT_METHODS.get(method)
+        if not stimulus_type:
+            return None
+
+        params = dict(message.get("params") or {})
+        if method == "Target.targetDestroyed":
+            target_id = str(params.get("targetId", "")).strip()
+            if not target_id:
+                return None
+            return {
+                "source": "devtools",
+                "method": method,
+                "stimulus_type": stimulus_type,
+                "tab_id": target_id,
+                "payload": {
+                    "count": 1,
+                    "tab_ids": [target_id],
+                    "source_event": method,
+                },
+            }
+
+        target_info = self._target_info_from_message(message)
+        if not self._is_page_target(target_info):
+            return None
+
+        tab_payload = {
+            "id": str(target_info.get("targetId", "")).strip(),
+            "title": str(target_info.get("title", "")).strip(),
+            "url": str(target_info.get("url", "")).strip(),
+        }
+        return {
+            "source": "devtools",
+            "method": method,
+            "stimulus_type": stimulus_type,
+            "tab_id": tab_payload["id"],
+            "payload": {
+                "count": 1,
+                "tabs": [tab_payload],
+                "source_event": method,
+            },
+        }
+
+    def run(self):
+        if not websocket:
+            self._log("unavailable", "websocket-client is not installed; browser event monitor disabled.", {})
+            return
+
+        reader = BrowserLiveReader(self.config)
+        while not self.stop_event.is_set():
+            ws = None
+            try:
+                ws_url = reader.browser_ws_url()
+                if not ws_url:
+                    self._log("waiting", "Browser DevTools websocket URL is not available yet.", {"browser": self.config.name})
+                    self.stop_event.wait(1.0)
+                    continue
+
+                self._log("connecting", "Connecting to browser DevTools event stream.", {"browser": self.config.name, "ws_url": ws_url})
+                ws = websocket.create_connection(ws_url, timeout=2)
+                ws.settimeout(1.0)
+                self._send(ws, "Target.setDiscoverTargets", {"discover": True})
+                self._log("connected", "Browser DevTools event stream connected.", {"browser": self.config.name})
+
+                while not self.stop_event.is_set():
+                    try:
+                        raw_message = ws.recv()
+                    except Exception:
+                        continue
+                    if not raw_message:
+                        continue
+                    try:
+                        message = json.loads(raw_message)
+                    except json.JSONDecodeError:
+                        continue
+                    event = self._normalize_event(message)
+                    if not event:
+                        continue
+                    self._log(
+                        "event",
+                        "Browser DevTools event received.",
+                        {
+                            "method": event.get("method", ""),
+                            "stimulus_type": event.get("stimulus_type", ""),
+                            "payload": dict(event.get("payload") or {}),
+                        },
+                    )
+                    try:
+                        self.callback(event)
+                    except Exception as exc:
+                        self._log("callback_error", "Browser event callback failed.", {"error": str(exc), "event": event})
+            except Exception as exc:
+                self._log("disconnected", "Browser DevTools event stream disconnected.", {"error": str(exc), "browser": self.config.name})
+                self.stop_event.wait(1.0)
+            finally:
+                try:
+                    ws.close()
+                except Exception:
+                    pass
 
 
 class BrowserDemoApp(tk.Tk):

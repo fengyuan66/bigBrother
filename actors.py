@@ -280,6 +280,23 @@ def _visual_assessment(text: str, session_goal: str) -> dict:
     }
 
 
+def _goal_focus_label(session_goal: str) -> str:
+    goal = str(session_goal or "").strip()
+    lowered = goal.lower()
+    prefixes = [
+        "i am studying ",
+        "i'm studying ",
+        "i am working on ",
+        "i'm working on ",
+        "studying ",
+        "working on ",
+    ]
+    for prefix in prefixes:
+        if lowered.startswith(prefix):
+            return goal[len(prefix) :].strip() or goal
+    return goal
+
+
 @dataclass
 class AgentDecision:
     sufficient: bool
@@ -403,6 +420,7 @@ class AgentActor:
         visual = _visual_assessment(fresh_visual_text, session_goal)
 
         if stimulus in {"tab_opened", "tab_refreshed", "tab_closed"}:
+            focus_label = _goal_focus_label(session_goal)
             if not resources.browser_text:
                 requested_resources.extend(self.procedural_resource_requests(stimulus_type, stimulus_payload))
                 return AgentDecision(
@@ -426,11 +444,11 @@ class AgentActor:
                     summary=browser["summary"],
                     evidence=browser["evidence"],
                     response_required=True,
-                    response_text=f"I can see {top_title or 'that tab'}, and it does not look helpful for {session_goal}. Close it or explain why it matters.",
+                    response_text=f"I can see {top_title or 'that tab'}, and it does not look helpful for {focus_label}. Close it or explain why it matters.",
                     requested_resources=[],
                     todo_writes=[],
                     notes=notes + ["Browser title and URL were used as the first-priority source."],
-                    actor_mode="heuristic",
+                    actor_mode="browser_first",
                 )
 
             if browser["needs_screen"]:
@@ -452,7 +470,7 @@ class AgentActor:
                     requested_resources=requested_resources,
                     todo_writes=[],
                     notes=notes + ["Browser-first read was ambiguous, so the next escalation is a screen scan."],
-                    actor_mode="heuristic",
+                    actor_mode="browser_first",
                 )
 
             return AgentDecision(
@@ -465,7 +483,7 @@ class AgentActor:
                 requested_resources=[],
                 todo_writes=[],
                 notes=notes + ["Browser-first judgement completed without using VLM."],
-                actor_mode="heuristic",
+                actor_mode="browser_first",
             )
 
         if stimulus == "inactivity":
@@ -675,6 +693,16 @@ class AgentActor:
         historic_context = historic_context or []
 
         if not self.client or not self.model:
+            return self._heuristic_decision(
+                session_goal,
+                resources,
+                stimulus_type=stimulus_type,
+                stimulus_payload=stimulus_payload,
+                current_context=current_context,
+                historic_context=historic_context,
+            )
+
+        if stimulus in {"tab_opened", "tab_refreshed", "tab_closed"}:
             return self._heuristic_decision(
                 session_goal,
                 resources,

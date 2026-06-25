@@ -692,6 +692,9 @@ class BigBrotherApp:
             active_event_id = str(self.state.speech.get("event_id", "")).strip()
             if active_event_id and event_id and active_event_id != event_id:
                 return {"ok": False, "reason": "event_id_mismatch", "active_event_id": active_event_id}
+            current_output = dict(self.state.personality_output or {})
+            current_output["should_speak"] = False
+            self.state.personality_output = current_output
             self.state.speech = {
                 "in_progress": True,
                 "event_id": event_id or active_event_id,
@@ -711,6 +714,9 @@ class BigBrotherApp:
             if event_id and active_event_id and event_id != active_event_id:
                 return {"ok": False, "reason": "event_id_mismatch", "active_event_id": active_event_id}
             grace_until = time.time() + POST_SPEECH_GRACE_SECONDS
+            current_output = dict(self.state.personality_output or {})
+            current_output["should_speak"] = False
+            self.state.personality_output = current_output
             self.state.speech = {
                 "in_progress": False,
                 "event_id": "",

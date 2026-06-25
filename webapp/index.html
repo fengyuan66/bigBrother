@@ -82,6 +82,96 @@
         </article>
       </section>
 
+      <section class="panel map-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="section-kicker">Runtime map</p>
+            <h2>Agent metro</h2>
+          </div>
+          <span id="mapCurrentStep" class="badge subtle">Idle</span>
+        </div>
+        <p id="mapCurrentReason" class="status-text muted-text">
+          The map will light up as the agent moves through stimuli, judgement, resource requests, and response.
+        </p>
+        <div class="metro-map-shell">
+          <svg class="metro-svg" viewBox="0 0 1000 560" aria-hidden="true">
+            <path id="line-stimuli-actor" class="metro-line" d="M540 90 C540 120, 460 130, 425 180" />
+            <path id="line-actor-context" class="metro-line" d="M440 210 C540 185, 620 145, 770 120" />
+            <path id="line-actor-response" class="metro-line" d="M365 220 C315 200, 255 175, 170 145" />
+            <path id="line-yes-actor" class="metro-line" d="M135 400 C155 315, 235 260, 350 235" />
+            <path id="line-actor-getresource" class="metro-line" d="M465 245 C570 255, 635 285, 705 360" />
+            <path id="line-no-getresource" class="metro-line" d="M390 400 L630 400" />
+            <path id="line-getresource-sufficient" class="metro-line" d="M720 430 C720 500, 625 510, 520 500" />
+            <path id="line-sufficient-no" class="metro-line" d="M470 495 C430 470, 405 445, 390 420" />
+            <path id="line-sufficient-yes" class="metro-line" d="M430 510 C315 520, 185 500, 120 420" />
+          </svg>
+
+          <div class="metro-node" data-node="response" style="left: 8%; top: 8%">
+            <span class="metro-ring"></span>
+            <div class="metro-card">
+              <strong>Response</strong>
+              <small>Speech signal / narration</small>
+            </div>
+          </div>
+
+          <div class="metro-node" data-node="stimuli" style="left: 47%; top: 5%">
+            <span class="metro-ring"></span>
+            <div class="metro-card">
+              <strong>State Change Stimuli</strong>
+              <small>Ticket arrives</small>
+            </div>
+          </div>
+
+          <div class="metro-node" data-node="context" style="left: 76.5%; top: 11%">
+            <span class="metro-ring"></span>
+            <div class="metro-card">
+              <strong>Context</strong>
+              <small>Current + historical</small>
+            </div>
+          </div>
+
+          <div class="metro-node node-actor" data-node="actor" style="left: 30%; top: 32%">
+            <span class="metro-ring"></span>
+            <div class="metro-card">
+              <strong>MPA AI LLM Actor</strong>
+              <small>Reads, judges sufficiency, decides</small>
+            </div>
+          </div>
+
+          <div class="metro-node node-yes" data-node="yes" style="left: 2.8%; top: 65%">
+            <span class="metro-ring"></span>
+            <div class="metro-card">
+              <strong>Yes</strong>
+              <small>Evidence sufficient</small>
+            </div>
+          </div>
+
+          <div class="metro-node node-no" data-node="no" style="left: 29%; top: 65%">
+            <span class="metro-ring"></span>
+            <div class="metro-card">
+              <strong>No</strong>
+              <small>Need more evidence</small>
+            </div>
+          </div>
+
+          <div class="metro-node" data-node="get-resource" style="left: 62%; top: 62%">
+            <span class="metro-ring"></span>
+            <div class="metro-card">
+              <strong>Get resource</strong>
+              <small>Browser, screen, webcam</small>
+            </div>
+          </div>
+
+          <div class="metro-node node-sufficient" data-node="sufficient" style="left: 42%; top: 85%">
+            <span class="metro-ring"></span>
+            <div class="metro-card">
+              <strong>Sufficient?</strong>
+              <small>Evidence check gate</small>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section class="overview-grid">
         <article class="panel overview-card">
           <div class="panel-heading">

@@ -25,6 +25,8 @@ const captureStatusText = document.getElementById("captureStatusText");
 const agentStatusText = document.getElementById("agentStatusText");
 const pathsText = document.getElementById("paths");
 const debugLogPath = document.getElementById("debugLogPath");
+const mapCurrentStep = document.getElementById("mapCurrentStep");
+const mapCurrentReason = document.getElementById("mapCurrentReason");
 
 const evidenceList = document.getElementById("evidenceList");
 const actionList = document.getElementById("actionList");
@@ -38,6 +40,18 @@ const browserOutput = document.getElementById("browserOutput");
 const webcamOutput = document.getElementById("webcamOutput");
 const screenshareOutput = document.getElementById("screenshareOutput");
 const personalityAudio = document.getElementById("personalityAudio");
+const metroNodes = Array.from(document.querySelectorAll(".metro-node"));
+const metroLines = {
+  stimuliActor: document.getElementById("line-stimuli-actor"),
+  actorContext: document.getElementById("line-actor-context"),
+  actorResponse: document.getElementById("line-actor-response"),
+  yesActor: document.getElementById("line-yes-actor"),
+  actorGetResource: document.getElementById("line-actor-getresource"),
+  noGetResource: document.getElementById("line-no-getresource"),
+  getResourceSufficient: document.getElementById("line-getresource-sufficient"),
+  sufficientNo: document.getElementById("line-sufficient-no"),
+  sufficientYes: document.getElementById("line-sufficient-yes"),
+};
 
 const shareButton = document.getElementById("shareButton");
 const webcamButton = document.getElementById("webcamButton");
@@ -195,6 +209,147 @@ function renderPendingActions(actions) {
   actionBadge.className = "badge warm";
 }
 
+function setMetroNodeState(name, state = "idle") {
+  const node = metroNodes.find((entry) => entry.dataset.node === name);
+  if (!node) {
+    return;
+  }
+  node.dataset.state = state;
+}
+
+function setMetroLineState(lineEl, state = "") {
+  if (!lineEl) {
+    return;
+  }
+  lineEl.className = "metro-line";
+  if (state) {
+    lineEl.classList.add(state);
+  }
+}
+
+function markMetroNode(name, state) {
+  setMetroNodeState(name, state);
+}
+
+function markMetroLine(name, state) {
+  setMetroLineState(metroLines[name], state);
+}
+
+function markMetroStep(nodeName, incomingLineName = "", state = "complete") {
+  markMetroNode(nodeName, state);
+  if (incomingLineName) {
+    markMetroLine(incomingLineName, state);
+  }
+}
+
+function describeRequestedResources(actions) {
+  const resourceActions = (Array.isArray(actions) ? actions : []).filter((entry) => {
+    const actionType = String((entry && entry.type) || "").trim();
+    return actionType === "browser_rag" || actionType === "screen_scan" || actionType === "webcam_scan";
+  });
+  if (!resourceActions.length) {
+    return "";
+  }
+  return resourceActions.map((entry) => String(entry.type || "").replace("_", " ")).join(", ");
+}
+
+function renderAgentMetro(state) {
+  for (const node of metroNodes) {
+    node.dataset.state = "idle";
+  }
+  for (const line of Object.values(metroLines)) {
+    setMetroLineState(line);
+  }
+
+  const speech = state.speech || {};
+  const planner = state.planner_output || {};
+  const agentOutput = state.agent_output || {};
+  const agent = state.agent || {};
+  const lastStimulus = agent.last_stimulus || {};
+  const stimulusType = String(lastStimulus.type || "").trim() || String(state.last_turn_reason || "").replace("stimulus:", "");
+  const pendingActions = Array.isArray(planner.requested_actions) ? planner.requested_actions : [];
+  const hasResourceRequest = pendingActions.some((entry) => {
+    const actionType = String((entry && entry.type) || "").trim();
+    return actionType === "browser_rag" || actionType === "screen_scan" || actionType === "webcam_scan";
+  }) || (Array.isArray(agentOutput.requested_resources) && agentOutput.requested_resources.length > 0);
+  const speechInProgress = Boolean(speech.in_progress);
+  const graceActive = Number(speech.grace_until_unix || 0) > Date.now() / 1000;
+  const responseRequired = Boolean(agentOutput.response_required);
+  const focusState = String(agentOutput.focus_state || "unknown").trim();
+  const runningTurn = String(state.status || "").includes("Running agent turn");
+
+  if (state.last_turn_at) {
+    markMetroNode("context", "complete");
+  }
+  if (stimulusType) {
+    markMetroNode("stimuli", runningTurn ? "in-progress" : "complete");
+  }
+  if (runningTurn) {
+    markMetroStep("actor", "stimuliActor", "in-progress");
+    markMetroLine("actorContext", "complete");
+    mapCurrentStep.textContent = "Judging sufficiency";
+    mapCurrentStep.className = "badge running";
+    mapCurrentReason.textContent = "The MPA actor is reading the latest evidence and deciding whether it is sufficient.";
+    return;
+  } else if (state.last_turn_at) {
+    markMetroStep("actor", "stimuliActor", "complete");
+    markMetroLine("actorContext", "complete");
+  }
+
+  if (hasResourceRequest) {
+    markMetroStep("sufficient", "", "complete");
+    markMetroStep("no", "sufficientNo", "complete");
+    markMetroStep("get-resource", "noGetResource", "in-progress");
+    markMetroLine("actorGetResource", "complete");
+    markMetroLine("getResourceSufficient", "in-progress");
+    mapCurrentStep.textContent = "Getting resource";
+    mapCurrentStep.className = "badge warm";
+    mapCurrentReason.textContent = describeRequestedResources(pendingActions) || "The actor judged the evidence incomplete and requested the next source.";
+    return;
+  }
+
+  if (state.last_turn_at) {
+    markMetroStep("sufficient", "", "complete");
+    markMetroStep("yes", "sufficientYes", "complete");
+    markMetroLine("yesActor", "complete");
+  }
+
+  if (speechInProgress) {
+    markMetroStep("response", "actorResponse", "in-progress");
+    mapCurrentStep.textContent = "Narrating";
+    mapCurrentStep.className = "badge running";
+    mapCurrentReason.textContent = "The response signal has been sent and Big Brother is frozen until narration finishes.";
+    return;
+  }
+
+  if (graceActive) {
+    markMetroStep("response", "actorResponse", "complete");
+    mapCurrentStep.textContent = "Grace pause";
+    mapCurrentStep.className = "badge ready";
+    mapCurrentReason.textContent = "Narration has ended. Big Brother is waiting through the post-speech grace window before reassessing.";
+    return;
+  }
+
+  if (responseRequired) {
+    markMetroStep("response", "actorResponse", "complete");
+    mapCurrentStep.textContent = "Response ready";
+    mapCurrentStep.className = "badge ready";
+    mapCurrentReason.textContent = String((state.personality_output || {}).spoken_text || "The actor has enough evidence and prepared a response.");
+    return;
+  }
+
+  if (state.last_turn_at) {
+    mapCurrentStep.textContent = focusState === "distracted" ? "Judged distracted" : "Sufficient";
+    mapCurrentStep.className = "badge running";
+    mapCurrentReason.textContent = String(agentOutput.summary || "The latest evidence was judged sufficient without needing more resources.");
+    return;
+  }
+
+  mapCurrentStep.textContent = "Idle";
+  mapCurrentStep.className = "badge subtle";
+  mapCurrentReason.textContent = "Waiting for the next stimulus or manual run.";
+}
+
 function speakResponseIfNeeded(response) {
   if (!("speechSynthesis" in window)) {
     return;
@@ -274,6 +429,7 @@ function renderState(state) {
   const planner = state.planner_output || {};
   actionSummary.textContent = planner.summary || "No follow-up actions yet.";
   renderPendingActions(planner.requested_actions || []);
+  renderAgentMetro(state);
 
   const response = state.personality_output || {};
   responseSummary.textContent = response.spoken_text || "No spoken response yet.";

@@ -13,11 +13,24 @@ except ImportError:
 from agent_core import estimate_text_tokens
 
 
-DEFAULT_BASE_URL = os.getenv("BIG_BROTHER_BASE_URL", "https://api.openai.com/v1")
 ACTOR_TIMEOUT_SECONDS = int(os.getenv("BIG_BROTHER_ACTOR_TIMEOUT_SECONDS", "45"))
 ACTOR_RETRIES = int(os.getenv("BIG_BROTHER_ACTOR_RETRIES", "1"))
-DEFAULT_AGENT_MODEL = os.getenv("BIG_BROTHER_AGENT_MODEL", "").strip()
-DEFAULT_PERSONALITY_MODEL = os.getenv("BIG_BROTHER_PERSONALITY_MODEL", "").strip()
+
+
+def _default_base_url() -> str:
+    return os.getenv("BIG_BROTHER_BASE_URL", "https://api.openai.com/v1").strip()
+
+
+def _default_agent_model() -> str:
+    return (
+        os.getenv("BIG_BROTHER_MPA_MODEL", "").strip()
+        or os.getenv("BIG_BROTHER_AGENT_MODEL", "").strip()
+        or os.getenv("BIG_BROTHER_MODEL", "").strip()
+    )
+
+
+def _default_personality_model() -> str:
+    return os.getenv("BIG_BROTHER_PERSONALITY_MODEL", "").strip()
 
 BROWSER_DISTRACTION_TERMS = {
     "youtube",
@@ -297,11 +310,15 @@ class PersonalityResult:
 class AgentActor:
     def __init__(self, ledger=None):
         self.ledger = ledger
-        self.model = DEFAULT_AGENT_MODEL or "heuristic"
+        self.model = _default_agent_model()
+        api_key = os.getenv("BIG_BROTHER_API_KEY") or os.getenv("OPENAI_API_KEY")
+        self.client = None
+        if api_key and self.model and OpenAI:
+            self.client = OpenAI(api_key=api_key, base_url=_default_base_url())
 
     @property
     def enabled(self):
-        return False
+        return True
 
     def stimulus_policy(self, stimulus_type: str) -> dict:
         stimulus = str(stimulus_type or "").replace("stimulus:", "").strip()
@@ -360,7 +377,7 @@ class AgentActor:
                 )
         return requests
 
-    def evaluate(
+    def _heuristic_decision(
         self,
         session_goal,
         resources,
@@ -536,15 +553,214 @@ class AgentActor:
             actor_mode="heuristic",
         )
 
+    def _normalize_focus_state(self, value: str) -> str:
+        state = str(value or "").strip().lower()
+        if state in {"focused", "distracted", "uncertain", "inactive"}:
+            return state
+        return "uncertain"
+
+    def _normalize_requested_resources(self, items) -> list[dict]:
+        allowed_types = {"browser_rag", "screen_scan", "webcam_scan"}
+        normalized = []
+        seen = set()
+        for raw in items or []:
+            if not isinstance(raw, dict):
+                continue
+            request_type = str(raw.get("type", "")).strip().lower()
+            if request_type in {"browser", "browser_scan"}:
+                request_type = "browser_rag"
+            elif request_type in {"screen"}:
+                request_type = "screen_scan"
+            elif request_type in {"webcam"}:
+                request_type = "webcam_scan"
+            if request_type not in allowed_types:
+                continue
+            reason = str(raw.get("reason", "")).strip()
+            source = str(raw.get("source", "")).strip().lower()
+            if not source:
+                source = request_type.replace("_scan", "").replace("_rag", "")
+            priority = str(raw.get("priority", "")).strip().lower() or ("high" if request_type != "webcam_scan" else "medium")
+            dedupe = (request_type, source, reason)
+            if dedupe in seen:
+                continue
+            seen.add(dedupe)
+            normalized.append(
+                {
+                    "type": request_type,
+                    "reason": reason,
+                    "source": source,
+                    "priority": priority,
+                }
+            )
+        return normalized
+
+    def _normalize_todo_writes(self, items) -> list[dict]:
+        normalized = []
+        for raw in items or []:
+            if not isinstance(raw, dict):
+                continue
+            note = str(raw.get("note", "")).strip()
+            if not note:
+                continue
+            due_in_seconds = raw.get("due_in_seconds", 0)
+            try:
+                due_in_seconds = max(0.0, float(due_in_seconds or 0))
+            except (TypeError, ValueError):
+                due_in_seconds = 0.0
+            kind = str(raw.get("kind", "scheduled")).strip() or "scheduled"
+            normalized.append({"note": note, "due_in_seconds": due_in_seconds, "kind": kind})
+        return normalized
+
+    def _build_llm_prompt(
+        self,
+        session_goal,
+        resources,
+        *,
+        stimulus,
+        stimulus_payload,
+        current_context,
+        historic_context,
+    ) -> str:
+        policy = self.stimulus_policy(stimulus)
+        browser = _browser_assessment(session_goal, resources.browser_text)
+        fresh_visual_text = "\n".join(
+            text for name, text in resources.iter_sources(include_stale=False) if name in {"webcam", "screenshare"}
+        )
+        visual = _visual_assessment(fresh_visual_text, session_goal)
+        payload_text = json.dumps(stimulus_payload or {}, ensure_ascii=True, indent=2)
+        current_text = json.dumps(current_context or {}, ensure_ascii=True, indent=2)
+        history_text = json.dumps(historic_context or [], ensure_ascii=True, indent=2)
+        policy_text = json.dumps(policy or {}, ensure_ascii=True, indent=2)
+        browser_hint = json.dumps(browser, ensure_ascii=True, indent=2)
+        visual_hint = json.dumps(visual, ensure_ascii=True, indent=2)
+        return (
+            "You are the MPA AI LLM ACTOR inside Big Brother.\n"
+            "Your job is to judge whether the current evidence is sufficient before deciding anything else.\n"
+            "If evidence is insufficient, request the minimum next resource(s) needed.\n"
+            "Stimulus instructions are higher priority than your own interpretation.\n"
+            "For browser tab changes, browser reading is the first-priority source and VLM should not be requested unless browser evidence is ambiguous.\n"
+            "If evidence is sufficient, make a judgement. That judgement may include a spoken response, context notes, todo writes, or no intervention.\n"
+            "Be careful with generic browser titles like 'New tab' or 'YouTube'. Do not overreact unless the evidence truly supports it.\n"
+            "Write natural response_text. Do not mechanically repeat the full study-goal sentence if a shorter natural phrase is better.\n"
+            "Return strict JSON with keys:\n"
+            "sufficient, focus_state, summary, evidence, response_required, response_text, requested_resources, todo_writes, notes.\n"
+            "Allowed focus_state values: focused, distracted, uncertain, inactive.\n"
+            "Allowed requested resource types: browser_rag, screen_scan, webcam_scan.\n"
+            "requested_resources must be empty when sufficient is true.\n"
+            "If response_required is false, response_text should be empty.\n\n"
+            f"Study goal:\n{session_goal}\n\n"
+            f"Stimulus type:\n{stimulus}\n\n"
+            f"Stimulus payload:\n{payload_text}\n\n"
+            f"Stimulus policy:\n{policy_text}\n\n"
+            f"Current context:\n{current_text}\n\n"
+            f"Historic context:\n{history_text}\n\n"
+            f"Fresh resources:\n{resources.as_prompt_text()}\n\n"
+            f"Browser-side structured hint:\n{browser_hint}\n\n"
+            f"Visual-side structured hint:\n{visual_hint}\n"
+        )
+
+    def evaluate(
+        self,
+        session_goal,
+        resources,
+        *,
+        stimulus_type="",
+        stimulus_payload=None,
+        current_context=None,
+        historic_context=None,
+    ):
+        stimulus = str(stimulus_type or "").replace("stimulus:", "").strip()
+        stimulus_payload = dict(stimulus_payload or {})
+        current_context = current_context or {}
+        historic_context = historic_context or []
+
+        if not self.client or not self.model:
+            return self._heuristic_decision(
+                session_goal,
+                resources,
+                stimulus_type=stimulus_type,
+                stimulus_payload=stimulus_payload,
+                current_context=current_context,
+                historic_context=historic_context,
+            )
+
+        policy = self.stimulus_policy(stimulus)
+        notes = [policy["instruction"]] if policy.get("instruction") else []
+        prompt = self._build_llm_prompt(
+            session_goal,
+            resources,
+            stimulus=stimulus,
+            stimulus_payload=stimulus_payload,
+            current_context=current_context,
+            historic_context=historic_context,
+        )
+        data = _chat_json(
+            self.client,
+            self.model,
+            prompt,
+            temperature=0.2,
+            max_tokens=600,
+            ledger=self.ledger,
+            component="mpa",
+        )
+
+        requested_resources = self._normalize_requested_resources(data.get("requested_resources"))
+        procedural_requests = self._normalize_requested_resources(
+            self.procedural_resource_requests(stimulus_type, stimulus_payload or current_context)
+        )
+        todo_writes = self._normalize_todo_writes(data.get("todo_writes"))
+
+        sufficient = bool(data.get("sufficient", False))
+        if procedural_requests and not sufficient:
+            merged = []
+            seen = set()
+            for item in [*procedural_requests, *requested_resources]:
+                dedupe = (item.get("type"), item.get("source"), item.get("reason"))
+                if dedupe in seen:
+                    continue
+                seen.add(dedupe)
+                merged.append(item)
+            requested_resources = merged
+
+        if stimulus == "inactivity":
+            if not any(str(item.get("kind", "")).strip().lower() == "inactivity_recheck" for item in todo_writes):
+                todo_writes.append({"note": "Recheck inactivity state.", "due_in_seconds": 30.0, "kind": "inactivity_recheck"})
+
+        if sufficient:
+            requested_resources = []
+
+        response_required = bool(data.get("response_required", False))
+        response_text = str(data.get("response_text", "")).strip()
+        if not response_required:
+            response_text = ""
+
+        summary = str(data.get("summary", "")).strip() or "The actor evaluated the latest evidence."
+        evidence = [str(item).strip() for item in (data.get("evidence") or []) if str(item).strip()][:8]
+        extra_notes = [str(item).strip() for item in (data.get("notes") or []) if str(item).strip()]
+        focus_state = self._normalize_focus_state(data.get("focus_state", "uncertain"))
+
+        return AgentDecision(
+            sufficient=sufficient,
+            focus_state=focus_state,
+            summary=summary,
+            evidence=evidence,
+            response_required=response_required,
+            response_text=response_text,
+            requested_resources=requested_resources,
+            todo_writes=todo_writes,
+            notes=notes + extra_notes,
+            actor_mode=f"llm:{self.model}",
+        )
+
 
 class PersonalityActor:
     def __init__(self, ledger=None):
         self.ledger = ledger
-        self.model = DEFAULT_PERSONALITY_MODEL
+        self.model = _default_personality_model()
         api_key = os.getenv("BIG_BROTHER_API_KEY") or os.getenv("OPENAI_API_KEY")
         self.client = None
         if api_key and self.model and OpenAI:
-            self.client = OpenAI(api_key=api_key, base_url=DEFAULT_BASE_URL)
+            self.client = OpenAI(api_key=api_key, base_url=_default_base_url())
 
     @property
     def enabled(self):

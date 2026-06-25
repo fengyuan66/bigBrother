@@ -1,13 +1,15 @@
 {
-  "updated_at": "2026-06-24T23:57:34.894",
+  "updated_at": "2026-06-25T00:29:26.595",
   "focus_state": "focused",
-  "summary": "Browser tabs align with the study goal.",
+  "summary": "Browser confirms exclusive focus on calculus study material. Webcam ambiguity (neutral posture with slight head tilt) is resolved by prioritizing unambiguous browser evidence per policy.",
   "active_notes": [
-    "A browser tab changed. Refresh browser data first and treat browser evidence as highest priority.",
-    "Browser-first judgement completed without using VLM."
+    "A requested capture arrived. Re-evaluate it together with the current browser context.",
+    "Webcam capture shows forward-facing attention but no active interaction cues",
+    "Browser tab consistency maintained across all checks",
+    "No conflicting resources detected in open tabs"
   ],
-  "last_stimulus": "stimulus:tab_closed",
-  "last_turn_reason": "stimulus:tab_closed",
+  "last_stimulus": "stimulus:capture_updated",
+  "last_turn_reason": "stimulus:capture_updated",
   "resource_summary": {
     "missing_sources": [
       "screenshare"

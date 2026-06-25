@@ -1,13 +1,13 @@
 {
-  "updated_at": "2026-06-25T10:13:05.418",
+  "updated_at": "2026-06-25T10:37:01.271",
   "focus_state": "focused",
   "summary": "Browser tabs align with the study goal.",
   "active_notes": [
     "A browser tab changed. Refresh browser data first and treat browser evidence as highest priority.",
     "Browser-first judgement completed without using VLM."
   ],
-  "last_stimulus": "stimulus:tab_opened",
-  "last_turn_reason": "stimulus:tab_opened",
+  "last_stimulus": "stimulus:tab_refreshed",
+  "last_turn_reason": "stimulus:tab_refreshed",
   "resource_summary": {
     "missing_sources": [
       "webcam",

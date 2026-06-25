@@ -2,6 +2,7 @@ import json
 import os
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from dataclasses import dataclass
 from urllib.parse import urlparse
 
@@ -15,6 +16,8 @@ from agent_core import estimate_text_tokens
 
 ACTOR_TIMEOUT_SECONDS = int(os.getenv("BIG_BROTHER_ACTOR_TIMEOUT_SECONDS", "45"))
 ACTOR_RETRIES = int(os.getenv("BIG_BROTHER_ACTOR_RETRIES", "1"))
+PERSONALITY_TIMEOUT_SECONDS = float(os.getenv("BIG_BROTHER_PERSONALITY_TIMEOUT_SECONDS", "6"))
+PERSONALITY_WALL_TIMEOUT_SECONDS = float(os.getenv("BIG_BROTHER_PERSONALITY_WALL_TIMEOUT_SECONDS", "8"))
 
 
 def _default_base_url() -> str:
@@ -109,16 +112,29 @@ STIMULUS_POLICIES = {
 }
 
 
-def _chat_json(client, model, prompt, *, temperature, max_tokens, ledger=None, component=""):
+def _chat_json(
+    client,
+    model,
+    prompt,
+    *,
+    temperature,
+    max_tokens,
+    ledger=None,
+    component="",
+    timeout_seconds=None,
+    retries=None,
+):
     last_error = None
-    for attempt in range(max(1, ACTOR_RETRIES + 1)):
+    request_timeout = ACTOR_TIMEOUT_SECONDS if timeout_seconds is None else float(timeout_seconds)
+    retry_limit = ACTOR_RETRIES if retries is None else int(retries)
+    for attempt in range(max(1, retry_limit + 1)):
         try:
             response = client.chat.completions.create(
                 model=model,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=temperature,
                 max_tokens=max_tokens,
-                timeout=ACTOR_TIMEOUT_SECONDS,
+                timeout=request_timeout,
                 response_format={"type": "json_object"},
             )
             content = response.choices[0].message.content or "{}"
@@ -784,6 +800,7 @@ class AgentActor:
 class PersonalityActor:
     def __init__(self, ledger=None):
         self.ledger = ledger
+        self.agent_model = _default_agent_model()
         self.model = _default_personality_model()
         api_key = os.getenv("BIG_BROTHER_API_KEY") or os.getenv("OPENAI_API_KEY")
         self.client = None
@@ -793,6 +810,23 @@ class PersonalityActor:
     @property
     def enabled(self):
         return self.client is not None
+
+    def _fallback_result(self, decision: AgentDecision, actor_mode: str, delivery_notes: str):
+        spoken_text = str(decision.response_text or "").strip()[:320]
+        if not spoken_text:
+            spoken_text = str(decision.summary or "Return to your study goal.").strip()[:320]
+        return PersonalityResult(
+            triggered=True,
+            should_speak=True,
+            spoken_text=spoken_text,
+            delivery_notes=delivery_notes[:160],
+            actor_mode=actor_mode,
+        )
+
+    def _should_passthrough(self) -> bool:
+        if not self.model:
+            return True
+        return bool(self.agent_model) and self.model == self.agent_model
 
     def evaluate(self, session_goal: str, decision: AgentDecision):
         if not decision.response_required:
@@ -804,14 +838,15 @@ class PersonalityActor:
                 actor_mode="idle",
             )
 
-        if not self.client:
-            return PersonalityResult(
-                triggered=True,
-                should_speak=True,
-                spoken_text=decision.response_text[:320],
-                delivery_notes="Direct, short, and calm.",
-                actor_mode="fallback",
+        if self._should_passthrough():
+            return self._fallback_result(
+                decision,
+                "passthrough_same_model",
+                "The speech rewrite was skipped because it uses the same model as the decision actor.",
             )
+
+        if not self.client:
+            return self._fallback_result(decision, "fallback", "Direct, short, and calm.")
 
         prompt = (
             "Rewrite the intervention into one short spoken line.\n"
@@ -822,15 +857,38 @@ class PersonalityActor:
             f"Evidence:\n{chr(10).join('- ' + item for item in decision.evidence) or '- None'}\n\n"
             f"Draft response:\n{decision.response_text}"
         )
-        data = _chat_json(
-            self.client,
-            self.model,
-            prompt,
-            temperature=0.5,
-            max_tokens=180,
-            ledger=self.ledger,
-            component="personality",
-        )
+        executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="personality-actor")
+        future = None
+        try:
+            future = executor.submit(
+                _chat_json,
+                self.client,
+                self.model,
+                prompt,
+                temperature=0.5,
+                max_tokens=180,
+                ledger=self.ledger,
+                component="personality",
+                timeout_seconds=PERSONALITY_TIMEOUT_SECONDS,
+                retries=0,
+            )
+            data = future.result(timeout=PERSONALITY_WALL_TIMEOUT_SECONDS)
+        except FuturesTimeoutError:
+            if future is not None:
+                future.cancel()
+            return self._fallback_result(
+                decision,
+                "fallback_timeout",
+                "The speech rewrite timed out, so the draft intervention was used directly.",
+            )
+        except Exception:
+            return self._fallback_result(
+                decision,
+                "fallback_error",
+                "The speech rewrite failed, so the draft intervention was used directly.",
+            )
+        finally:
+            executor.shutdown(wait=False, cancel_futures=True)
         return PersonalityResult(
             triggered=True,
             should_speak=bool(data.get("should_speak", True)),

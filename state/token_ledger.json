@@ -1,24 +1,17 @@
 {
-  "started_at": "2026-06-25T10:12:12.226",
+  "started_at": "2026-06-25T10:36:01.251",
   "components": {
     "mpa": {
       "calls": 1,
       "skipped_calls": 0,
-      "prompt_tokens": 867,
-      "completion_tokens": 125,
-      "estimated_tokens_saved": 0
-    },
-    "personality": {
-      "calls": 2,
-      "skipped_calls": 0,
-      "prompt_tokens": 333,
-      "completion_tokens": 574,
+      "prompt_tokens": 1417,
+      "completion_tokens": 577,
       "estimated_tokens_saved": 0
     }
   },
-  "total_calls": 3,
+  "total_calls": 1,
   "total_skipped_calls": 0,
-  "total_tokens_used": 1899,
+  "total_tokens_used": 1994,
   "total_estimated_tokens_saved": 0,
   "efficiency_multiplier": 1.0
 }

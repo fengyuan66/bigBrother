@@ -1,18 +1,22 @@
 {
-  "updated_at": "2026-06-25T10:14:37.714",
-  "focus_state": "unknown",
+  "updated_at": "2026-06-25T10:37:01.274",
+  "focus_state": "focused",
   "last_activity_at": "2026-06-25T00:38:17.178",
-  "last_stimulus": "tab_closed",
-  "last_stimulus_at": "2026-06-25T10:13:43.753",
+  "last_stimulus": "tab_refreshed",
+  "last_stimulus_at": "2026-06-25T10:36:54.523",
   "last_stimulus_payload": {
     "count": 1,
-    "tab_ids": [
-      "8347418D70CB14C90501FA0D89EF4AF5"
+    "tabs": [
+      {
+        "id": "3214BE19C39A0B529C6C47DDE35099A5",
+        "title": "Calculus - YouTube",
+        "url": "https://www.youtube.com/shorts/1FEPodyGeK4"
+      }
     ],
-    "source_event": "Target.targetDestroyed"
+    "source_event": "Target.targetInfoChanged"
   },
-  "last_turn_at": "2026-06-25 10:13:05",
-  "last_turn_reason": "stimulus:tab_opened",
-  "last_intervention_at": "2026-06-25T10:12:44.746",
-  "notes": "Session stopped."
+  "last_turn_at": "2026-06-25 10:37:01",
+  "last_turn_reason": "stimulus:tab_refreshed",
+  "last_intervention_at": "2026-06-25T10:36:48.398",
+  "notes": "Browser tabs align with the study goal."
 }

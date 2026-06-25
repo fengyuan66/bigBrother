@@ -98,7 +98,8 @@ let latestState = null;
 let inactivityReported = false;
 let unchangedSinceMs = 0;
 let consecutiveChangedTicks = 0;
-let lastSpokenResponseEventId = "";
+let currentSpeechEventId = "";
+let lastCompletedSpeechEventId = "";
 const completedClientActionIds = new Set();
 
 function payloadFromControls() {
@@ -202,8 +203,8 @@ function speakResponseIfNeeded(response) {
     return;
   }
 
-  const dedupeKey = String(response.spoken_text || "").trim().toLowerCase();
-  if (!dedupeKey || dedupeKey === lastSpokenResponseEventId) {
+  const eventId = String(response.event_id || "").trim();
+  if (!eventId || eventId === currentSpeechEventId || eventId === lastCompletedSpeechEventId) {
     return;
   }
 
@@ -212,8 +213,21 @@ function speakResponseIfNeeded(response) {
   utterance.rate = 1;
   utterance.pitch = 1;
   utterance.volume = 1;
+  currentSpeechEventId = eventId;
   utterance.onstart = () => {
-    lastSpokenResponseEventId = dedupeKey;
+    postJson("/api/speech-started", {
+      event_id: eventId,
+      text: String(response.spoken_text || ""),
+    }).catch(() => {});
+  };
+  utterance.onend = () => {
+    lastCompletedSpeechEventId = eventId;
+    currentSpeechEventId = "";
+    postJson("/api/speech-finished", { event_id: eventId }).catch(() => {});
+  };
+  utterance.onerror = () => {
+    currentSpeechEventId = "";
+    postJson("/api/speech-finished", { event_id: eventId }).catch(() => {});
   };
   window.speechSynthesis.speak(utterance);
 }
@@ -660,7 +674,8 @@ async function resetStats() {
   resetStatsButton.disabled = true;
   try {
     completedClientActionIds.clear();
-    lastSpokenResponseEventId = "";
+    currentSpeechEventId = "";
+    lastCompletedSpeechEventId = "";
     stopAutoCapture();
     if ("speechSynthesis" in window) {
       window.speechSynthesis.cancel();

@@ -1,14 +1,13 @@
 {
-  "updated_at": "2026-06-24T22:27:03.863",
-  "focus_state": "inactive",
+  "updated_at": "2026-06-24T23:57:34.894",
+  "focus_state": "focused",
   "summary": "Browser tabs align with the study goal.",
   "active_notes": [
-    "Inactivity requires browser context first, then a presence check, then a scheduled recheck.",
-    "Browser context still looks on-task despite inactivity.",
-    "Inactivity does not trigger an intervention by itself."
+    "A browser tab changed. Refresh browser data first and treat browser evidence as highest priority.",
+    "Browser-first judgement completed without using VLM."
   ],
-  "last_stimulus": "stimulus:inactivity",
-  "last_turn_reason": "stimulus:inactivity",
+  "last_stimulus": "stimulus:tab_closed",
+  "last_turn_reason": "stimulus:tab_closed",
   "resource_summary": {
     "missing_sources": [
       "screenshare"

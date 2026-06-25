@@ -1,16 +1,1 @@
-[
-  {
-    "id": "e10775ee54",
-    "type": "webcam_scan",
-    "payload": {
-      "type": "webcam_scan",
-      "reason": "Procedural webcam check for inactivity.",
-      "source": "webcam",
-      "priority": "medium"
-    },
-    "dedupe_key": "webcam_scan:webcam:Procedural webcam check for inactivity.",
-    "created_at": "2026-06-24T22:27:03.862",
-    "completed_at": "",
-    "result": {}
-  }
-]
+[]

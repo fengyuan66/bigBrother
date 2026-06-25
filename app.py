@@ -57,7 +57,7 @@ MODE_TO_SUMMARY_PATH = {
     "screen": SUMMARIES_DIR / "screen_summary.json",
 }
 VOLATILE_LINE_PREFIXES = ("created:", "updated:", "timestamp", "exported")
-RESPONSE_SUPPRESSION_SECONDS = int(os.getenv("BIG_BROTHER_RESPONSE_SUPPRESSION_SECONDS", "20"))
+POST_SPEECH_GRACE_SECONDS = int(os.getenv("BIG_BROTHER_POST_SPEECH_GRACE_SECONDS", "5"))
 
 
 def now_iso():
@@ -184,6 +184,13 @@ class DashboardState:
             "audio_error": "",
             "event_id": "",
         }
+        self.speech = {
+            "in_progress": False,
+            "event_id": "",
+            "text": "",
+            "started_at": "",
+            "grace_until_unix": 0.0,
+        }
         self.capture_status = "No capture source active."
         self.last_export = {"path": "", "count": 0}
         self.last_analysis = {"analysisMode": "", "summary": "", "writtenFiles": {}}
@@ -213,6 +220,7 @@ class DashboardState:
                 "agent_output": dict(self.agent_output),
                 "planner_output": dict(self.planner_output),
                 "personality_output": dict(self.personality_output),
+                "speech": dict(self.speech),
                 "capture_status": self.capture_status,
                 "last_export": dict(self.last_export),
                 "last_analysis": dict(self.last_analysis),
@@ -250,8 +258,6 @@ class BigBrotherApp:
         self._capture_hashes = {}
         self._capture_cache = {}
         self._last_decision_fingerprint = ""
-        self._last_response_signature = ""
-        self._last_response_at = 0.0
         if start_orchestrator:
             self.orchestrator.start()
         self._log_event(
@@ -310,6 +316,18 @@ class BigBrotherApp:
             self.stop(timed_out=True)
             return True
         return False
+
+    def speech_in_progress(self) -> bool:
+        with self.state.lock:
+            return bool(self.state.speech.get("in_progress"))
+
+    def assessment_paused(self) -> bool:
+        with self.state.lock:
+            speech = dict(self.state.speech)
+        if speech.get("in_progress"):
+            return True
+        grace_until = float(speech.get("grace_until_unix", 0.0) or 0.0)
+        return grace_until > time.time()
 
     def _resource_max_age_seconds(self):
         with self.state.lock:
@@ -412,8 +430,6 @@ class BigBrotherApp:
         self._capture_hashes = {}
         self._capture_cache = {}
         self._last_decision_fingerprint = ""
-        self._last_response_signature = ""
-        self._last_response_at = 0.0
         clear_targets = [
             DEBUG_LOG_PATH,
             PERSONALITY_JSON_PATH,
@@ -474,6 +490,17 @@ class BigBrotherApp:
         self.run_turn(reason=reason)
 
     def run_turn(self, reason="manual_run"):
+        if self.assessment_paused():
+            pause_payload = {"reason": reason, "speech_in_progress": self.speech_in_progress()}
+            self._log_event("turn", "paused", "Turn blocked while speech/grace pause is active.", pause_payload)
+            with self.state.lock:
+                grace_until = float(self.state.speech.get("grace_until_unix", 0.0) or 0.0)
+                if self.state.speech.get("in_progress"):
+                    self.state.status = "Speech narration in progress. Big Brother is waiting before reassessing."
+                elif grace_until > time.time():
+                    remaining = max(0, int(grace_until - time.time()))
+                    self.state.status = f"Post-speech grace active ({remaining}s). Big Brother is waiting before reassessing."
+            return
         self.refresh_browser_export(log_event=False)
         resources = self._refresh_resource_debug()
         with self.state.lock:
@@ -570,9 +597,8 @@ class BigBrotherApp:
                     },
                 )(),
             )
-        if decision.response_required and should_speak:
-            self._last_response_signature = decision.response_signature()
-            self._last_response_at = time.time()
+        if personality_result.should_speak:
+            self._arm_speech_lock(now_label, personality_result.spoken_text)
         personality_output = {
             "triggered": personality_result.triggered,
             "should_speak": personality_result.should_speak,
@@ -598,7 +624,7 @@ class BigBrotherApp:
             },
         )
         if decision.response_required and not should_speak:
-            decision.notes.append("Repeated response suppressed to avoid speaking the same message again immediately.")
+            decision.notes.append("A speech narration is already in progress, so this turn did not emit a new spoken response.")
         self.status_file.update(
             focus_state=decision.focus_state,
             last_turn_at=now_label,
@@ -657,10 +683,62 @@ class BigBrotherApp:
     def _should_emit_response(self, decision) -> bool:
         if not decision.response_required:
             return False
-        signature = decision.response_signature()
-        if signature and signature == self._last_response_signature and (time.time() - self._last_response_at) < RESPONSE_SUPPRESSION_SECONDS:
-            return False
-        return True
+        with self.state.lock:
+            return not bool(self.state.speech.get("in_progress"))
+
+    def note_speech_started(self, event_id: str, text: str = ""):
+        event_id = str(event_id or "").strip()
+        with self.state.lock:
+            active_event_id = str(self.state.speech.get("event_id", "")).strip()
+            if active_event_id and event_id and active_event_id != event_id:
+                return {"ok": False, "reason": "event_id_mismatch", "active_event_id": active_event_id}
+            self.state.speech = {
+                "in_progress": True,
+                "event_id": event_id or active_event_id,
+                "text": str(text or self.state.speech.get("text", "")),
+                "started_at": self.state.speech.get("started_at") or now_iso(),
+                "grace_until_unix": 0.0,
+            }
+            self.state.status = "Speech narration in progress. Big Brother is waiting before reassessing."
+        self.status_file.update(last_intervention_at=now_iso())
+        self._log_event("speech", "started", "Speech narration started.", {"event_id": event_id, "text": str(text or "")[:240]})
+        return {"ok": True}
+
+    def note_speech_finished(self, event_id: str = ""):
+        event_id = str(event_id or "").strip()
+        with self.state.lock:
+            active_event_id = str(self.state.speech.get("event_id", "")).strip()
+            if event_id and active_event_id and event_id != active_event_id:
+                return {"ok": False, "reason": "event_id_mismatch", "active_event_id": active_event_id}
+            grace_until = time.time() + POST_SPEECH_GRACE_SECONDS
+            self.state.speech = {
+                "in_progress": False,
+                "event_id": "",
+                "text": "",
+                "started_at": "",
+                "grace_until_unix": grace_until,
+            }
+            self.state.status = f"Speech finished. Waiting {POST_SPEECH_GRACE_SECONDS}s before reassessing."
+        self._log_event(
+            "speech",
+            "finished",
+            "Speech narration finished. Grace period started.",
+            {"event_id": event_id or active_event_id, "grace_seconds": POST_SPEECH_GRACE_SECONDS},
+        )
+        return {"ok": True, "grace_seconds": POST_SPEECH_GRACE_SECONDS}
+
+    def _arm_speech_lock(self, event_id: str, text: str):
+        with self.state.lock:
+            self.state.speech = {
+                "in_progress": True,
+                "event_id": str(event_id or "").strip(),
+                "text": str(text or ""),
+                "started_at": now_iso(),
+                "grace_until_unix": 0.0,
+            }
+            self.state.status = "Speech signal sent. Big Brother is waiting for narration to finish."
+        self.status_file.update(last_intervention_at=now_iso())
+        self._log_event("speech", "armed", "Speech signal sent; narration lock engaged immediately.", {"event_id": event_id, "text": str(text or "")[:240]})
 
     def _queue_requested_resource(self, item: dict):
         request_type = str(item.get("type", "")).strip().lower()
@@ -973,8 +1051,13 @@ class RequestHandler(BaseHTTPRequestHandler):
                 )
                 self._send_json(result)
                 return
+            if parsed.path == "/api/speech-started":
+                result = APP.note_speech_started(body.get("event_id", ""), body.get("text", ""))
+                self._send_json({"ok": True, "result": result if result else {}})
+                return
             if parsed.path == "/api/speech-finished":
-                self._send_json({"ok": True})
+                result = APP.note_speech_finished(body.get("event_id", ""))
+                self._send_json(result)
                 return
             self.send_error(HTTPStatus.NOT_FOUND)
         except ValueError as exc:

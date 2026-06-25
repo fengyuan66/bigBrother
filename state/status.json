@@ -1,16 +1,16 @@
 {
-  "updated_at": "2026-06-24T22:27:03.866",
-  "focus_state": "inactive",
+  "updated_at": "2026-06-24T23:57:50.325",
+  "focus_state": "focused",
   "last_activity_at": "2026-06-10T22:48:36.812",
   "last_stimulus": "frame_unchanged",
-  "last_stimulus_at": "2026-06-24T22:27:03.829",
+  "last_stimulus_at": "2026-06-24T23:57:50.324",
   "last_stimulus_payload": {
     "mode": "screen",
     "width": 930,
     "height": 1004
   },
-  "last_turn_at": "2026-06-24 22:27:03",
-  "last_turn_reason": "stimulus:inactivity",
-  "last_intervention_at": "",
+  "last_turn_at": "2026-06-24 23:57:34",
+  "last_turn_reason": "stimulus:tab_closed",
+  "last_intervention_at": "2026-06-24T23:57:23.893",
   "notes": "Browser tabs align with the study goal."
 }

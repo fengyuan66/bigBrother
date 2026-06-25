@@ -93,6 +93,9 @@ class AgentOrchestrator(threading.Thread):
         if stimulus is not None:
             self._handle_stimulus(stimulus)
 
+        if self.app.assessment_paused():
+            return
+
         self._run_pending_turn_if_allowed()
 
     def _poll_tabs(self):

@@ -1,7 +1,9 @@
 import json
 import os
+import re
 import time
 from dataclasses import dataclass
+from urllib.parse import urlparse
 
 try:
     from openai import OpenAI
@@ -12,20 +14,89 @@ from agent_core import estimate_text_tokens
 
 
 DEFAULT_BASE_URL = os.getenv("BIG_BROTHER_BASE_URL", "https://api.openai.com/v1")
-MAX_RESOURCE_PROMPT_CHARS = int(os.getenv("BIG_BROTHER_MAX_RESOURCE_CHARS", "4000"))
-ACTOR_TIMEOUT_SECONDS = int(os.getenv("BIG_BROTHER_ACTOR_TIMEOUT_SECONDS", "60"))
-ACTOR_RETRIES = int(os.getenv("BIG_BROTHER_ACTOR_RETRIES", "2"))
+ACTOR_TIMEOUT_SECONDS = int(os.getenv("BIG_BROTHER_ACTOR_TIMEOUT_SECONDS", "45"))
+ACTOR_RETRIES = int(os.getenv("BIG_BROTHER_ACTOR_RETRIES", "1"))
+DEFAULT_AGENT_MODEL = os.getenv("BIG_BROTHER_AGENT_MODEL", "").strip()
+DEFAULT_PERSONALITY_MODEL = os.getenv("BIG_BROTHER_PERSONALITY_MODEL", "").strip()
+
+BROWSER_DISTRACTION_TERMS = {
+    "youtube",
+    "netflix",
+    "tiktok",
+    "instagram",
+    "discord",
+    "twitter",
+    "x.com",
+    "twitch",
+    "reddit",
+    "shopping",
+    "roblox",
+}
+VISUAL_DISTRACTION_TERMS = {
+    "phone",
+    "scrolling",
+    "selfie",
+    "shopping",
+    "tiktok",
+    "instagram",
+    "discord",
+}
+NEUTRAL_VIDEO_TERMS = {"video", "lecture", "tutorial", "lesson", "course", "watch", "short", "shorts"}
+STOPWORDS = {
+    "the",
+    "and",
+    "for",
+    "with",
+    "that",
+    "this",
+    "from",
+    "into",
+    "your",
+    "have",
+    "about",
+    "study",
+    "studying",
+    "work",
+    "working",
+    "need",
+}
+STIMULUS_POLICIES = {
+    "tab_opened": {
+        "procedural_resources": ["browser_rag"],
+        "instruction": "A browser tab changed. Refresh browser data first and treat browser evidence as highest priority.",
+    },
+    "tab_refreshed": {
+        "procedural_resources": ["browser_rag"],
+        "instruction": "A browser tab changed. Refresh browser data first and treat browser evidence as highest priority.",
+    },
+    "tab_closed": {
+        "procedural_resources": ["browser_rag"],
+        "instruction": "A browser tab changed. Refresh browser data first and treat browser evidence as highest priority.",
+    },
+    "inactivity": {
+        "procedural_resources": ["browser_rag", "webcam_scan"],
+        "instruction": "Inactivity requires browser context first, then a presence check, then a scheduled recheck.",
+    },
+    "capture_updated": {
+        "procedural_resources": [],
+        "instruction": "A requested capture arrived. Re-evaluate it together with the current browser context.",
+    },
+    "todo_due": {
+        "procedural_resources": [],
+        "instruction": "A scheduled follow-up is due. Honor the todo kind first, then decide whether more evidence is needed.",
+    },
+    "manual": {
+        "procedural_resources": [],
+        "instruction": "Manual turn. Judge the current evidence and fetch more only if it is insufficient.",
+    },
+    "heartbeat": {
+        "procedural_resources": [],
+        "instruction": "Heartbeat. Only intervene if the evidence is already sufficient and materially changed.",
+    },
+}
 
 
-def truncate_for_prompt(text: str, limit: int = MAX_RESOURCE_PROMPT_CHARS) -> str:
-    text = str(text or "")
-    if len(text) <= limit:
-        return text
-    return text[: max(0, limit - 22)] + "\n...[truncated]..."
-
-
-def chat_json(client, model, prompt, *, temperature, max_tokens, ledger=None, component=""):
-    """Single JSON-mode chat call with retries, timeout, and ledger accounting."""
+def _chat_json(client, model, prompt, *, temperature, max_tokens, ledger=None, component=""):
     last_error = None
     for attempt in range(max(1, ACTOR_RETRIES + 1)):
         try:
@@ -44,50 +115,160 @@ def chat_json(client, model, prompt, *, temperature, max_tokens, ledger=None, co
                 completion_tokens = getattr(usage, "completion_tokens", 0) or estimate_text_tokens(content)
                 ledger.record_call(component or model, prompt_tokens, completion_tokens)
             return json.loads(content)
-        except json.JSONDecodeError:
-            return {}
         except Exception as exc:
             last_error = exc
-            time.sleep(0.5 * (2**attempt))
+            time.sleep(0.4 * (2**attempt))
     raise last_error
-DEFAULT_AGENT_MODEL = (
-    os.getenv("BIG_BROTHER_AGENT_MODEL")
-    or os.getenv("BIG_BROTHER_MPA_MODEL")
-    or os.getenv("BIG_BROTHER_WATCHER_MODEL")
-    or "generic-light-llm"
-)
-DEFAULT_PERSONALITY_MODEL = os.getenv("BIG_BROTHER_PERSONALITY_MODEL", DEFAULT_AGENT_MODEL)
-DISTRACTION_TERMS = [
-    "phone",
-    "selfie",
-    "scrolling",
-    "youtube",
-    "netflix",
-    "tiktok",
-    "instagram",
-    "discord",
-    "game",
-    "gaming",
-    "shopping",
-    "social media",
-    "roblox",
-    "x.com",
-    "twitter",
-    "twitch",
-]
+
+
+def _keywords(text: str) -> list[str]:
+    terms = []
+    for part in re.findall(r"[a-z0-9]{3,}", str(text or "").lower()):
+        if part in STOPWORDS:
+            continue
+        if part not in terms:
+            terms.append(part)
+    return terms
+
+
+def _parse_browser_export(text: str) -> list[dict]:
+    tabs = []
+    current = None
+    for raw_line in str(text or "").splitlines():
+        line = raw_line.rstrip()
+        match = re.match(r"^\s*(\d+)\.\s+(.*)$", line)
+        if match:
+            if current:
+                tabs.append(current)
+            current = {"index": int(match.group(1)), "title": match.group(2).strip(), "url": "", "domain": ""}
+            continue
+        if current is None:
+            continue
+        stripped = line.strip()
+        if stripped.startswith("URL:"):
+            current["url"] = stripped.split(":", 1)[1].strip()
+            if current["url"]:
+                current["domain"] = urlparse(current["url"]).netloc.lower()
+            continue
+        if stripped.startswith("Domain:"):
+            current["domain"] = stripped.split(":", 1)[1].strip().lower()
+    if current:
+        tabs.append(current)
+
+    unique = []
+    seen = set()
+    for tab in tabs:
+        key = (tab.get("title", "").strip().lower(), tab.get("url", "").strip().lower())
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(tab)
+    return unique
+
+
+def _browser_assessment(session_goal: str, browser_text: str) -> dict:
+    goal_text = str(session_goal or "").lower()
+    goal_terms = _keywords(goal_text)
+    allow_video = any(term in goal_text for term in NEUTRAL_VIDEO_TERMS | {"youtube"})
+    tabs = _parse_browser_export(browser_text)
+
+    evidence = []
+    has_study_match = False
+    distraction_tabs = []
+    ambiguous_tabs = []
+
+    for tab in tabs:
+        title = str(tab.get("title", "")).strip()
+        url = str(tab.get("url", "")).strip()
+        domain = str(tab.get("domain", "")).strip().lower()
+        haystack = f"{title} {url} {domain}".lower()
+        if title or url:
+            evidence.append(f"{title or '(untitled)'} - {url or '(no url)'}")
+
+        goal_overlap = any(term in haystack for term in goal_terms)
+        if goal_overlap:
+            has_study_match = True
+
+        distraction_hit = next((term for term in BROWSER_DISTRACTION_TERMS if term in haystack), "")
+        educational_video = distraction_hit == "youtube" and goal_overlap
+        if distraction_hit and not (distraction_hit == "youtube" and (allow_video or educational_video)):
+            distraction_tabs.append({"tab": tab, "term": distraction_hit})
+
+        generic_title = title.lower() in {"youtube", "new tab", ""}
+        if generic_title and url:
+            ambiguous_tabs.append(tab)
+
+    if not tabs:
+        return {
+            "tabs": [],
+            "focus_state": "uncertain",
+            "summary": "No browser tabs are available yet.",
+            "evidence": [],
+            "needs_screen": False,
+            "distraction_tabs": [],
+        }
+
+    if distraction_tabs:
+        tab = distraction_tabs[0]["tab"]
+        return {
+            "tabs": tabs,
+            "focus_state": "distracted",
+            "summary": f"Browser-first read found a likely distraction tab: {tab.get('title') or tab.get('domain')}.",
+            "evidence": evidence[:4],
+            "needs_screen": False,
+            "distraction_tabs": distraction_tabs,
+        }
+
+    if has_study_match:
+        return {
+            "tabs": tabs,
+            "focus_state": "focused",
+            "summary": "Browser tabs align with the study goal.",
+            "evidence": evidence[:4],
+            "needs_screen": False,
+            "distraction_tabs": [],
+        }
+
+    if ambiguous_tabs:
+        first = ambiguous_tabs[0]
+        return {
+            "tabs": tabs,
+            "focus_state": "uncertain",
+            "summary": f"Browser tab changed, but {first.get('title') or first.get('domain')} is too generic to judge from the title alone.",
+            "evidence": evidence[:4],
+            "needs_screen": True,
+            "distraction_tabs": [],
+        }
+
+    return {
+        "tabs": tabs,
+        "focus_state": "uncertain",
+        "summary": "Browser tabs changed, but the intent is still unclear from titles and URLs alone.",
+        "evidence": evidence[:4],
+        "needs_screen": False,
+        "distraction_tabs": [],
+    }
+
+
+def _visual_assessment(text: str, session_goal: str) -> dict:
+    haystack = str(text or "").lower()
+    goal_text = str(session_goal or "").lower()
+    for term in VISUAL_DISTRACTION_TERMS:
+        if term in haystack and term not in goal_text:
+            return {
+                "focus_state": "distracted",
+                "summary": f"Visual evidence mentions {term}.",
+                "evidence": [f"Visual summary mentioned {term}."],
+            }
+    return {
+        "focus_state": "uncertain" if haystack else "focused",
+        "summary": "No strong distraction signal was found in the fresh visual summaries." if haystack else "No visual summaries are available.",
+        "evidence": [],
+    }
 
 
 @dataclass
-class PersonalityResult:
-    triggered: bool
-    should_speak: bool
-    spoken_text: str
-    delivery_notes: str
-    actor_mode: str
-
-
-@dataclass
-class AgentPlan:
+class AgentDecision:
     sufficient: bool
     focus_state: str
     summary: str
@@ -99,133 +280,85 @@ class AgentPlan:
     notes: list[str]
     actor_mode: str
 
-class PersonalityActor:
-    def __init__(self, ledger=None):
-        self.ledger = ledger
-        api_key = os.getenv("BIG_BROTHER_API_KEY") or os.getenv("OPENAI_API_KEY")
-        self.base_url = os.getenv("BIG_BROTHER_BASE_URL", DEFAULT_BASE_URL)
-        self.model = os.getenv("BIG_BROTHER_PERSONALITY_MODEL", DEFAULT_PERSONALITY_MODEL)
-        self.personality_brief = os.getenv(
-            "BIG_BROTHER_PERSONALITY_BRIEF",
-            (
-                "You are Big Brother's final speaking voice. Sound direct, warm, slightly assertive, "
-                "and human. Keep the user focused without being cruel, preachy, or robotic. Prefer "
-                "one short spoken message that feels natural out loud."
-            ),
-        )
-        self.client = (
-            OpenAI(api_key=api_key, base_url=self.base_url) if api_key and OpenAI else None
-        )
+    def response_signature(self) -> str:
+        basis = "|".join([self.focus_state, self.summary, self.response_text, "|".join(self.evidence[:3])])
+        return re.sub(r"\s+", " ", basis.strip().lower())
 
-    @property
-    def enabled(self):
-        return self.client is not None
 
-    def evaluate(self, session_goal, plan_result, evidence_items):
-        if not plan_result.triggered or not plan_result.should_intervene:
-            return PersonalityResult(
-                triggered=False,
-                should_speak=False,
-                spoken_text="Response actor is waiting for an intervention plan.",
-                delivery_notes="No spoken intervention is needed yet.",
-                actor_mode="idle",
-            )
-
-        if not self.client:
-            return self._fallback(session_goal, plan_result, evidence_items)
-
-        evidence_lines = []
-        for decision in evidence_items:
-            evidence = decision.relevant_evidence or [decision.summary]
-            evidence_lines.extend(
-                cleaned
-                for cleaned in (str(item).strip() for item in evidence)
-                if cleaned
-            )
-
-        prompt = (
-            "You are the Personality actor in a study-support system.\n"
-            f"Voice brief:\n{self.personality_brief}\n\n"
-            "You receive an agent plan and must turn it into the exact short line that should be "
-            "spoken to the user.\n"
-            "Voice: direct, clear, and human. Say exactly what you observe from the agenda, "
-            "then tell the user exactly what to do next to return to focus. Use short, natural sentences.\n"
-            "Stay grounded in the agenda and evidence. Do not invent facts. Do not mention internal "
-            "actors, thresholds, or system architecture. Sound natural when read aloud.\n"
-            "Return strict JSON with keys:\n"
-            "should_speak: boolean\n"
-            "spoken_text: string under 320 characters\n"
-            "delivery_notes: string under 160 characters\n\n"
-            f"Study intention:\n{session_goal}\n\n"
-            f"Plan agenda:\n{plan_result.agenda}\n\n"
-            f"Plan rationale:\n{plan_result.rationale}\n\n"
-            "Supporting points:\n"
-            f"{chr(10).join('- ' + item for item in plan_result.supporting_points) or '- None'}\n\n"
-            "Evidence:\n"
-            f"{chr(10).join('- ' + item for item in evidence_lines) or '- None'}"
-        )
-
-        data = chat_json(
-            self.client,
-            self.model,
-            prompt,
-            temperature=0.6,
-            max_tokens=240,
-            ledger=self.ledger,
-            component="personality",
-        )
-        return PersonalityResult(
-            triggered=True,
-            should_speak=bool(data.get("should_speak", True)),
-            spoken_text=str(
-                data.get(
-                    "spoken_text",
-                    "Come back to the study task and tell me if the current distraction is actually helping.",
-                )
-            ),
-            delivery_notes=str(
-                data.get(
-                    "delivery_notes",
-                    "Short, calm, and firm.",
-                )
-            ),
-            actor_mode=f"llm:{self.model}",
-        )
-
-    def _fallback(self, session_goal, plan_result, evidence_items):
-        supporting_points = []
-        for decision in evidence_items:
-            for item in decision.relevant_evidence or [decision.summary]:
-                cleaned = str(item).strip()
-                if cleaned and cleaned not in supporting_points:
-                    supporting_points.append(cleaned)
-
-        spoken_text = (
-            f"Pause for a second. You said you're working on {session_goal}. "
-            f"{plan_result.agenda}"
-        )
-        return PersonalityResult(
-            triggered=True,
-            should_speak=True,
-            spoken_text=spoken_text[:320],
-            delivery_notes="Warm, firm, and conversational.",
-            actor_mode="fallback",
-        )
+@dataclass
+class PersonalityResult:
+    triggered: bool
+    should_speak: bool
+    spoken_text: str
+    delivery_notes: str
+    actor_mode: str
 
 
 class AgentActor:
     def __init__(self, ledger=None):
-        api_key = os.getenv("BIG_BROTHER_API_KEY") or os.getenv("OPENAI_API_KEY")
-        self.base_url = os.getenv("BIG_BROTHER_BASE_URL", DEFAULT_BASE_URL)
-        self.model = DEFAULT_AGENT_MODEL
         self.ledger = ledger
-        self.client = (
-            OpenAI(api_key=api_key, base_url=self.base_url) if api_key and OpenAI else None
-        )
+        self.model = DEFAULT_AGENT_MODEL or "heuristic"
 
     @property
     def enabled(self):
-        return self.client is not None
+        return False
+
+    def stimulus_policy(self, stimulus_type: str) -> dict:
+        stimulus = str(stimulus_type or "").replace("stimulus:", "").strip()
+        return dict(STIMULUS_POLICIES.get(stimulus, {}))
+
+    def procedural_resource_requests(self, stimulus_type: str, payload: dict | None = None) -> list[dict]:
+        payload = dict(payload or {})
+        stimulus = str(stimulus_type or "").replace("stimulus:", "").strip()
+        requests = []
+        for resource_type in self.stimulus_policy(stimulus).get("procedural_resources", []):
+            if resource_type == "browser_rag":
+                requests.append(
+                    {
+                        "type": "browser_rag",
+                        "reason": f"Procedural browser refresh for {stimulus}.",
+                        "source": "browser",
+                        "priority": "high",
+                    }
+                )
+            elif resource_type == "webcam_scan":
+                requests.append(
+                    {
+                        "type": "webcam_scan",
+                        "reason": f"Procedural webcam check for {stimulus}.",
+                        "source": "webcam",
+                        "priority": "medium",
+                    }
+                )
+            elif resource_type == "screen_scan":
+                requests.append(
+                    {
+                        "type": "screen_scan",
+                        "reason": f"Procedural screen check for {stimulus}.",
+                        "source": "screen",
+                        "priority": "high",
+                    }
+                )
+        if stimulus == "todo_due":
+            todo = payload.get("todo") or {}
+            if str(todo.get("kind", "")).strip().lower() == "inactivity_recheck":
+                requests.append(
+                    {
+                        "type": "browser_rag",
+                        "reason": "Scheduled inactivity recheck: refresh browser context.",
+                        "source": "browser",
+                        "priority": "high",
+                    }
+                )
+                requests.append(
+                    {
+                        "type": "webcam_scan",
+                        "reason": "Scheduled inactivity recheck: confirm presence again.",
+                        "source": "webcam",
+                        "priority": "medium",
+                    }
+                )
+        return requests
 
     def evaluate(
         self,
@@ -233,187 +366,231 @@ class AgentActor:
         resources,
         *,
         stimulus_type="",
+        stimulus_payload=None,
         current_context=None,
         historic_context=None,
     ):
+        stimulus = str(stimulus_type or "").replace("stimulus:", "").strip()
+        stimulus_payload = dict(stimulus_payload or {})
         current_context = current_context or {}
         historic_context = historic_context or []
+        requested_resources = []
+        todo_writes = []
+        policy = self.stimulus_policy(stimulus)
+        notes = [policy["instruction"]] if policy.get("instruction") else []
+
+        browser = _browser_assessment(session_goal, resources.browser_text)
+        fresh_visual_text = "\n".join(
+            text for name, text in resources.iter_sources(include_stale=False) if name in {"webcam", "screenshare"}
+        )
+        visual = _visual_assessment(fresh_visual_text, session_goal)
+
+        if stimulus in {"tab_opened", "tab_refreshed", "tab_closed"}:
+            if not resources.browser_text:
+                requested_resources.extend(self.procedural_resource_requests(stimulus_type, stimulus_payload))
+                return AgentDecision(
+                    sufficient=False,
+                    focus_state="uncertain",
+                    summary="A browser tab changed, but no fresh browser export is available yet.",
+                    evidence=[],
+                    response_required=False,
+                    response_text="",
+                    requested_resources=requested_resources,
+                    todo_writes=[],
+                    notes=notes + ["Browser-first judgement is blocked until the tab export refreshes."],
+                    actor_mode="heuristic",
+                )
+
+            if browser["focus_state"] == "distracted":
+                top_title = browser["tabs"][0].get("title", "") if browser.get("tabs") else ""
+                return AgentDecision(
+                    sufficient=True,
+                    focus_state="distracted",
+                    summary=browser["summary"],
+                    evidence=browser["evidence"],
+                    response_required=True,
+                    response_text=f"I can see {top_title or 'that tab'}, and it does not look helpful for {session_goal}. Close it or explain why it matters.",
+                    requested_resources=[],
+                    todo_writes=[],
+                    notes=notes + ["Browser title and URL were used as the first-priority source."],
+                    actor_mode="heuristic",
+                )
+
+            if browser["needs_screen"]:
+                requested_resources.append(
+                    {
+                        "type": "screen_scan",
+                        "reason": "Browser title is too generic; verify the visible page before judging.",
+                        "source": "screen",
+                        "priority": "high",
+                    }
+                )
+                return AgentDecision(
+                    sufficient=False,
+                    focus_state="uncertain",
+                    summary=browser["summary"],
+                    evidence=browser["evidence"],
+                    response_required=False,
+                    response_text="",
+                    requested_resources=requested_resources,
+                    todo_writes=[],
+                    notes=notes + ["Browser-first read was ambiguous, so the next escalation is a screen scan."],
+                    actor_mode="heuristic",
+                )
+
+            return AgentDecision(
+                sufficient=True,
+                focus_state=browser["focus_state"],
+                summary=browser["summary"],
+                evidence=browser["evidence"],
+                response_required=False,
+                response_text="",
+                requested_resources=[],
+                todo_writes=[],
+                notes=notes + ["Browser-first judgement completed without using VLM."],
+                actor_mode="heuristic",
+            )
+
+        if stimulus == "inactivity":
+            todo_writes.append({"note": "Recheck inactivity state.", "due_in_seconds": 30, "kind": "inactivity_recheck"})
+            requested_resources.extend(self.procedural_resource_requests(stimulus_type, stimulus_payload))
+            if resources.browser_text and browser["focus_state"] == "focused":
+                notes.append("Browser context still looks on-task despite inactivity.")
+            return AgentDecision(
+                sufficient=False,
+                focus_state="inactive",
+                summary=(browser["summary"] if resources.browser_text else "Inactivity detected. Browser context needs to be checked first."),
+                evidence=browser["evidence"],
+                response_required=False,
+                response_text="",
+                requested_resources=requested_resources,
+                todo_writes=todo_writes,
+                notes=notes + ["Inactivity does not trigger an intervention by itself."],
+                actor_mode="heuristic",
+            )
+
+        if stimulus == "todo_due":
+            requested_resources.extend(self.procedural_resource_requests(stimulus_type, stimulus_payload or current_context))
+            return AgentDecision(
+                sufficient=False,
+                focus_state="inactive",
+                summary="A scheduled follow-up is due.",
+                evidence=[],
+                response_required=False,
+                response_text="",
+                requested_resources=requested_resources,
+                todo_writes=[],
+                notes=notes + ["This is a scheduled recheck ticket."],
+                actor_mode="heuristic",
+            )
+
+        if browser["focus_state"] == "distracted":
+            top_title = browser["tabs"][0].get("title", "") if browser.get("tabs") else "that current tab"
+            return AgentDecision(
+                sufficient=True,
+                focus_state="distracted",
+                summary=browser["summary"],
+                evidence=browser["evidence"],
+                response_required=True,
+                response_text=f"Come back to {session_goal}. {top_title} looks unrelated right now.",
+                requested_resources=[],
+                todo_writes=[],
+                notes=notes + ["Browser evidence remained the strongest signal."],
+                actor_mode="heuristic",
+            )
+
+        if visual["focus_state"] == "distracted":
+            return AgentDecision(
+                sufficient=True,
+                focus_state="distracted",
+                summary=visual["summary"],
+                evidence=visual["evidence"],
+                response_required=True,
+                response_text=f"Pause the distraction and return to {session_goal}.",
+                requested_resources=[],
+                todo_writes=[],
+                notes=notes + ["Fresh visual evidence triggered the response."],
+                actor_mode="heuristic",
+            )
+
+        if browser["focus_state"] == "uncertain" and not resources.browser_text:
+            requested_resources.append(
+                {
+                    "type": "browser_rag",
+                    "reason": "Refresh browser tab info before judging.",
+                    "source": "browser",
+                    "priority": "high",
+                }
+            )
+
+        return AgentDecision(
+            sufficient=not requested_resources,
+            focus_state=browser["focus_state"],
+            summary=browser["summary"],
+            evidence=browser["evidence"],
+            response_required=False,
+            response_text="",
+            requested_resources=requested_resources,
+            todo_writes=[],
+            notes=notes + ["No intervention is needed from the current evidence."],
+            actor_mode="heuristic",
+        )
+
+
+class PersonalityActor:
+    def __init__(self, ledger=None):
+        self.ledger = ledger
+        self.model = DEFAULT_PERSONALITY_MODEL
+        api_key = os.getenv("BIG_BROTHER_API_KEY") or os.getenv("OPENAI_API_KEY")
+        self.client = None
+        if api_key and self.model and OpenAI:
+            self.client = OpenAI(api_key=api_key, base_url=DEFAULT_BASE_URL)
+
+    @property
+    def enabled(self):
+        return self.client is not None
+
+    def evaluate(self, session_goal: str, decision: AgentDecision):
+        if not decision.response_required:
+            return PersonalityResult(
+                triggered=False,
+                should_speak=False,
+                spoken_text="No spoken response is needed.",
+                delivery_notes="Idle.",
+                actor_mode="idle",
+            )
+
         if not self.client:
-            return self._fallback(
-                session_goal,
-                resources,
-                stimulus_type=stimulus_type,
-                current_context=current_context,
+            return PersonalityResult(
+                triggered=True,
+                should_speak=True,
+                spoken_text=decision.response_text[:320],
+                delivery_notes="Direct, short, and calm.",
+                actor_mode="fallback",
             )
 
         prompt = (
-            "You are the main agent in a study-support system.\n"
-            "A stimulus happened. Your job is to decide if the current evidence is sufficient, "
-            "whether the user needs a response now, and what targeted resources should be fetched next.\n"
-            "Prefer cheap evidence first. Request extra scans only when needed.\n"
-            "Resource policy:\n"
-            "- For tab_opened/tab_refreshed/tab_closed: analyze browser logs first. Treat browser title + URL as first-priority evidence. "
-            "Do not request a VLM scan unless the browser read is still genuinely ambiguous.\n"
-            "- For inactivity: do not assume distraction. First inspect browser/tab context; if still inactive, "
-            "schedule a 30-second recheck and a webcam scan.\n"
-            "- Only ask for a response when the evidence is already sufficient. If more evidence is needed, keep response_required false.\n"
-            "- Never leave summary blank. Summarize what changed in one sentence.\n"
-            "- Keep context grounded in the current evidence and short recent history.\n"
-            "Return strict JSON with keys:\n"
-            "sufficient: boolean\n"
-            "focus_state: string (focused, distracted, inactive, uncertain)\n"
-            "summary: short string under 220 characters\n"
-            "evidence: array of short strings\n"
-            "response_required: boolean\n"
-            "response_text: short string under 260 characters\n"
-            "requested_resources: array of objects with keys type, reason, source, due_in_seconds(optional), priority(optional)\n"
-            "todo_writes: array of objects with keys note, due_in_seconds, kind\n"
-            "notes: array of short strings\n\n"
+            "Rewrite the intervention into one short spoken line.\n"
+            "Be direct, warm, and concise. Stay grounded in the evidence.\n"
+            "Return strict JSON with keys should_speak, spoken_text, delivery_notes.\n\n"
             f"Study goal:\n{session_goal}\n\n"
-            f"Stimulus:\n{stimulus_type or 'unknown'}\n\n"
-            f"Current context:\n{truncate_for_prompt(json.dumps(current_context, ensure_ascii=False), 1200)}\n\n"
-            f"Historic context:\n{truncate_for_prompt(json.dumps(historic_context[-5:], ensure_ascii=False), 1200)}\n\n"
-            f"Available resources:\n{truncate_for_prompt(resources.as_prompt_text())}"
+            f"Decision summary:\n{decision.summary}\n\n"
+            f"Evidence:\n{chr(10).join('- ' + item for item in decision.evidence) or '- None'}\n\n"
+            f"Draft response:\n{decision.response_text}"
         )
-        data = chat_json(
+        data = _chat_json(
             self.client,
             self.model,
             prompt,
-            temperature=0,
-            max_tokens=360,
+            temperature=0.5,
+            max_tokens=180,
             ledger=self.ledger,
-            component="agent",
+            component="personality",
         )
-        plan = AgentPlan(
-            sufficient=bool(data.get("sufficient", True)),
-            focus_state=str(data.get("focus_state", "uncertain")).strip() or "uncertain",
-            summary=str(data.get("summary", "")).strip(),
-            evidence=self._normalize_strings(data.get("evidence")),
-            response_required=bool(data.get("response_required", False)),
-            response_text=str(data.get("response_text", "")).strip(),
-            requested_resources=self._normalize_actions(data.get("requested_resources")),
-            todo_writes=self._normalize_actions(data.get("todo_writes")),
-            notes=self._normalize_strings(data.get("notes")),
+        return PersonalityResult(
+            triggered=True,
+            should_speak=bool(data.get("should_speak", True)),
+            spoken_text=str(data.get("spoken_text", decision.response_text)).strip()[:320],
+            delivery_notes=str(data.get("delivery_notes", "Direct and calm.")).strip()[:160],
             actor_mode=f"llm:{self.model}",
-        )
-        return self._validate_plan(plan, resources, stimulus_type=stimulus_type)
-
-    def _fallback(self, session_goal, resources, *, stimulus_type="", current_context=None):
-        current_context = current_context or {}
-        resource_text = resources.as_prompt_text().lower()
-        evidence = []
-        focus_state = "focused"
-        response_required = False
-        response_text = ""
-        requested_resources = []
-        todo_writes = []
-        notes = []
-
-        for term in DISTRACTION_TERMS:
-            if term in resource_text and term not in session_goal.lower():
-                evidence.append(f"Current resources mention {term}.")
-                focus_state = "distracted"
-                response_required = True
-                response_text = f"Come back to {session_goal}. If {term} is not helping that task, close it and refocus."
-                break
-
-        if stimulus_type in {"stimulus:tab_opened", "stimulus:tab_refreshed", "stimulus:tab_closed"}:
-            requested_resources.append(
-                {"type": "browser_rag", "reason": "Refresh page context for the changed tab.", "source": "browser", "priority": "high"}
-            )
-            if not resources.browser_text:
-                requested_resources.append(
-                    {"type": "screen_scan", "reason": "Need the visible screen to disambiguate the browser change.", "source": "screen", "priority": "high"}
-                )
-
-        if stimulus_type == "stimulus:inactivity":
-            focus_state = "inactive"
-            notes.append("User appears inactive; browser context may still be relevant.")
-            todo_writes.append({"note": "Re-check inactivity state.", "due_in_seconds": 30, "kind": "inactivity_recheck"})
-            requested_resources.append(
-                {"type": "webcam_scan", "reason": "Check whether the user is still physically present.", "source": "webcam", "due_in_seconds": 30, "priority": "medium"}
-            )
-
-        return AgentPlan(
-            sufficient=not requested_resources,
-            focus_state=focus_state,
-            summary=(
-                "Potential distraction found in the current resources."
-                if response_required
-                else "No immediate intervention. The agent may need more context."
-            ),
-            evidence=evidence,
-            response_required=response_required,
-            response_text=response_text,
-            requested_resources=requested_resources,
-            todo_writes=todo_writes,
-            notes=notes,
-            actor_mode="fallback",
-        )
-
-    def _normalize_strings(self, value):
-        if isinstance(value, list):
-            return [str(item).strip() for item in value if str(item).strip()]
-        if isinstance(value, str) and value.strip():
-            return [value.strip()]
-        return []
-
-    def _normalize_actions(self, value):
-        if not isinstance(value, list):
-            return []
-        cleaned = []
-        for item in value:
-            if not isinstance(item, dict):
-                continue
-            if not str(item.get("type", "")).strip() and not str(item.get("note", "")).strip():
-                continue
-            cleaned.append(dict(item))
-        return cleaned
-
-    def _validate_plan(self, plan: AgentPlan, resources, *, stimulus_type: str = ""):
-        requested_resources = [dict(item) for item in plan.requested_resources]
-        summary = plan.summary.strip()
-        evidence = list(plan.evidence)
-        focus_state = plan.focus_state if plan.focus_state in {"focused", "distracted", "inactive", "uncertain"} else "uncertain"
-
-        if not summary:
-            if evidence:
-                summary = evidence[0]
-            elif stimulus_type.startswith("stimulus:tab_") and resources.browser_text:
-                first_line = next((line.strip() for line in resources.browser_text.splitlines() if line.strip().startswith("1.")), "")
-                summary = f"Browser state changed. {first_line}" if first_line else "Browser state changed."
-            else:
-                summary = "Agent reviewed the current evidence."
-
-        normalized_requests = []
-        for item in requested_resources:
-            request_type = str(item.get("type", "")).strip().lower()
-            if request_type in {"screen", "screen_scan"}:
-                item["type"] = "screen_scan"
-            elif request_type in {"webcam", "webcam_scan"}:
-                item["type"] = "webcam_scan"
-            elif request_type in {"browser", "browser_scan", "browser_rag"}:
-                item["type"] = "browser_rag"
-            normalized_requests.append(item)
-
-        if stimulus_type.startswith("stimulus:tab_") and resources.browser_text:
-            normalized_requests = [item for item in normalized_requests if item.get("type") != "screen_scan" or not plan.sufficient]
-
-        response_required = bool(plan.response_required)
-        response_text = plan.response_text.strip()
-        if not plan.sufficient:
-            response_required = False
-            response_text = ""
-
-        return AgentPlan(
-            sufficient=bool(plan.sufficient),
-            focus_state=focus_state,
-            summary=summary[:220],
-            evidence=evidence,
-            response_required=response_required,
-            response_text=response_text[:260],
-            requested_resources=normalized_requests,
-            todo_writes=list(plan.todo_writes),
-            notes=list(plan.notes),
-            actor_mode=plan.actor_mode,
         )

@@ -1,12 +1,18 @@
 {
-  "updated_at": "2026-06-24T21:14:13.326",
-  "focus_state": "uncertain",
-  "summary": "Browser export refreshed with 3 tab(s).",
-  "active_notes": [],
-  "last_stimulus": "stimulus:capture_updated",
-  "last_turn_reason": "stimulus:capture_updated",
+  "updated_at": "2026-06-24T22:27:03.863",
+  "focus_state": "inactive",
+  "summary": "Browser tabs align with the study goal.",
+  "active_notes": [
+    "Inactivity requires browser context first, then a presence check, then a scheduled recheck.",
+    "Browser context still looks on-task despite inactivity.",
+    "Inactivity does not trigger an intervention by itself."
+  ],
+  "last_stimulus": "stimulus:inactivity",
+  "last_turn_reason": "stimulus:inactivity",
   "resource_summary": {
-    "browser_tab_count": 3
+    "missing_sources": [
+      "screenshare"
+    ]
   },
   "open_tab_ids": [
     "28CA9D9E33500D895FA96A325AD16ADD",

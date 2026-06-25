@@ -9,164 +9,76 @@
   <body>
     <main class="shell">
       <section class="hero">
-        <p class="eyebrow">Big Brother · Agent Console</p>
-        <h1>Run the agent loop end to end from the Python webapp.</h1>
+        <p class="eyebrow">Big Brother · Minimal Agent Console</p>
+        <h1>One agent loop, browser-first evidence, and only the next action that actually matters.</h1>
         <p class="lede">
-          Use this page to collect live resources, inspect the agent's judgement, and see
-          when the planner prepares a response that the personality actor turns into a spoken line.
+          The runtime now stays simple: stimuli arrive, the browser is read first, the agent judges the current state,
+          and only then asks for a screen or webcam scan if the browser data is not enough.
         </p>
-        <div class="hero-grid">
-          <article class="hero-card">
-            <span class="hero-step">1</span>
-            <h2>Collect Inputs</h2>
-            <p>Share screen, use webcam, or launch the tracked browser so the agent has fresh resources.</p>
-          </article>
-          <article class="hero-card">
-            <span class="hero-step">2</span>
-            <h2>Process Stimuli</h2>
-            <p>The agent reacts to state changes, judges the current evidence, and requests more only when needed.</p>
-          </article>
-          <article class="hero-card">
-            <span class="hero-step">3</span>
-            <h2>Inspect Escalation</h2>
-            <p>The planner prepares next actions and the personality actor prepares the final voice message only when warranted.</p>
-          </article>
-        </div>
-      </section>
-
-      <section class="panel guided-panel">
-        <div class="panel-heading">
-          <div>
-            <p class="section-kicker">Quick Start</p>
-            <h2>One-click focus session</h2>
-          </div>
-          <span id="guidedBadge" class="badge subtle">Ready to launch</span>
-        </div>
-        <div class="guided-grid">
-          <div class="guided-copy">
-            <p class="status-text">
-              Press one button to reset the session, launch the tracked browser, request webcam and screenshare permissions,
-              begin auto capture, and start the agent loop.
-            </p>
-            <p id="guidedStatus" class="muted-text">Choose a session length, then launch Big Brother.</p>
-          </div>
-          <div class="guided-controls">
-            <label class="metric-field">
-              <span>Active duration</span>
-              <input id="sessionDurationSlider" type="range" min="1" max="60" value="15" />
-              <div class="duration-readout">
-                <strong id="sessionDurationValue">15 min</strong>
-                <span id="sessionCountdown" class="badge subtle">Countdown idle</span>
-              </div>
-              <small>Big Brother auto-stops after this amount of time.</small>
-            </label>
-            <button id="guidedStartButton">Start Big Brother</button>
-          </div>
-        </div>
-      </section>
-
-      <section class="panel thought-panel">
-        <div class="panel-heading">
-          <div>
-            <p class="section-kicker">Agent Narrative</p>
-            <h2>Hear the agent think</h2>
-          </div>
-          <span id="thoughtFeedBadge" class="badge subtle">Waiting for events</span>
-        </div>
-        <p class="thought-intro">
-          A linear feed of what the agent noticed, decided, and said, translated from the raw debug stream.
-        </p>
-        <div id="thoughtFeed" class="thought-feed">
-          <article class="thought-entry">
-            <div class="thought-time">0:00</div>
-            <div class="thought-body">
-              <p class="thought-line">Agent thought updates will appear here after the session starts doing work.</p>
-            </div>
-          </article>
-        </div>
       </section>
 
       <section class="control-layout">
         <article class="panel controls-panel">
           <div class="panel-heading">
             <div>
-              <p class="section-kicker">Session Setup</p>
-              <h2>Study session</h2>
+              <p class="section-kicker">Session</p>
+              <h2>Agent controls</h2>
             </div>
-            <span id="watcherBadge" class="badge subtle">Agent loading...</span>
+            <span id="runningBadge" class="badge subtle">Stopped</span>
           </div>
           <div class="field">
-            <label for="goal">Study intention</label>
+            <label for="goal">Goal</label>
             <textarea id="goal" rows="3">I am studying calculus</textarea>
           </div>
           <div class="control-row compact">
             <label class="metric-field">
-              <span>Agent tick</span>
-              <input id="intervalSeconds" type="number" min="3" max="60" value="3" />
-              <small>Minimum seconds between deliberate agent turns</small>
+              <span>Turn spacing</span>
+              <input id="intervalSeconds" type="number" min="1" max="60" value="5" />
+              <small>Minimum seconds between non-urgent turns.</small>
             </label>
             <label class="metric-field">
-              <span>Decision threshold</span>
-              <input id="threshold" type="number" min="1" max="10" value="1" />
-              <small>Legacy setting kept for compatibility; the runtime now uses the agent sufficiency check first</small>
+              <span>Session length</span>
+              <input id="sessionDurationSlider" type="range" min="1" max="60" value="15" />
+              <div class="duration-readout">
+                <strong id="sessionDurationValue">15 min</strong>
+                <span id="sessionCountdown" class="badge subtle">Countdown idle</span>
+              </div>
             </label>
           </div>
           <div class="actions actions-wide">
-            <button id="runOnceButton">Run one agent turn</button>
-            <button id="startButton">Start continuous agent</button>
-            <button id="stopButton" class="alt">Stop agent</button>
-            <button id="resetStatsButton" class="alt">Reset stats</button>
+            <button id="freshStartButton">Fresh Start</button>
+            <button id="runOnceButton">Run once</button>
+            <button id="startButton">Start session</button>
+            <button id="stopButton" class="alt">Stop</button>
+            <button id="resetStatsButton" class="alt">Reset</button>
           </div>
-          <div class="meta meta-stack">
-            <span id="statusBadge" class="badge idle">Idle</span>
-            <span id="turnBadge" class="badge subtle">No turns yet</span>
-            <span id="thresholdBadge" class="badge subtle">Threshold loading...</span>
-            <span id="cooldownBadge" class="badge subtle">Cooldown idle</span>
-          </div>
-          <p id="paths" class="hint"></p>
+          <p id="statusText" class="status-text">Ready.</p>
+          <p id="errorText" class="error-text"></p>
         </article>
 
         <article class="panel controls-panel">
           <div class="panel-heading">
             <div>
-              <p class="section-kicker">Resource Capture</p>
-              <h2>Inputs and browser tracking</h2>
+              <p class="section-kicker">Browser</p>
+              <h2>Tracked browser</h2>
             </div>
-            <span id="captureBadge" class="badge subtle">No source</span>
-          </div>
-          <div class="field">
-            <label for="capturePrompt">Capture guidance</label>
-            <textarea
-              id="capturePrompt"
-              rows="3"
-              placeholder="Optional: tell the VLM what to focus on, like the active app, visible study behavior, or likely distractions."
-            ></textarea>
+            <span id="stimulusBadge" class="badge subtle">No stimulus yet</span>
           </div>
           <div class="control-row browser-row">
             <label class="field">
-              <span>Tracked browser</span>
+              <span>Browser</span>
               <select id="browserName"></select>
             </label>
             <label class="field grow">
-              <span>Browser URL</span>
+              <span>Start URL</span>
               <input id="browserUrl" type="text" placeholder="https://www.google.com" />
             </label>
-          </div>
-          <div class="actions actions-wide">
-            <button id="shareButton">Share screen</button>
-            <button id="webcamButton" class="alt">Use webcam</button>
-            <button id="captureButton" disabled>Capture now</button>
-            <button id="autoCaptureButton" class="alt" disabled>Start auto capture</button>
-            <button id="stopCaptureButton" class="alt" disabled>Stop capture</button>
           </div>
           <div class="actions actions-wide">
             <button id="launchBrowserButton" class="alt">Launch tracked browser</button>
             <button id="exportTabsButton" class="alt">Refresh browser export</button>
           </div>
-          <p class="hint">
-            Screen-share and webcam stay client-side until you explicitly capture. Browser monitoring
-            reads only the tracked browser instance launched from this app.
-          </p>
+          <p id="paths" class="hint"></p>
         </article>
       </section>
 
@@ -175,46 +87,38 @@
           <div class="panel-heading">
             <div>
               <p class="section-kicker">Agent</p>
-              <h2>Current judgement</h2>
+              <h2>Latest judgement</h2>
             </div>
-            <span id="actorModeBadge" class="badge subtle">unknown</span>
+            <span id="agentModeBadge" class="badge subtle">heuristic</span>
           </div>
-          <p id="watcherSummary" class="status-text">Agent output will appear here after a run.</p>
-          <div class="mini-stats">
-            <div class="mini-stat">
-              <span class="summary-label">Focus alert streak</span>
-              <strong id="streakValue">0</strong>
-            </div>
-            <div class="mini-stat">
-              <span class="summary-label">Browser tabs exported</span>
-              <strong id="exportValue">0</strong>
-            </div>
-          </div>
+          <p id="agentSummary" class="status-text">No agent decision yet.</p>
+          <ul id="evidenceList" class="evidence-list">
+            <li>Evidence will appear here.</li>
+          </ul>
         </article>
 
         <article class="panel overview-card">
           <div class="panel-heading">
             <div>
-              <p class="section-kicker">Planner</p>
-              <h2>Next action plan</h2>
+              <p class="section-kicker">Follow-up</p>
+              <h2>Requested actions</h2>
             </div>
-            <span id="mpaBadge" class="badge subtle">Waiting</span>
+            <span id="actionBadge" class="badge subtle">None</span>
           </div>
-          <p id="mpaSummary" class="status-text">Planner output will appear after the agent evaluates the current evidence.</p>
-          <p id="statusText" class="status-text muted-text">Ready.</p>
-          <p id="errorText" class="error-text"></p>
+          <p id="actionSummary" class="status-text">No follow-up actions yet.</p>
+          <pre id="actionList">[]</pre>
         </article>
 
         <article class="panel overview-card">
           <div class="panel-heading">
             <div>
-              <p class="section-kicker">Personality</p>
-              <h2>Final spoken message</h2>
+              <p class="section-kicker">Response</p>
+              <h2>Spoken line</h2>
             </div>
-            <span id="personalityBadge" class="badge subtle">Waiting</span>
+            <span id="responseBadge" class="badge subtle">Idle</span>
           </div>
-          <p id="personalitySummary" class="status-text">Response actor is waiting for a response-worthy plan.</p>
-          <p id="personalityNotes" class="status-text muted-text">Voice delivery notes will appear here.</p>
+          <p id="responseSummary" class="status-text">No spoken response yet.</p>
+          <p id="responseNotes" class="status-text muted-text">Idle.</p>
           <audio id="personalityAudio" controls preload="none" hidden></audio>
         </article>
 
@@ -222,14 +126,26 @@
           <div class="panel-heading">
             <div>
               <p class="section-kicker">Capture</p>
-              <h2>Live source status</h2>
+              <h2>Visual sources</h2>
             </div>
-            <span id="runningBadge" class="badge subtle">Stopped</span>
+            <span id="captureBadge" class="badge subtle">No source</span>
           </div>
           <p id="captureStatusText" class="status-text">No capture source active.</p>
-          <ul id="evidenceList" class="evidence-list">
-            <li>Agent evidence will appear here.</li>
-          </ul>
+          <div class="actions actions-wide">
+            <button id="shareButton">Share screen</button>
+            <button id="webcamButton" class="alt">Use webcam</button>
+            <button id="captureButton" disabled>Capture now</button>
+            <button id="autoCaptureButton" class="alt" disabled>Start auto capture</button>
+            <button id="stopCaptureButton" class="alt" disabled>Stop capture</button>
+          </div>
+          <div class="field">
+            <label for="capturePrompt">Capture guidance</label>
+            <textarea
+              id="capturePrompt"
+              rows="3"
+              placeholder="Optional: tell the vision model what to focus on."
+            ></textarea>
+          </div>
         </article>
       </section>
 
@@ -237,19 +153,19 @@
         <div class="panel preview-panel">
           <div class="panel-heading">
             <h2>Live capture preview</h2>
-            <span class="badge subtle">Dual source monitor</span>
+            <span class="badge subtle">Client side</span>
           </div>
           <div class="source-preview-grid">
             <article class="source-preview-card">
               <div class="resource-head">
-                <h3>Webcam live</h3>
-                <span class="badge subtle">Latest snip beside feed</span>
+                <h3>Webcam</h3>
+                <span class="badge subtle">Live</span>
               </div>
               <div class="source-visuals">
                 <video id="webcamVideo" autoplay muted playsinline></video>
                 <div class="snip-shell">
-                  <img id="webcamSnapshot" class="snip-frame" alt="Latest webcam snip" />
-                  <p class="snip-label">Latest webcam snip</p>
+                  <img id="webcamSnapshot" class="snip-frame" alt="Latest webcam capture" />
+                  <p class="snip-label">Latest webcam capture</p>
                 </div>
               </div>
               <canvas id="webcamCanvas" hidden></canvas>
@@ -258,48 +174,48 @@
 
             <article class="source-preview-card">
               <div class="resource-head">
-                <h3>Screenshare live</h3>
-                <span class="badge subtle">Latest snip beside feed</span>
+                <h3>Screen</h3>
+                <span class="badge subtle">Live</span>
               </div>
               <div class="source-visuals">
                 <video id="screenVideo" autoplay muted playsinline></video>
                 <div class="snip-shell">
-                  <img id="screenSnapshot" class="snip-frame" alt="Latest screenshare snip" />
-                  <p class="snip-label">Latest screenshare snip</p>
+                  <img id="screenSnapshot" class="snip-frame" alt="Latest screen capture" />
+                  <p class="snip-label">Latest screen capture</p>
                 </div>
               </div>
               <canvas id="screenCanvas" hidden></canvas>
-              <p id="screenLiveStatus" class="hint">Screenshare not connected.</p>
+              <p id="screenLiveStatus" class="hint">Screen not connected.</p>
             </article>
           </div>
         </div>
 
         <div class="panel">
           <div class="panel-heading">
-            <h2>Live resource summaries</h2>
+            <h2>Current resources</h2>
             <span class="badge subtle">Agent inputs</span>
           </div>
           <div class="resource-stack">
             <article class="resource-card">
               <div class="resource-head">
-                <h3>Webcam</h3>
-                <span class="badge subtle">VLM</span>
-              </div>
-              <pre id="webcamOutput">Waiting for webcam resource text.</pre>
-            </article>
-            <article class="resource-card">
-              <div class="resource-head">
-                <h3>Screenshare</h3>
-                <span class="badge subtle">VLM</span>
-              </div>
-              <pre id="screenshareOutput">Waiting for screenshare resource text.</pre>
-            </article>
-            <article class="resource-card">
-              <div class="resource-head">
                 <h3>Browser export</h3>
-                <span class="badge subtle">Tracked tabs</span>
+                <span class="badge subtle">First priority</span>
               </div>
-              <pre id="browserOutput">Waiting for browser export text.</pre>
+              <pre id="browserOutput">No browser export yet.</pre>
+            </article>
+            <article class="resource-card">
+              <div class="resource-head">
+                <h3>Webcam summary</h3>
+                <span class="badge subtle">Optional</span>
+              </div>
+              <pre id="webcamOutput">No webcam summary yet.</pre>
+            </article>
+            <article class="resource-card">
+              <div class="resource-head">
+                <h3>Screen summary</h3>
+                <span class="badge subtle">Optional</span>
+              </div>
+              <pre id="screenshareOutput">No screenshare summary yet.</pre>
             </article>
           </div>
         </div>
@@ -309,139 +225,44 @@
         <article class="panel debug-panel">
           <div class="panel-heading">
             <div>
-              <p class="section-kicker">Actor Debugger</p>
-              <h2>Live stage monitor</h2>
-            </div>
-            <span class="badge subtle">Reading · Processing · Writing · Idle</span>
-          </div>
-          <div id="actorStageGrid" class="actor-stage-grid">
-            <article class="actor-stage-card stage-idle">
-              <div class="actor-stage-head">
-                <h3>Agent</h3>
-                <span class="badge subtle">idle</span>
-              </div>
-              <p class="status-text">Waiting for stage data.</p>
-            </article>
-          </div>
-        </article>
-
-        <article class="panel debug-panel">
-          <div class="panel-heading">
-            <div>
-              <p class="section-kicker">Run Trace</p>
-              <h2>Recent timeline</h2>
-            </div>
-            <span class="badge subtle">Tail of debug log</span>
-          </div>
-          <p id="debugLogPath" class="hint">Debug log path will appear here.</p>
-          <pre id="debugEventLog">Debug events will appear here after a run.</pre>
-        </article>
-      </section>
-
-      <section class="debug-grid">
-        <article class="panel debug-panel">
-          <div class="panel-heading">
-            <div>
-              <p class="section-kicker">Turn Snapshot</p>
-              <h2>Current deliberate world state</h2>
-            </div>
-            <span class="badge subtle">Frozen inputs for the latest turn</span>
-          </div>
-          <div id="turnSnapshotPanel" class="turn-panel-shell">
-            <p class="muted-text">The latest deliberate turn snapshot will appear here after a cycle runs.</p>
-          </div>
-        </article>
-
-        <article class="panel debug-panel">
-          <div class="panel-heading">
-            <div>
-              <p class="section-kicker">Turn History</p>
-              <h2>Recent deliberate cycles</h2>
-            </div>
-            <span class="badge subtle">Most recent frozen turns</span>
-          </div>
-          <div id="turnHistoryPanel" class="turn-history-list">
-            <p class="muted-text">Recent turn history will appear here after a cycle runs.</p>
-          </div>
-        </article>
-      </section>
-
-      <section class="debug-grid">
-        <article class="panel debug-panel">
-          <div class="panel-heading">
-            <div>
-              <p class="section-kicker">Agent &amp; Efficiency</p>
-              <h2>Token ledger and agent state</h2>
+              <p class="section-kicker">Agent State</p>
+              <h2>Status, memory, and queue</h2>
             </div>
             <span id="efficiencyBadge" class="badge subtle">No calls yet</span>
           </div>
-          <div class="mini-stats">
-            <div class="mini-stat">
-              <span class="summary-label">Model calls made</span>
-              <strong id="ledgerCalls">0</strong>
-            </div>
-            <div class="mini-stat">
-              <span class="summary-label">Calls skipped</span>
-              <strong id="ledgerSkips">0</strong>
-            </div>
-            <div class="mini-stat">
-              <span class="summary-label">Tokens used</span>
-              <strong id="ledgerUsed">0</strong>
-            </div>
-            <div class="mini-stat">
-              <span class="summary-label">Est. tokens saved</span>
-              <strong id="ledgerSaved">0</strong>
-            </div>
-          </div>
-          <pre id="agentLedger">Token ledger detail will appear here.</pre>
+          <p id="agentStatusText" class="status-text">Agent status will appear here.</p>
+          <pre id="agentTodos">No pending actions.</pre>
+          <pre id="agentMemory">Recent memory will appear here.</pre>
         </article>
 
         <article class="panel debug-panel">
           <div class="panel-heading">
             <div>
-              <p class="section-kicker">Agent State</p>
-              <h2>Status, alarms, and memory</h2>
+              <p class="section-kicker">Trace</p>
+              <h2>Recent debug log</h2>
             </div>
-            <span id="agentStimulusBadge" class="badge subtle">No stimulus yet</span>
+            <span class="badge subtle">Live tail</span>
           </div>
-          <p id="agentStatusText" class="status-text">Agent status will appear here.</p>
-          <pre id="agentTodos">No pending agent alarms.</pre>
-          <pre id="agentMemory">Agent memory tail will appear here.</pre>
+          <p id="debugLogPath" class="hint">Debug log path will appear here.</p>
+          <pre id="debugEventLog">Debug events will appear here.</pre>
         </article>
       </section>
 
       <section class="inspector-grid">
         <article class="panel inspector-panel">
           <div class="panel-heading">
-            <h2>Decision inspector</h2>
-            <span class="badge subtle">Raw JSON</span>
+            <h2>Decision JSON</h2>
+            <span class="badge subtle">Raw</span>
           </div>
           <div class="inspector-stack">
             <section>
-              <h3>Agent JSON</h3>
-              <pre id="watcherOutput">Agent output will appear here after a run.</pre>
+              <h3>Agent</h3>
+              <pre id="agentJson">No agent decision yet.</pre>
             </section>
             <section>
-              <h3>Planner JSON</h3>
-              <pre id="mpaOutput">Planner output will appear after the agent evaluates the current evidence.</pre>
+              <h3>Response</h3>
+              <pre id="responseJson">No response yet.</pre>
             </section>
-            <section>
-              <h3>Personality JSON</h3>
-              <pre id="personalityOutput">Response output will appear after the planner prepares a spoken response.</pre>
-            </section>
-          </div>
-        </article>
-
-        <article class="panel inspector-panel">
-          <div class="panel-heading">
-            <h2>Tester notes</h2>
-            <span class="badge subtle">Reading guide</span>
-          </div>
-          <div class="checklist">
-            <p><strong>Agent:</strong> should judge the current evidence and decide if it is sufficient.</p>
-            <p><strong>Planner:</strong> should request more resources only when the current evidence is not enough.</p>
-            <p><strong>Response:</strong> should turn a response-worthy plan into the final spoken line, then attach an ElevenLabs voice clip if configured.</p>
-            <p><strong>Resources:</strong> webcam, screenshare, and browser export should be readable without opening raw files.</p>
           </div>
         </article>
       </section>

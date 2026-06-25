@@ -1,14 +1,7 @@
-"""Event-driven agent orchestrator replacing the fixed-tick pipeline loop.
-
-The orchestrator owns the agent loop: it reacts to stimuli (browser tab
-events it detects itself via CDP, client-reported inactivity/activity,
-capture updates, todo alarms) and only then runs a deliberate turn. A
-heartbeat stimulus keeps the system live when nothing happens, at a far
-slower cadence than the old per-tick loop.
-"""
-
 import threading
 import time
+from dataclasses import dataclass
+import threading
 
 from config import env_int
 
@@ -25,6 +18,26 @@ TURN_STIMULI = {
     "manual",
 }
 
+STIMULUS_PRIORITY = {
+    "manual": 100,
+    "tab_opened": 90,
+    "tab_refreshed": 90,
+    "tab_closed": 90,
+    "todo_due": 80,
+    "inactivity": 70,
+    "activity": 60,
+    "capture_updated": 50,
+    "heartbeat": 10,
+}
+
+
+@dataclass
+class StimulusTicket:
+    type: str
+    payload: dict
+    emitted_at: str
+    priority: int
+
 
 class AgentOrchestrator(threading.Thread):
     def __init__(self, app):
@@ -39,8 +52,9 @@ class AgentOrchestrator(threading.Thread):
         self.tab_poll_seconds = env_int("BIG_BROTHER_TAB_POLL_SECONDS", 2)
         self.last_turn_started = 0.0
         self.last_tab_poll = 0.0
-        self.pending_turn_reason = ""
+        self.pending_ticket = None
         self._tab_signature = None
+        self._warmup_until = 0.0
 
     def stop(self):
         self.stop_event.set()
@@ -51,20 +65,19 @@ class AgentOrchestrator(threading.Thread):
 
     def _min_turn_spacing(self) -> float:
         with self.app.state.lock:
-            return float(max(3, self.app.state.interval_seconds))
+            return float(max(1, self.app.state.interval_seconds))
 
     def run(self):
         while not self.stop_event.is_set():
             try:
                 self._tick()
             except Exception as exc:
-                self.app._log_event("agent", "error", "Orchestrator loop error.", {
-                    "error": str(exc),
-                })
+                self.app._log_event("orchestrator", "error", "Orchestrator loop error.", {"error": str(exc)})
                 time.sleep(1.0)
 
     def _tick(self):
         now = time.time()
+        self.app.expire_session_if_needed()
 
         for item in self.todos.pop_due(now):
             self.bus.emit("todo_due", {"todo": item})
@@ -73,67 +86,72 @@ class AgentOrchestrator(threading.Thread):
             self.last_tab_poll = now
             self._poll_tabs()
 
-        if (
-            self._running()
-            and self.last_turn_started
-            and now - self.last_turn_started >= self.heartbeat_seconds
-        ):
+        if self._running() and self.last_turn_started and now - self.last_turn_started >= self.heartbeat_seconds:
             self.bus.emit("heartbeat", {"idle_seconds": round(now - self.last_turn_started, 1)})
 
-        stimulus = self.bus.get(timeout=1.0)
+        stimulus = self.bus.get(timeout=0.5)
         if stimulus is not None:
             self._handle_stimulus(stimulus)
 
         self._run_pending_turn_if_allowed()
 
     def _poll_tabs(self):
-        """Cheap local CDP poll; diff tab signatures into stimuli. No tokens."""
-        try:
-            tabs = self.app.tab_reader.read_tabs(retries=1, delay_seconds=0.1)
-        except Exception:
-            return
+        tabs = self.app.refresh_browser_export(retries=1, delay_seconds=0.1, log_event=False)
         signature = {}
         for tab in tabs:
-            tab_id = tab.get("id") or tab.get("url", "")
-            signature[tab_id] = tab.get("url", "")
+            tab_id = str(tab.get("id") or tab.get("url") or "")
+            signature[tab_id] = {
+                "url": str(tab.get("url", "")),
+                "title": str(tab.get("title", "")),
+            }
 
         previous = self._tab_signature
         self._tab_signature = signature
         if previous is None:
             return
+        if time.time() < self._warmup_until:
+            return
 
-        opened = [tab for tab in tabs if (tab.get("id") or tab.get("url", "")) not in previous]
+        opened = [tab for tab in tabs if str(tab.get("id") or tab.get("url") or "") not in previous]
         closed = [tab_id for tab_id in previous if tab_id not in signature]
-        navigated = [
-            tab
-            for tab in tabs
-            if (tab.get("id") or tab.get("url", "")) in previous
-            and signature[(tab.get("id") or tab.get("url", ""))] != previous[(tab.get("id") or tab.get("url", ""))]
-        ]
+        refreshed = []
+        for tab in tabs:
+            tab_id = str(tab.get("id") or tab.get("url") or "")
+            if tab_id not in previous:
+                continue
+            before = previous[tab_id]
+            after = signature[tab_id]
+            if before != after:
+                refreshed.append(tab)
+
         if opened:
-            self.bus.emit("tab_opened", {
-                "count": len(opened),
-                "urls": [tab.get("url", "") for tab in opened][:5],
-                "tabs": [
-                    {"id": str(tab.get("id", "")), "url": tab.get("url", ""), "title": tab.get("title", "")}
-                    for tab in opened[:5]
-                ],
-            })
+            self.bus.emit(
+                "tab_opened",
+                {
+                    "count": len(opened),
+                    "tabs": [
+                        {"id": str(tab.get("id", "")), "url": tab.get("url", ""), "title": tab.get("title", "")}
+                        for tab in opened[:5]
+                    ],
+                },
+            )
         if closed:
-            self.bus.emit("tab_closed", {"count": len(closed)})
-        if navigated:
-            self.bus.emit("tab_refreshed", {
-                "count": len(navigated),
-                "urls": [tab.get("url", "") for tab in navigated][:5],
-                "tabs": [
-                    {"id": str(tab.get("id", "")), "url": tab.get("url", ""), "title": tab.get("title", "")}
-                    for tab in navigated[:5]
-                ],
-            })
+            self.bus.emit("tab_closed", {"count": len(closed), "tab_ids": closed[:5]})
+        if refreshed:
+            self.bus.emit(
+                "tab_refreshed",
+                {
+                    "count": len(refreshed),
+                    "tabs": [
+                        {"id": str(tab.get("id", "")), "url": tab.get("url", ""), "title": tab.get("title", "")}
+                        for tab in refreshed[:5]
+                    ],
+                },
+            )
 
     def _handle_stimulus(self, stimulus: dict):
-        stimulus_type = stimulus.get("type", "")
-        payload = stimulus.get("payload", {})
+        stimulus_type = str(stimulus.get("type", "")).strip()
+        payload = dict(stimulus.get("payload", {}) or {})
 
         self.memory.append("stimulus", f"Stimulus received: {stimulus_type}", meta=payload)
         self.status.update(
@@ -141,47 +159,55 @@ class AgentOrchestrator(threading.Thread):
             last_stimulus_at=stimulus.get("emitted_at", ""),
             last_stimulus_payload=payload,
         )
-        self.app._log_event("agent", "stimulus", f"Stimulus: {stimulus_type}", payload)
+        self.app._log_event("agent", "stimulus", f"Stimulus: {stimulus_type}", {"type": stimulus_type, **payload})
+
+        if stimulus_type == "frame_unchanged":
+            return
 
         if stimulus_type == "inactivity":
-            self.status.update(focus_state="inactive", notes="No screen change for the inactivity window.")
+            self.status.update(focus_state="inactive", notes="Inactivity signal received.")
         elif stimulus_type == "activity":
             self.status.update(focus_state="active", last_activity_at=stimulus.get("emitted_at", ""))
 
-        if stimulus_type == "frame_unchanged":
-            # Freshness ping only — the server refreshes cached resource
-            # timestamps in the API handler; no turn is needed.
-            return
-
         if stimulus_type in TURN_STIMULI and self._running():
-            self.pending_turn_reason = f"stimulus:{stimulus_type}"
+            ticket = StimulusTicket(
+                type=stimulus_type,
+                payload=payload,
+                emitted_at=stimulus.get("emitted_at", ""),
+                priority=STIMULUS_PRIORITY.get(stimulus_type, 0),
+            )
+            if self.pending_ticket is None or ticket.priority >= self.pending_ticket.priority:
+                self.pending_ticket = ticket
 
     def _run_pending_turn_if_allowed(self):
-        if not self.pending_turn_reason or not self._running():
+        if self.pending_ticket is None or not self._running():
             return
+
+        spacing = 0.0 if self.pending_ticket.priority >= 90 else self._min_turn_spacing()
         now = time.time()
-        if now - self.last_turn_started < self._min_turn_spacing():
+        if now - self.last_turn_started < spacing:
             return
-        reason = self.pending_turn_reason
-        self.pending_turn_reason = ""
+
+        ticket = self.pending_ticket
+        self.pending_ticket = None
         self.last_turn_started = now
+        reason = f"stimulus:{ticket.type}"
         try:
             self.app.run_turn(reason=reason)
             self.status.update(last_turn_at=self.app.state.last_turn_at, last_turn_reason=reason)
         except Exception as exc:
-            self.app._log_event("agent", "error", "Agent turn failed.", {
-                "reason": reason,
-                "error": str(exc),
-            })
+            self.app._log_event("turn", "error", "Agent turn failed.", {"reason": reason, "error": str(exc)})
 
     def note_session_started(self):
-        self.last_turn_started = time.time()
+        self.last_turn_started = 0.0
+        self.last_tab_poll = 0.0
+        self.pending_ticket = StimulusTicket(type="manual", payload={}, emitted_at="", priority=100)
         self._tab_signature = None
-        self.pending_turn_reason = "stimulus:manual"
+        self._warmup_until = time.time() + 2.5
         self.status.update(focus_state="active", notes="Session started.")
         self.memory.append("session", "Monitoring session started.")
 
     def note_session_stopped(self):
-        self.pending_turn_reason = ""
+        self.pending_ticket = None
         self.status.update(focus_state="unknown", notes="Session stopped.")
         self.memory.append("session", "Monitoring session stopped.")

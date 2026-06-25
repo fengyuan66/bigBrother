@@ -1,17 +1,17 @@
 {
-  "started_at": "2026-06-24T20:58:55.782",
+  "started_at": "2026-06-24T22:24:50.379",
   "components": {
     "vlm:webcam": {
-      "calls": 20,
-      "skipped_calls": 239,
-      "prompt_tokens": 6320,
-      "completion_tokens": 4934,
-      "estimated_tokens_saved": 364475
+      "calls": 6,
+      "skipped_calls": 17,
+      "prompt_tokens": 1602,
+      "completion_tokens": 1588,
+      "estimated_tokens_saved": 22525
     }
   },
-  "total_calls": 20,
-  "total_skipped_calls": 239,
-  "total_tokens_used": 11254,
-  "total_estimated_tokens_saved": 364475,
-  "efficiency_multiplier": 33.39
+  "total_calls": 6,
+  "total_skipped_calls": 17,
+  "total_tokens_used": 3190,
+  "total_estimated_tokens_saved": 22525,
+  "efficiency_multiplier": 8.06
 }

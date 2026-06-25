@@ -3,33 +3,33 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Big Brother Watcher Console</title>
+    <title>Big Brother Agent Console</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
     <main class="shell">
       <section class="hero">
-        <p class="eyebrow">Big Brother · Watcher Console</p>
-        <h1>Run the watcher pipeline end to end from the Python webapp.</h1>
+        <p class="eyebrow">Big Brother · Agent Console</p>
+        <h1>Run the agent loop end to end from the Python webapp.</h1>
         <p class="lede">
-          Use this page to collect live resources, inspect the watcher decision every tick, and see
-          when the MPA crosses threshold and the personality actor turns that agenda into a spoken line.
+          Use this page to collect live resources, inspect the agent's judgement, and see
+          when the planner prepares a response that the personality actor turns into a spoken line.
         </p>
         <div class="hero-grid">
           <article class="hero-card">
             <span class="hero-step">1</span>
             <h2>Collect Inputs</h2>
-            <p>Share screen, use webcam, or launch the tracked browser so the watcher has fresh resources.</p>
+            <p>Share screen, use webcam, or launch the tracked browser so the agent has fresh resources.</p>
           </article>
           <article class="hero-card">
             <span class="hero-step">2</span>
-            <h2>Watch Ticks</h2>
-            <p>The watcher runs every update and emits a single-turn boolean plus evidence.</p>
+            <h2>Process Stimuli</h2>
+            <p>The agent reacts to state changes, judges the current evidence, and requests more only when needed.</p>
           </article>
           <article class="hero-card">
             <span class="hero-step">3</span>
             <h2>Inspect Escalation</h2>
-            <p>The MPA stays idle until threshold, then the personality actor prepares the final voice message.</p>
+            <p>The planner prepares next actions and the personality actor prepares the final voice message only when warranted.</p>
           </article>
         </div>
       </section>
@@ -46,7 +46,7 @@
           <div class="guided-copy">
             <p class="status-text">
               Press one button to reset the session, launch the tracked browser, request webcam and screenshare permissions,
-              begin auto capture, and start the watcher pipeline.
+              begin auto capture, and start the agent loop.
             </p>
             <p id="guidedStatus" class="muted-text">Choose a session length, then launch Big Brother.</p>
           </div>
@@ -65,6 +65,27 @@
         </div>
       </section>
 
+      <section class="panel thought-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="section-kicker">Agent Narrative</p>
+            <h2>Hear the agent think</h2>
+          </div>
+          <span id="thoughtFeedBadge" class="badge subtle">Waiting for events</span>
+        </div>
+        <p class="thought-intro">
+          A linear feed of what the agent noticed, decided, and said, translated from the raw debug stream.
+        </p>
+        <div id="thoughtFeed" class="thought-feed">
+          <article class="thought-entry">
+            <div class="thought-time">0:00</div>
+            <div class="thought-body">
+              <p class="thought-line">Agent thought updates will appear here after the session starts doing work.</p>
+            </div>
+          </article>
+        </div>
+      </section>
+
       <section class="control-layout">
         <article class="panel controls-panel">
           <div class="panel-heading">
@@ -72,7 +93,7 @@
               <p class="section-kicker">Session Setup</p>
               <h2>Study session</h2>
             </div>
-            <span id="watcherBadge" class="badge subtle">Watcher loading...</span>
+            <span id="watcherBadge" class="badge subtle">Agent loading...</span>
           </div>
           <div class="field">
             <label for="goal">Study intention</label>
@@ -80,20 +101,20 @@
           </div>
           <div class="control-row compact">
             <label class="metric-field">
-              <span>Watcher tick</span>
+              <span>Agent tick</span>
               <input id="intervalSeconds" type="number" min="3" max="60" value="3" />
-              <small>Seconds between watcher turns</small>
+              <small>Minimum seconds between deliberate agent turns</small>
             </label>
             <label class="metric-field">
-              <span>MPA threshold</span>
+              <span>Decision threshold</span>
               <input id="threshold" type="number" min="1" max="10" value="1" />
-              <small>Watcher-positive turns required before the response pipeline speaks</small>
+              <small>Legacy setting kept for compatibility; the runtime now uses the agent sufficiency check first</small>
             </label>
           </div>
           <div class="actions actions-wide">
-            <button id="runOnceButton">Run one watcher turn</button>
-            <button id="startButton">Start continuous watcher</button>
-            <button id="stopButton" class="alt">Stop watcher</button>
+            <button id="runOnceButton">Run one agent turn</button>
+            <button id="startButton">Start continuous agent</button>
+            <button id="stopButton" class="alt">Stop agent</button>
             <button id="resetStatsButton" class="alt">Reset stats</button>
           </div>
           <div class="meta meta-stack">
@@ -153,15 +174,15 @@
         <article class="panel overview-card">
           <div class="panel-heading">
             <div>
-              <p class="section-kicker">Watcher</p>
-              <h2>Single-turn decision</h2>
+              <p class="section-kicker">Agent</p>
+              <h2>Current judgement</h2>
             </div>
             <span id="actorModeBadge" class="badge subtle">unknown</span>
           </div>
-          <p id="watcherSummary" class="status-text">Watcher output will appear here after a run.</p>
+          <p id="watcherSummary" class="status-text">Agent output will appear here after a run.</p>
           <div class="mini-stats">
             <div class="mini-stat">
-              <span class="summary-label">Watcher positive streak</span>
+              <span class="summary-label">Focus alert streak</span>
               <strong id="streakValue">0</strong>
             </div>
             <div class="mini-stat">
@@ -174,12 +195,12 @@
         <article class="panel overview-card">
           <div class="panel-heading">
             <div>
-              <p class="section-kicker">MPA</p>
-              <h2>Escalation agenda</h2>
+              <p class="section-kicker">Planner</p>
+              <h2>Next action plan</h2>
             </div>
             <span id="mpaBadge" class="badge subtle">Waiting</span>
           </div>
-          <p id="mpaSummary" class="status-text">MPA is waiting for enough consecutive watcher positives.</p>
+          <p id="mpaSummary" class="status-text">Planner output will appear after the agent evaluates the current evidence.</p>
           <p id="statusText" class="status-text muted-text">Ready.</p>
           <p id="errorText" class="error-text"></p>
         </article>
@@ -192,7 +213,7 @@
             </div>
             <span id="personalityBadge" class="badge subtle">Waiting</span>
           </div>
-          <p id="personalitySummary" class="status-text">Personality actor is waiting for an MPA agenda.</p>
+          <p id="personalitySummary" class="status-text">Response actor is waiting for a response-worthy plan.</p>
           <p id="personalityNotes" class="status-text muted-text">Voice delivery notes will appear here.</p>
           <audio id="personalityAudio" controls preload="none" hidden></audio>
         </article>
@@ -207,7 +228,7 @@
           </div>
           <p id="captureStatusText" class="status-text">No capture source active.</p>
           <ul id="evidenceList" class="evidence-list">
-            <li>Watcher evidence will appear here.</li>
+            <li>Agent evidence will appear here.</li>
           </ul>
         </article>
       </section>
@@ -256,7 +277,7 @@
         <div class="panel">
           <div class="panel-heading">
             <h2>Live resource summaries</h2>
-            <span class="badge subtle">Watcher inputs</span>
+            <span class="badge subtle">Agent inputs</span>
           </div>
           <div class="resource-stack">
             <article class="resource-card">
@@ -296,7 +317,7 @@
           <div id="actorStageGrid" class="actor-stage-grid">
             <article class="actor-stage-card stage-idle">
               <div class="actor-stage-head">
-                <h3>Watcher</h3>
+                <h3>Agent</h3>
                 <span class="badge subtle">idle</span>
               </div>
               <p class="status-text">Waiting for stage data.</p>
@@ -397,16 +418,16 @@
           </div>
           <div class="inspector-stack">
             <section>
-              <h3>Watcher JSON</h3>
-              <pre id="watcherOutput">Watcher output will appear here after a run.</pre>
+              <h3>Agent JSON</h3>
+              <pre id="watcherOutput">Agent output will appear here after a run.</pre>
             </section>
             <section>
-              <h3>MPA JSON</h3>
-              <pre id="mpaOutput">MPA output will appear after the watcher hits the threshold.</pre>
+              <h3>Planner JSON</h3>
+              <pre id="mpaOutput">Planner output will appear after the agent evaluates the current evidence.</pre>
             </section>
             <section>
               <h3>Personality JSON</h3>
-              <pre id="personalityOutput">Personality output will appear after the MPA prepares an agenda.</pre>
+              <pre id="personalityOutput">Response output will appear after the planner prepares a spoken response.</pre>
             </section>
           </div>
         </article>
@@ -417,10 +438,9 @@
             <span class="badge subtle">Reading guide</span>
           </div>
           <div class="checklist">
-            <p><strong>Watcher:</strong> should update every tick, even when the MPA does nothing.</p>
-            <p><strong>Threshold badge:</strong> should climb toward the MPA trigger threshold only on consecutive watcher positives.</p>
-            <p><strong>MPA:</strong> should stay idle until the threshold is reached, then produce an agenda.</p>
-            <p><strong>Personality:</strong> should turn the MPA agenda into the final spoken line, then attach an ElevenLabs voice clip if configured.</p>
+            <p><strong>Agent:</strong> should judge the current evidence and decide if it is sufficient.</p>
+            <p><strong>Planner:</strong> should request more resources only when the current evidence is not enough.</p>
+            <p><strong>Response:</strong> should turn a response-worthy plan into the final spoken line, then attach an ElevenLabs voice clip if configured.</p>
             <p><strong>Resources:</strong> webcam, screenshare, and browser export should be readable without opening raw files.</p>
           </div>
         </article>

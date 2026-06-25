@@ -200,3 +200,692 @@
 {"timestamp": "2026-06-24T12:49:28.594", "kind": "stimulus", "text": "Stimulus received: todo_due", "meta": {"todo": {"id": "03205cab49", "note": "User is distracted by YouTube video about Roblox", "kind": "distracted", "created_at": "2026-06-24T12:48:58.199", "due_at_unix": 1782330568.1998994}}}
 {"timestamp": "2026-06-24T12:49:36.357", "kind": "observation", "text": "screen summary updated.", "meta": {"summary": "Observed Facts:\n\n- The image shows a computer screen displaying a YouTube video page in a web browser.\n- The browser has multiple tabs open. The active tab is titled “Spending 10,000,000 Robux in 1 Hour” and the URL bar shows “https://www.youtube.com/watch?v=qf12F201d4”.\n- The YouTube video player i"}}
 {"timestamp": "2026-06-24T12:49:36.357", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "screen"}}
+{"timestamp": "2026-06-24T12:50:08.376", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Observations:\n- Person is seated, facing forward, wearing large white over-ear headphones.\n- Wearing a pale yellow t-shirt; dark hair partially covers forehead.\n- Mouth slightly open; eyes directed slightly off-center (not directly at camera).\n- Background: cluttered office/desk environment with mul"}}
+{"timestamp": "2026-06-24T12:50:08.376", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "webcam"}}
+{"timestamp": "2026-06-24T12:50:13.646", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Observations:\n- Person is seated, wearing white over-ear headphones, looking slightly downward and to their right (viewer’s left).\n- Posture is slightly leaned forward; facial expression appears focused or neutral.\n- Environment is a cluttered home office: visible desk, black ergonomic chair, booksh"}}
+{"timestamp": "2026-06-24T12:50:13.646", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "webcam"}}
+{"timestamp": "2026-06-24T12:50:14.898", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T12:50:17.900", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T12:50:20.896", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T12:50:23.898", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T12:50:26.894", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T12:50:29.901", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T12:50:32.895", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T12:50:35.901", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T12:50:38.895", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T12:50:41.901", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T12:50:50.270", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Observations:\n- Person is seated, facing forward, wearing large white over-ear headphones.\n- Eyes are directed slightly downward and to their right (viewer’s left), suggesting focus on a screen or object just out of frame.\n- Mouth is slightly open, possibly mid-speech, breathing, or reacting.\n- Wear"}}
+{"timestamp": "2026-06-24T12:50:50.271", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "webcam"}}
+{"timestamp": "2026-06-24T12:50:50.896", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T12:50:53.899", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T12:50:56.907", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T12:50:59.909", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T12:51:02.894", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T12:51:10.466", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Observations:\n- Person is seated, wearing white over-ear headphones, looking slightly downward and to their right (viewer’s left), with mouth slightly open.\n- Wearing a pale yellow t-shirt; dark hair partially covers forehead.\n- Environment: cluttered office/desk space with black ergonomic chair, de"}}
+{"timestamp": "2026-06-24T12:51:10.467", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "webcam"}}
+{"timestamp": "2026-06-24T12:51:11.894", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T12:51:14.894", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T12:51:17.898", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T12:51:20.894", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T12:51:23.895", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T12:51:33.460", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Observations:\n- Person is seated, wearing white over-ear headphones, looking slightly downward and to their right (likely at a screen).\n- Wearing a pale yellow t-shirt; hair is dark and shoulder-length.\n- Environment is an indoor office or study: visible are a black ergonomic chair, a desk with a co"}}
+{"timestamp": "2026-06-24T12:51:33.461", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "webcam"}}
+{"timestamp": "2026-06-24T12:51:52.732", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Observations:\n- Person is seated in a black office chair, facing slightly left of camera.\n- Wearing white over-ear headphones with visible mic boom.\n- Wearing a pale yellow t-shirt.\n- Gaze is directed off-camera to their left, mouth slightly open — suggests active listening or speaking.\n- Background"}}
+{"timestamp": "2026-06-24T12:51:52.732", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "webcam"}}
+{"timestamp": "2026-06-24T12:51:53.895", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T12:51:56.895", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T12:51:59.895", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T12:52:02.893", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T12:52:05.917", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T12:52:08.916", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T12:52:11.898", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T12:52:14.904", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T12:52:17.902", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T12:52:20.895", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T12:52:23.895", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T12:52:26.895", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T12:52:29.894", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T12:52:32.895", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T12:52:41.960", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Observations:\n- Person is seated in a black office chair, facing slightly downward and to their right (viewer’s left).\n- Wearing large white over-ear headphones with a visible mic boom extending toward mouth.\n- Wearing a pale yellow t-shirt; hair is dark, medium-length, partially covering forehead.\n"}}
+{"timestamp": "2026-06-24T12:52:41.960", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "webcam"}}
+{"timestamp": "2026-06-24T12:52:53.189", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Observations:\n- Person is seated in a black office chair, facing forward, wearing white over-ear headphones.\n- Right hand is raised to forehead/hair area, fingers slightly spread — appears to be adjusting hair or headset.\n- Gaze is directed slightly downward and to the left (viewer’s right), suggest"}}
+{"timestamp": "2026-06-24T12:52:53.190", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "webcam"}}
+{"timestamp": "2026-06-24T12:53:09.768", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Observations:\n- Person is seated in an office chair, wearing white over-ear headphones.\n- Eyes are closed; holding a white tissue to nose/mouth area with right hand.\n- Wearing a pale yellow t-shirt; dark hair partially covers forehead.\n- Background: cluttered office environment — bookshelf with bind"}}
+{"timestamp": "2026-06-24T12:53:09.768", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "webcam"}}
+{"timestamp": "2026-06-24T12:53:15.820", "kind": "stimulus", "text": "Stimulus received: todo_due", "meta": {"todo": {"id": "950c29c55d", "note": "Follow up on user's activity on the Wikipedia page", "kind": "checkin", "created_at": "2026-06-24T12:48:15.334", "due_at_unix": 1782330795.3346748}}}
+{"timestamp": "2026-06-24T12:53:18.342", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Observations:\n- Person is seated in a black office chair, facing slightly left of camera.\n- Wearing white over-ear headphones; one earcup appears to have a mic boom extending downward.\n- Wearing a pale yellow t-shirt; visible acne on forehead and cheeks.\n- Eyes are focused downward and to the left, "}}
+{"timestamp": "2026-06-24T12:53:18.342", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "webcam"}}
+{"timestamp": "2026-06-24T12:53:20.894", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T12:53:23.894", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T12:53:26.895", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T12:53:29.895", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T12:53:38.252", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Observations:\n- Person is seated in a black office chair, wearing white over-ear headphones and a pale yellow t-shirt.\n- Head is turned slightly left, eyes are looking downward and to the left — likely at a screen or document just out of frame.\n- Mouth is slightly open, suggesting active listening, "}}
+{"timestamp": "2026-06-24T12:53:38.253", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "webcam"}}
+{"timestamp": "2026-06-24T12:53:38.894", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T12:53:41.907", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T12:53:44.918", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T12:53:53.598", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Observations:\n- Person is seated in a black office chair, wearing white over-ear headphones.\n- Head is tilted slightly down and to the right; eyes appear closed or nearly closed, suggesting focus or fatigue.\n- Wearing a light-colored t-shirt; long dark hair partially covers forehead.\n- Environment: "}}
+{"timestamp": "2026-06-24T12:53:53.599", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "webcam"}}
+{"timestamp": "2026-06-24T12:54:01.079", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Observations:\n- Person is seated in a black office chair, wearing white over-ear headphones and a pale yellow t-shirt.\n- Head is slightly tilted down; eyes are focused downward and to the left (viewer’s right), suggesting attention to a screen or document just out of frame.\n- Background includes a c"}}
+{"timestamp": "2026-06-24T12:54:01.080", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "webcam"}}
+{"timestamp": "2026-06-24T12:54:08.402", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Observations:\n- Person is seated in a black office chair, facing forward, wearing large white over-ear headphones.\n- Wearing a pale yellow t-shirt; hair is dark and shoulder-length.\n- Eyes are directed slightly downward and to their left (viewer’s right), suggesting focus on a screen or device just "}}
+{"timestamp": "2026-06-24T12:54:08.403", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "webcam"}}
+{"timestamp": "2026-06-24T12:54:15.451", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Observations:\n- Person is seated in a black office chair, facing forward toward the camera.\n- Wearing large white over-ear headphones; one earcup appears slightly askew.\n- Wearing a pale yellow t-shirt; hair is dark, medium-length, and partially covers forehead.\n- Eyes are open and directed at the c"}}
+{"timestamp": "2026-06-24T12:54:15.452", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "webcam"}}
+{"timestamp": "2026-06-24T12:54:17.894", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T12:54:22.626", "kind": "session", "text": "Monitoring session stopped."}
+{"timestamp": "2026-06-24T20:03:09.156", "kind": "session", "text": "Monitoring session started."}
+{"timestamp": "2026-06-24T20:03:17.949", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Observations:\n- Person is shirtless, seated in a black office chair, facing forward toward the camera.\n- Wearing large white over-ear headphones; one earcup appears slightly askew.\n- Eyes are open and directed at the camera; mouth is slightly open, suggesting mid-speech or reaction.\n- Background sho"}}
+{"timestamp": "2026-06-24T20:03:36.087", "kind": "observation", "text": "screen summary updated.", "meta": {"summary": "Observed Facts:\n\n- The image shows a computer screen with a web browser open.\n- Two browser tabs are visible at the top:\n  - Left tab: Labeled “New tab”.\n  - Right tab: Labeled “Calculus - Wikipedia”, and is currently active.\n- The active tab displays the Wikipedia article for “Calculus” at URL: htt"}}
+{"timestamp": "2026-06-24T20:03:51.757", "kind": "observation", "text": "screen summary updated.", "meta": {"summary": "Observed Facts:\n\n- The active application is a web browser (likely Chrome or Edge) displaying a YouTube video page.\n- The browser has multiple tabs open:\n  - Tab 1: “New tab”\n  - Tab 2: “Calculus - Wikipedia”\n  - Tab 3: YouTube video tab, currently active, titled “ROBLOX OBBY BUT YOUR CURSED..” (as "}}
+{"timestamp": "2026-06-24T20:04:00.142", "kind": "observation", "text": "screen summary updated.", "meta": {"summary": "Observed Facts:\n\n- The screen shows a web browser with three tabs open:\n  1. “New tab” (inactive)\n  2. “Calculus - Wikipedia” (inactive)\n  3. “ROBLOX OBBY BUT YOUR C...” (active, displaying a YouTube video)\n\n- The active tab is YouTube, showing a video titled “ROBLOX OBBY BUT YOUR CURSED..” by the c"}}
+{"timestamp": "2026-06-24T20:04:06.647", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "**Observations:**\n- Person is shirtless, seated in a black office chair, facing forward toward the camera.\n- Wearing large white over-ear headphones; one earcup appears slightly askew.\n- Eyes are open and directed toward the camera or screen; mouth is slightly open, suggesting mid-speech or reaction"}}
+{"timestamp": "2026-06-24T20:04:15.575", "kind": "observation", "text": "screen summary updated.", "meta": {"summary": "Observed Facts:\n\n- The screen shows a web browser with three open tabs:\n  - Tab 1 (active): YouTube video page, URL visible: https://www.youtube.com/watch?v=4mrFHMwzvfs\n  - Tab 2: “Calculus - Wikipedia”\n  - Tab 3: “ROBLOX OBBY BUT YOUR C...” (truncated title, likely same as active tab)\n\n- YouTube in"}}
+{"timestamp": "2026-06-24T20:04:27.302", "kind": "session", "text": "Monitoring session stopped."}
+{"timestamp": "2026-06-24T20:14:52.553", "kind": "client_action", "text": "Completed client action screen_scan.", "meta": {"id": "8f0b96ce48", "type": "screen_scan", "payload": {"type": "screen", "reason": "x", "source": "browser"}, "dedupe_key": "screen_scan:browser:x", "created_at": "2026-06-24T20:14:05.875", "completed_at": "2026-06-24T20:14:52.552", "result": {"ok": false, "status": "unavailable", "reason": "Requested capture source is not active."}}}
+{"timestamp": "2026-06-24T20:14:52.672", "kind": "client_action", "text": "Completed client action webcam_scan.", "meta": {"id": "b409c051ff", "type": "webcam_scan", "payload": {"type": "webcam", "reason": "x", "source": "browser"}, "dedupe_key": "webcam_scan:browser:x", "created_at": "2026-06-24T20:14:05.877", "completed_at": "2026-06-24T20:14:52.671", "result": {"ok": false, "status": "unavailable", "reason": "Requested capture source is not active."}}}
+{"timestamp": "2026-06-24T20:15:02.141", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Observations:\n- Person is shirtless, seated in a black office chair, facing forward (likely at a screen).\n- Wearing large white over-ear headphones with a visible mic boom extending toward mouth.\n- Eyes are focused slightly downward; mouth is slightly open, suggesting active speaking or listening.\n-"}}
+{"timestamp": "2026-06-24T20:15:02.141", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "webcam"}}
+{"timestamp": "2026-06-24T20:15:08.646", "kind": "session", "text": "Monitoring session started."}
+{"timestamp": "2026-06-24T20:15:09.994", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Observations:\n- Person is shirtless, seated in a black office chair, facing forward toward the camera.\n- Wearing large white over-ear headphones with a visible mic boom extending toward mouth.\n- Mouth is slightly open; eyes are focused forward, suggesting active engagement or speaking.\n- Background:"}}
+{"timestamp": "2026-06-24T20:15:09.995", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "webcam"}}
+{"timestamp": "2026-06-24T20:15:11.667", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T20:15:15.614", "kind": "agent_turn", "text": "Browser tab is on Wikipedia, but webcam shows possible active communication.", "meta": {"stimulus": "stimulus:capture_updated", "focus_state": "distracted", "evidence": ["Browser tab: Calculus - Wikipedia", "Webcam shows person with headset, open mouth, and forward gaze"], "requested_resources": [{"type": "screenshare", "reason": "Confirm if user is actively studying or engaged in unrelated communication", "source": "Uncertainty about user's focus due to conflicting browser and webcam evidence"}]}}
+{"timestamp": "2026-06-24T20:15:15.619", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T20:15:15.622", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T20:15:15.624", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T20:15:16.025", "kind": "client_action", "text": "Completed client action screenshare.", "meta": {"id": "006558d3b9", "type": "screenshare", "payload": {"type": "screenshare", "reason": "Confirm if user is actively studying or engaged in unrelated communication", "source": "Uncertainty about user's focus due to conflicting browser and webcam evidence"}, "dedupe_key": "screenshare:Uncertainty about user's focus due to conflicting browser and webcam evidence:Confirm if user is actively studying or engaged in unrelated communication", "created_at": "2026-06-24T20:15:15.608", "completed_at": "2026-06-24T20:15:16.024", "result": {"ok": false, "status": "unsupported", "message": "Unsupported client action type: screenshare"}}}
+{"timestamp": "2026-06-24T20:15:17.638", "kind": "stimulus", "text": "Stimulus received: tab_opened", "meta": {"count": 1, "urls": ["https://www.youtube.com/"], "tabs": [{"id": "A1E0AEF88EAD16478704F4F4B4933D89", "url": "https://www.youtube.com/", "title": "YouTube"}]}}
+{"timestamp": "2026-06-24T20:15:22.548", "kind": "agent_turn", "text": "Browser state changed. 1. YouTube", "meta": {"stimulus": "stimulus:tab_opened", "focus_state": "uncertain", "evidence": [], "requested_resources": []}}
+{"timestamp": "2026-06-24T20:15:22.553", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T20:15:22.556", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T20:15:22.558", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T20:15:22.561", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T20:15:22.563", "kind": "stimulus", "text": "Stimulus received: tab_refreshed", "meta": {"count": 1, "urls": ["https://www.youtube.com/watch?v=CeScjTwxd4A"], "tabs": [{"id": "A1E0AEF88EAD16478704F4F4B4933D89", "url": "https://www.youtube.com/watch?v=CeScjTwxd4A", "title": "YouTube"}]}}
+{"timestamp": "2026-06-24T20:15:27.544", "kind": "agent_turn", "text": "Browser state changed. 1. YouTube", "meta": {"stimulus": "stimulus:tab_refreshed", "focus_state": "uncertain", "evidence": [], "requested_resources": []}}
+{"timestamp": "2026-06-24T20:15:27.547", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T20:15:27.550", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T20:15:27.553", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T20:15:27.555", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T20:15:29.670", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T20:15:29.675", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T20:15:32.662", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T20:15:32.666", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T20:15:35.666", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T20:15:35.671", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T20:15:38.669", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T20:15:38.673", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T20:15:41.666", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T20:15:52.789", "kind": "stimulus", "text": "Stimulus received: heartbeat", "meta": {"idle_seconds": 30.2}}
+{"timestamp": "2026-06-24T20:15:59.349", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Observations:\n- Person is shirtless, seated in a black office chair, facing forward toward the camera.\n- Wearing large white over-ear headphones with a visible mic boom extending toward mouth.\n- Eyes are open, gaze directed slightly off-center (likely at a screen just outside frame).\n- Posture is up"}}
+{"timestamp": "2026-06-24T20:16:00.442", "kind": "agent_turn", "text": "One tab is YouTube, which may indicate distraction.", "meta": {"stimulus": "stimulus:heartbeat", "focus_state": "uncertain", "evidence": ["Tab 1: ROBLOX LATE TO SCHOOL! - YouTube", "Tab 2: Calculus - Wikipedia"], "requested_resources": [{"type": "webcam_scan", "reason": "To confirm if the user is distracted by the YouTube tab.", "source": "webcam"}]}}
+{"timestamp": "2026-06-24T20:16:00.461", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "webcam"}}
+{"timestamp": "2026-06-24T20:16:05.129", "kind": "agent_turn", "text": "Agent reviewed the current evidence.", "meta": {"stimulus": "stimulus:capture_updated", "focus_state": "uncertain", "evidence": [], "requested_resources": []}}
+{"timestamp": "2026-06-24T20:16:05.133", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T20:16:05.135", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T20:16:06.311", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Observations:\n- Person is shirtless, seated in a black office chair, wearing large white over-ear headphones with a visible mic boom.\n- Eyes are mostly closed or looking downward; mouth is slightly open — suggests low alertness or fatigue.\n- Background shows a cluttered desk with a lamp, monitor, PC"}}
+{"timestamp": "2026-06-24T20:16:06.312", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "webcam"}}
+{"timestamp": "2026-06-24T20:16:06.330", "kind": "client_action", "text": "Completed client action webcam_scan.", "meta": {"id": "8a900e8a13", "type": "webcam_scan", "payload": {"type": "webcam_scan", "reason": "To confirm if the user is distracted by the YouTube tab.", "source": "webcam"}, "dedupe_key": "webcam_scan:webcam:To confirm if the user is distracted by the YouTube tab.", "created_at": "2026-06-24T20:16:00.418", "completed_at": "2026-06-24T20:16:06.329", "result": {"ok": true, "status": "captured", "analyzed_count": 1, "skipped_count": 0}}}
+{"timestamp": "2026-06-24T20:16:10.298", "kind": "agent_turn", "text": "Mixed browser tabs (YouTube + Wikipedia) with ambiguous webcam showing low alertness.", "meta": {"stimulus": "stimulus:capture_updated", "focus_state": "uncertain", "evidence": ["YouTube tab open (potential distraction)", "Calculus Wikipedia tab open"], "requested_resources": []}}
+{"timestamp": "2026-06-24T20:16:11.009", "kind": "session", "text": "Monitoring session stopped."}
+{"timestamp": "2026-06-24T20:59:04.967", "kind": "session", "text": "Monitoring session started."}
+{"timestamp": "2026-06-24T20:59:10.834", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Observations:\n- Person is shirtless, seated in a black office chair, facing forward toward the camera.\n- Wearing large white over-ear headphones; one earcup appears slightly askew.\n- Hair is dark, medium-length, and partially covers forehead; facial expression is neutral, eyes open, gaze directed at"}}
+{"timestamp": "2026-06-24T20:59:13.510", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "webcam"}}
+{"timestamp": "2026-06-24T20:59:17.682", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T20:59:17.684", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T20:59:17.686", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T20:59:17.689", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T20:59:17.691", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T20:59:17.694", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T20:59:19.998", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T20:59:20.002", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T20:59:22.993", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T20:59:22.996", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T20:59:25.986", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T20:59:25.991", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T20:59:28.989", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T20:59:28.994", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T20:59:31.996", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T20:59:32.001", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T20:59:34.997", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T20:59:35.002", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T20:59:38.000", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T20:59:38.005", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T20:59:41.000", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T20:59:41.004", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T20:59:43.993", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T20:59:43.998", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T20:59:44.001", "kind": "stimulus", "text": "Stimulus received: heartbeat", "meta": {"idle_seconds": 30.5}}
+{"timestamp": "2026-06-24T20:59:48.218", "kind": "stimulus", "text": "Stimulus received: heartbeat", "meta": {"idle_seconds": 30.5}}
+{"timestamp": "2026-06-24T20:59:52.379", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T20:59:52.382", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T20:59:52.384", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T20:59:52.386", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T20:59:52.989", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T20:59:52.995", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T20:59:55.988", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T20:59:55.995", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T20:59:58.995", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T20:59:59.000", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:00:01.999", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:00:02.005", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:00:04.996", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:00:05.003", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:00:08.008", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:00:08.016", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:00:10.999", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:00:11.005", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:00:13.986", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:00:13.991", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:00:16.993", "kind": "stimulus", "text": "Stimulus received: inactivity", "meta": {"idle_ms": 62994}}
+{"timestamp": "2026-06-24T21:00:21.216", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:00:21.218", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:00:21.220", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:00:21.222", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:00:22.992", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:00:23.000", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:00:25.999", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:00:26.003", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:00:28.995", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:00:29.002", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:00:31.994", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:00:32.000", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:00:35.004", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:00:35.008", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:00:37.994", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:00:37.999", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:00:40.997", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:00:41.002", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:00:44.005", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:00:44.009", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:00:47.001", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:00:47.004", "kind": "stimulus", "text": "Stimulus received: heartbeat", "meta": {"idle_seconds": 30.0}}
+{"timestamp": "2026-06-24T21:00:57.113", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Observations:\n- Person is shirtless, seated in a black office chair, facing directly toward the camera.\n- Wearing large white over-ear headphones; one earcup appears slightly askew.\n- Hair is dark, medium-length, and slightly messy; facial expression is neutral, eyes open and looking forward.\n- Back"}}
+{"timestamp": "2026-06-24T21:00:57.114", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "webcam"}}
+{"timestamp": "2026-06-24T21:01:01.368", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:01:01.371", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:01:01.992", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:01:02.000", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:01:04.998", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:01:05.009", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:01:07.990", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:01:07.995", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:01:10.998", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:01:11.002", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:01:13.994", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:01:13.999", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:01:17.002", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:01:17.008", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:01:19.987", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:01:19.992", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:01:22.992", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:01:22.997", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:01:25.993", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:01:25.999", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:01:28.018", "kind": "stimulus", "text": "Stimulus received: heartbeat", "meta": {"idle_seconds": 30.9}}
+{"timestamp": "2026-06-24T21:01:32.288", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:01:32.291", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:01:32.294", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:01:32.296", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:01:35.004", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:01:35.009", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:01:37.993", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:01:37.999", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:01:40.998", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:01:41.004", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:01:44.002", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:01:44.007", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:01:46.988", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:01:46.994", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:01:49.998", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:01:50.005", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:01:52.994", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:01:53.000", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:01:55.993", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:01:56.001", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:01:58.993", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:01:58.998", "kind": "stimulus", "text": "Stimulus received: heartbeat", "meta": {"idle_seconds": 31.0}}
+{"timestamp": "2026-06-24T21:02:03.242", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:02:03.245", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:02:03.248", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:02:04.987", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:02:04.992", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:02:07.995", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:02:08.001", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:02:11.001", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:02:11.007", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:02:13.996", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:02:14.002", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:02:17.003", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:02:17.009", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:02:19.999", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:02:29.112", "kind": "stimulus", "text": "Stimulus received: heartbeat", "meta": {"idle_seconds": 30.1}}
+{"timestamp": "2026-06-24T21:02:32.016", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Observations:\n- Person is shirtless, seated in a black office chair, facing forward toward the camera.\n- Wearing large white over-ear headphones.\n- Hair is dark, medium-length, slightly messy; facial expression is neutral to slightly open-mouthed, eyes focused forward.\n- Background: cluttered desk w"}}
+{"timestamp": "2026-06-24T21:02:33.623", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "webcam"}}
+{"timestamp": "2026-06-24T21:02:37.778", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:02:37.781", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:02:38.004", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:02:38.011", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:02:41.001", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:02:41.008", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:02:43.992", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:02:43.998", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:02:46.994", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:02:47.000", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:02:50.004", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:02:50.010", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:02:53.000", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:02:53.006", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:02:55.995", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:02:56.001", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:02:58.998", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:02:59.003", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:03:01.996", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:03:02.000", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:03:04.019", "kind": "stimulus", "text": "Stimulus received: heartbeat", "meta": {"idle_seconds": 30.4}}
+{"timestamp": "2026-06-24T21:03:08.232", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:03:10.115", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Observations:\n- Person is shirtless, seated in a black office chair, facing forward toward the camera.\n- Wearing large white over-ear headphones; one earcup appears slightly askew.\n- Hair is dark, medium-length, and partially covers forehead; facial expression is neutral, eyes open, gaze directed at"}}
+{"timestamp": "2026-06-24T21:03:10.116", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "webcam"}}
+{"timestamp": "2026-06-24T21:03:14.278", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:03:14.281", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:03:14.284", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:03:14.286", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:03:16.998", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:03:17.003", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:03:20.004", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:03:20.011", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:03:22.990", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:03:22.996", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:03:25.989", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:03:25.996", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:03:28.991", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:03:28.998", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:03:31.995", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:03:32.001", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:03:34.995", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:03:35.001", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:03:37.994", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:03:38.000", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:03:41.006", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:03:41.011", "kind": "stimulus", "text": "Stimulus received: heartbeat", "meta": {"idle_seconds": 30.9}}
+{"timestamp": "2026-06-24T21:03:46.547", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Observations:\n- Person is shirtless, seated in a black office/gaming chair, facing the camera directly.\n- Wearing white over-ear headphones; one earcup appears slightly askew.\n- Hair is dark, shoulder-length, and partially covers forehead.\n- Background shows a cluttered desk with dual monitors, a de"}}
+{"timestamp": "2026-06-24T21:03:46.548", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "webcam"}}
+{"timestamp": "2026-06-24T21:03:50.794", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:03:50.796", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:03:50.798", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:03:50.800", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:03:52.998", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:03:53.004", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:03:55.990", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:03:55.997", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:03:58.992", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:03:58.999", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:04:02.001", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:04:02.006", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:04:04.992", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:04:04.998", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:04:07.998", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:04:08.003", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:04:11.002", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:04:11.007", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:04:13.988", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:04:13.994", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:04:16.995", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:04:17.000", "kind": "stimulus", "text": "Stimulus received: heartbeat", "meta": {"idle_seconds": 30.4}}
+{"timestamp": "2026-06-24T21:04:21.240", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:04:21.243", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:04:21.245", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:04:22.994", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:04:32.191", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Observations:\n- Person is shirtless, seated in a black office chair, facing the camera directly.\n- Wearing large white over-ear headphones.\n- Posture is upright but relaxed; head is centered, eyes appear focused forward (likely at the camera or screen).\n- Background shows a cluttered home office: bo"}}
+{"timestamp": "2026-06-24T21:04:32.192", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "webcam"}}
+{"timestamp": "2026-06-24T21:04:36.764", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:04:36.766", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:04:37.987", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:04:37.992", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:04:40.993", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:04:41.000", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:04:43.996", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:04:44.002", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:04:46.994", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:04:47.000", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:04:49.992", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:04:49.998", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:04:52.987", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:04:52.994", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:04:56.000", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:04:56.006", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:04:58.991", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:04:58.997", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:05:01.991", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:05:01.998", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:05:03.001", "kind": "stimulus", "text": "Stimulus received: heartbeat", "meta": {"idle_seconds": 30.8}}
+{"timestamp": "2026-06-24T21:05:07.205", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:05:07.207", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:05:08.002", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:05:21.436", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Observations:\n- Person is shirtless, seated in a black office chair, facing directly toward the camera.\n- Wearing large white over-ear headphones; hair is dark, medium-length, slightly messy.\n- Posture is upright but relaxed; facial expression is neutral, eyes focused forward (likely at screen/camer"}}
+{"timestamp": "2026-06-24T21:05:21.437", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "webcam"}}
+{"timestamp": "2026-06-24T21:05:25.708", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:05:25.710", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:05:25.994", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:05:26.001", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:05:29.003", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:05:34.461", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Observations:\n- Person is shirtless, seated in a black office chair, facing slightly left of camera.\n- Wearing white over-ear headphones; head tilted slightly upward, eyes looking toward upper left (off-camera).\n- Mouth slightly open, expression neutral to mildly surprised or attentive.\n- Background"}}
+{"timestamp": "2026-06-24T21:05:34.462", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "webcam"}}
+{"timestamp": "2026-06-24T21:05:38.672", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:05:38.674", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:05:38.677", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:05:38.679", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:05:41.000", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:05:41.006", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:05:43.999", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:05:44.006", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:05:47.002", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:05:47.008", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:05:50.001", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:05:50.009", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:05:52.994", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:05:52.999", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:05:55.998", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:05:56.006", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:05:58.987", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:05:58.993", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:06:01.993", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:06:01.999", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:06:04.996", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:06:04.999", "kind": "stimulus", "text": "Stimulus received: heartbeat", "meta": {"idle_seconds": 30.5}}
+{"timestamp": "2026-06-24T21:06:15.151", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Observations:\n- Person is shirtless, seated in a black office chair, facing forward toward the camera.\n- Wearing large white over-ear headphones; head slightly tilted, eyes open and looking directly at the camera.\n- Background shows a cluttered desk with multiple monitors, a lamp, a PC tower, and sh"}}
+{"timestamp": "2026-06-24T21:06:15.152", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "webcam"}}
+{"timestamp": "2026-06-24T21:06:19.380", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:06:19.382", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:06:19.990", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:06:19.997", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:06:22.989", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:06:22.995", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:06:25.996", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:06:26.002", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:06:28.999", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:06:29.005", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:06:31.997", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:06:32.004", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:06:34.998", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:06:35.005", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:06:37.987", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:06:37.993", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:06:40.996", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:06:41.019", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:06:43.994", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:06:44.000", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:06:46.032", "kind": "stimulus", "text": "Stimulus received: heartbeat", "meta": {"idle_seconds": 30.9}}
+{"timestamp": "2026-06-24T21:06:50.206", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:06:50.209", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:06:50.211", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:06:50.214", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:06:52.996", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:06:53.003", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:06:55.997", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:06:56.003", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:06:58.995", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:06:59.003", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:07:01.998", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:07:02.005", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:07:05.010", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:07:09.796", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Observations:\n- Person is shirtless, seated in a black office chair, facing forward.\n- Wearing white over-ear headphones; right hand holds a black smartphone to right ear, suggesting active phone call.\n- Mouth slightly open, eyes focused forward — likely engaged in conversation.\n- Background: clutte"}}
+{"timestamp": "2026-06-24T21:07:09.796", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "webcam"}}
+{"timestamp": "2026-06-24T21:07:14.019", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:07:14.022", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:07:14.025", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:07:19.583", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Observations:\n- Person is shirtless, seated in a black office chair, facing forward (likely at a screen or camera).\n- Wearing white over-ear headphones; one earcup appears slightly askew.\n- Mouth is slightly open, eyes are focused forward — suggests active engagement or speaking.\n- Background: clutt"}}
+{"timestamp": "2026-06-24T21:07:19.583", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "webcam"}}
+{"timestamp": "2026-06-24T21:07:23.786", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:07:23.789", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:07:23.791", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:07:23.794", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:07:25.992", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:07:25.999", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:07:28.993", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:07:28.999", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:07:31.989", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:07:31.995", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:07:34.992", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:07:34.999", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:07:37.986", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:07:37.993", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:07:40.999", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:07:47.997", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Observations:\n- Person is shirtless, seated in a black office chair, facing forward.\n- Eyes are closed; head is slightly tilted down, suggesting rest or fatigue.\n- Wearing white over-ear headphones with visible cable.\n- Background: cluttered desk with monitors, lamp, PC tower, shelves with books/pap"}}
+{"timestamp": "2026-06-24T21:07:47.997", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "webcam"}}
+{"timestamp": "2026-06-24T21:07:52.223", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:07:52.226", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:07:52.989", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:07:52.995", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:07:55.986", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:07:55.992", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:07:58.985", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:07:58.992", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:08:02.001", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:08:02.008", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:08:04.987", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:08:04.992", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:08:07.997", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:08:08.005", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:08:10.987", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:08:10.992", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:08:13.993", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:08:14.000", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:08:16.994", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:08:17.000", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:08:18.025", "kind": "stimulus", "text": "Stimulus received: heartbeat", "meta": {"idle_seconds": 30.0}}
+{"timestamp": "2026-06-24T21:08:22.213", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:08:22.215", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:08:22.991", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:08:22.998", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:08:26.000", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:08:48.204", "kind": "stimulus", "text": "Stimulus received: heartbeat", "meta": {"idle_seconds": 30.2}}
+{"timestamp": "2026-06-24T21:08:48.461", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Observations:\n- Person is shirtless, seated in a black office chair, facing the camera directly.\n- Wearing white over-ear headphones; one earcup appears slightly askew.\n- Hair is dark, medium-length, and slightly damp or messy; forehead has visible sheen (possibly sweat or moisture).\n- Expression is"}}
+{"timestamp": "2026-06-24T21:08:52.388", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "webcam"}}
+{"timestamp": "2026-06-24T21:08:56.987", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:08:56.989", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:08:56.991", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:08:56.993", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:08:56.996", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:08:56.998", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:08:58.987", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:08:58.993", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:09:01.999", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:09:02.005", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:09:04.994", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:09:05.000", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:09:07.989", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:09:07.995", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:09:10.990", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:09:10.996", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:09:13.994", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:09:14.000", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:09:16.992", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:09:16.998", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:09:19.992", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:09:19.998", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:09:22.992", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:09:22.998", "kind": "stimulus", "text": "Stimulus received: heartbeat", "meta": {"idle_seconds": 30.6}}
+{"timestamp": "2026-06-24T21:09:27.268", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:09:27.270", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:09:27.272", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:09:28.992", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:09:28.999", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:09:31.997", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:09:32.003", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:09:34.990", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:09:34.996", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:09:38.012", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:09:46.251", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Observations:\n- Person is shirtless, seated in a black office chair, facing the camera directly.\n- Wearing white over-ear headphones; one earcup appears slightly askew.\n- Hair is dark, medium-length, and slightly damp or greasy at the forehead.\n- Expression is neutral, eyes open, mouth slightly part"}}
+{"timestamp": "2026-06-24T21:09:46.252", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "webcam"}}
+{"timestamp": "2026-06-24T21:09:50.461", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:09:50.464", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:09:50.466", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:09:50.468", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:09:52.995", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:09:53.001", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:09:56.006", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:09:56.012", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:09:58.999", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:09:59.006", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:10:01.997", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:10:02.003", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:10:04.995", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:10:05.002", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:10:07.992", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:10:07.998", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:10:10.990", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:10:10.995", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:10:13.985", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:10:13.992", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:10:16.988", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:10:16.993", "kind": "stimulus", "text": "Stimulus received: heartbeat", "meta": {"idle_seconds": 30.7}}
+{"timestamp": "2026-06-24T21:10:21.197", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:10:21.199", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:10:21.201", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:10:23.000", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:10:23.006", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:10:25.988", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:10:25.994", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:10:29.006", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:10:34.689", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Observations:\n- Person is shirtless, seated in a black office chair, facing the camera directly.\n- Wearing white over-ear headphones; one earcup appears slightly askew.\n- Hair is dark, shoulder-length, and partially covers forehead.\n- Background shows a cluttered desk with dual monitors, a desk lamp"}}
+{"timestamp": "2026-06-24T21:10:34.690", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "webcam"}}
+{"timestamp": "2026-06-24T21:10:39.139", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:10:39.142", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:10:39.145", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:10:39.147", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:10:40.991", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:10:40.998", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:10:43.997", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:10:44.003", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:10:46.993", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:10:46.998", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:10:49.990", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:10:49.997", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:10:52.989", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:10:52.995", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:10:55.995", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:10:56.000", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:10:58.998", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:10:59.003", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:11:01.991", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:11:01.998", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:11:04.993", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:11:04.999", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:11:05.002", "kind": "stimulus", "text": "Stimulus received: heartbeat", "meta": {"idle_seconds": 30.3}}
+{"timestamp": "2026-06-24T21:11:09.922", "kind": "stimulus", "text": "Stimulus received: heartbeat", "meta": {"idle_seconds": 30.3}}
+{"timestamp": "2026-06-24T21:11:14.072", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:11:14.074", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:11:14.077", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:11:14.080", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:11:14.082", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:11:14.085", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:11:16.990", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:11:16.997", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:11:19.990", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:11:19.997", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:11:22.989", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:11:22.996", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:11:25.998", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:11:26.004", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:11:28.995", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:11:29.001", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:11:31.997", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:11:32.003", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:11:34.992", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:11:35.005", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:11:37.991", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:11:37.999", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:11:40.026", "kind": "stimulus", "text": "Stimulus received: heartbeat", "meta": {"idle_seconds": 30.1}}
+{"timestamp": "2026-06-24T21:11:44.316", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:11:47.134", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Observations:\n- Person is shirtless, seated in a black office chair, facing forward toward the camera.\n- Wearing white over-ear headphones; one earcup appears slightly askew.\n- Eyes are open and directed toward the camera or just off-center; mouth is slightly open.\n- Background includes a cluttered "}}
+{"timestamp": "2026-06-24T21:11:47.135", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "webcam"}}
+{"timestamp": "2026-06-24T21:11:51.314", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:11:51.317", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:11:53.004", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:11:53.010", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:11:55.988", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:11:55.994", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:11:58.991", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:11:58.997", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:12:01.992", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:12:02.000", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:12:05.006", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:12:05.012", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:12:08.002", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:12:08.006", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:12:10.993", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:12:11.000", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:12:13.997", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:12:14.003", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:12:17.009", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:12:17.016", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:12:18.031", "kind": "stimulus", "text": "Stimulus received: heartbeat", "meta": {"idle_seconds": 30.9}}
+{"timestamp": "2026-06-24T21:12:22.273", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:12:24.797", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Observations:\n- Person is shirtless, seated in a black office/gaming chair, facing the camera directly.\n- Wearing white over-ear headphones; one earcup appears slightly askew.\n- Mouth is slightly open; eyes are focused forward, suggesting attention toward the camera or screen.\n- Background shows a c"}}
+{"timestamp": "2026-06-24T21:12:24.798", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "webcam"}}
+{"timestamp": "2026-06-24T21:12:28.992", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:12:28.999", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:12:29.002", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:12:29.005", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:12:31.996", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:12:32.003", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:12:34.993", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:12:35.000", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:12:37.995", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:12:38.002", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:12:41.003", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:12:41.007", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:12:43.999", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:12:44.007", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:12:47.001", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:12:47.007", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:12:49.993", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:12:49.999", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:12:53.002", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:12:53.008", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:12:55.039", "kind": "stimulus", "text": "Stimulus received: heartbeat", "meta": {"idle_seconds": 30.2}}
+{"timestamp": "2026-06-24T21:12:59.263", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:13:03.178", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Observations:\n- Person is shirtless, seated in a black office/gaming chair, facing the camera directly.\n- Wearing white over-ear headphones with a visible cable; head slightly tilted forward.\n- Background shows a cluttered desk with multiple monitors, a lamp, a PC tower, shelves with binders, and pl"}}
+{"timestamp": "2026-06-24T21:13:03.178", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "webcam"}}
+{"timestamp": "2026-06-24T21:13:07.402", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:13:07.407", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:13:07.997", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:13:08.003", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:13:10.993", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:13:11.001", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:13:13.988", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:13:13.994", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:13:16.993", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:13:16.998", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:13:19.989", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:13:19.996", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:13:22.998", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:13:23.006", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:13:25.997", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:13:26.003", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:13:28.989", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:13:28.995", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:13:31.990", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:13:31.994", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:13:34.024", "kind": "stimulus", "text": "Stimulus received: heartbeat", "meta": {"idle_seconds": 30.8}}
+{"timestamp": "2026-06-24T21:13:38.276", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:13:38.278", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:13:38.281", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:13:38.284", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:13:41.002", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:13:41.010", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:13:44.003", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:13:44.009", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:13:46.991", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:14:01.099", "kind": "stimulus", "text": "Stimulus received: tab_opened", "meta": {"count": 1, "urls": ["https://www.youtube.com/"], "tabs": [{"id": "75363395769C3CA37FC4EF321A452B26", "url": "https://www.youtube.com/", "title": "YouTube"}]}}
+{"timestamp": "2026-06-24T21:14:02.531", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Observations:\n- Person is shirtless, seated in a black office chair, facing the camera directly.\n- Wearing white over-ear headphones; one earcup appears slightly askew.\n- Hair is dark, medium-length, and slightly damp or messy.\n- Background shows a cluttered home office: desk with monitors, lamp, PC"}}
+{"timestamp": "2026-06-24T21:14:05.501", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "webcam"}}
+{"timestamp": "2026-06-24T21:14:05.503", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "screen", "width": 930, "height": 1004}}
+{"timestamp": "2026-06-24T21:14:10.266", "kind": "session", "text": "Monitoring session started."}
+{"timestamp": "2026-06-24T21:14:10.631", "kind": "observation", "text": "webcam summary updated.", "meta": {"summary": "Observations:\n- Person is shirtless, seated in a black office chair, facing forward toward the camera.\n- Wearing white over-ear headphones; head slightly tilted, eyes looking directly at the camera or screen.\n- Right hand is covering mouth and nose area, fingers curled; posture suggests contemplatio"}}
+{"timestamp": "2026-06-24T21:14:10.632", "kind": "stimulus", "text": "Stimulus received: capture_updated", "meta": {"analysis_mode": "webcam"}}
+{"timestamp": "2026-06-24T21:14:13.290", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:14:17.522", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:14:19.285", "kind": "stimulus", "text": "Stimulus received: frame_unchanged", "meta": {"mode": "webcam", "width": 1280, "height": 720}}
+{"timestamp": "2026-06-24T21:14:21.419", "kind": "session", "text": "Monitoring session stopped."}

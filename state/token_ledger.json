@@ -1,38 +1,17 @@
 {
-  "started_at": "2026-06-24T12:46:45.655",
+  "started_at": "2026-06-24T20:58:55.782",
   "components": {
     "vlm:webcam": {
-      "calls": 4,
-      "skipped_calls": 7,
-      "prompt_tokens": 1264,
-      "completion_tokens": 892,
-      "estimated_tokens_saved": 10675
-    },
-    "agent": {
-      "calls": 6,
-      "skipped_calls": 1,
-      "prompt_tokens": 7845,
-      "completion_tokens": 1760,
-      "estimated_tokens_saved": 497
-    },
-    "vlm:screen": {
-      "calls": 5,
-      "skipped_calls": 7,
-      "prompt_tokens": 3104,
-      "completion_tokens": 1500,
-      "estimated_tokens_saved": 17896
-    },
-    "personality": {
-      "calls": 4,
-      "skipped_calls": 0,
-      "prompt_tokens": 1393,
-      "completion_tokens": 605,
-      "estimated_tokens_saved": 0
+      "calls": 20,
+      "skipped_calls": 239,
+      "prompt_tokens": 6320,
+      "completion_tokens": 4934,
+      "estimated_tokens_saved": 364475
     }
   },
-  "total_calls": 19,
-  "total_skipped_calls": 15,
-  "total_tokens_used": 18363,
-  "total_estimated_tokens_saved": 29068,
-  "efficiency_multiplier": 2.58
+  "total_calls": 20,
+  "total_skipped_calls": 239,
+  "total_tokens_used": 11254,
+  "total_estimated_tokens_saved": 364475,
+  "efficiency_multiplier": 33.39
 }

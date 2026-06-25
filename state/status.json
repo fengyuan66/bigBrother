@@ -1,13 +1,15 @@
 {
-  "updated_at": "2026-06-24T12:49:36.358",
+  "updated_at": "2026-06-24T21:14:21.419",
   "focus_state": "unknown",
   "last_activity_at": "2026-06-10T22:48:36.812",
-  "last_stimulus": "capture_updated",
-  "last_stimulus_at": "2026-06-24T12:49:36.357",
+  "last_stimulus": "frame_unchanged",
+  "last_stimulus_at": "2026-06-24T21:14:19.285",
   "last_stimulus_payload": {
-    "analysis_mode": "screen"
+    "mode": "webcam",
+    "width": 1280,
+    "height": 720
   },
-  "last_turn_at": "2026-06-24 12:49:03",
+  "last_turn_at": "",
   "last_turn_reason": "stimulus:capture_updated",
   "last_intervention_at": "",
   "notes": "Session stopped."

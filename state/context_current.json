@@ -1,15 +1,16 @@
 {
-  "updated_at": "2026-06-24T12:49:03.420",
-  "focus_state": "distracted",
-  "summary": "Browser export refreshed with 2 tab(s).",
+  "updated_at": "2026-06-24T21:14:13.326",
+  "focus_state": "uncertain",
+  "summary": "Browser export refreshed with 3 tab(s).",
   "active_notes": [],
   "last_stimulus": "stimulus:capture_updated",
   "last_turn_reason": "stimulus:capture_updated",
   "resource_summary": {
-    "browser_tab_count": 2
+    "browser_tab_count": 3
   },
   "open_tab_ids": [
-    "D97DE479CB48ED23EA52463DC0CD6293",
-    "5974177171B9979055FA5ED337D2912F"
+    "28CA9D9E33500D895FA96A325AD16ADD",
+    "75363395769C3CA37FC4EF321A452B26",
+    "44AED4DC90EFC026E673642376451A58"
   ]
 }

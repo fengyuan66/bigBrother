@@ -30,6 +30,8 @@ const personalityNotes = document.getElementById("personalityNotes");
 const guidedStatus = document.getElementById("guidedStatus");
 const sessionDurationValue = document.getElementById("sessionDurationValue");
 const sessionCountdown = document.getElementById("sessionCountdown");
+const thoughtFeedBadge = document.getElementById("thoughtFeedBadge");
+const thoughtFeed = document.getElementById("thoughtFeed");
 const evidenceList = document.getElementById("evidenceList");
 const pathsText = document.getElementById("paths");
 const actorStageGrid = document.getElementById("actorStageGrid");
@@ -426,7 +428,7 @@ function renderEvidence(items) {
   evidenceList.innerHTML = "";
   if (!items || items.length === 0) {
     const item = document.createElement("li");
-    item.textContent = "No relevant watcher evidence for the latest turn.";
+    item.textContent = "No relevant agent evidence for the latest turn.";
     evidenceList.appendChild(item);
     return;
   }
@@ -449,28 +451,28 @@ function renderThreshold(state) {
   thresholdBadge.textContent =
     remaining === 0
       ? `Threshold met: ${streak}/${threshold}`
-      : `Toward MPA: ${streak}/${threshold}`;
+      : `Decision queue: ${streak}/${threshold}`;
   thresholdBadge.className = `badge ${remaining === 0 ? "ready" : "subtle"}`;
 }
 
-function renderMPA(mpa) {
-  if (mpa.triggered && mpa.should_intervene) {
+function renderPlanner(planner) {
+  if (planner.triggered && planner.should_intervene) {
     mpaBadge.textContent = "Agenda ready";
     mpaBadge.className = "badge ready";
-    mpaSummary.textContent = mpa.agenda || "MPA triggered.";
+    mpaSummary.textContent = planner.agenda || "Planner triggered.";
     return;
   }
 
-  if (mpa.triggered && !mpa.should_intervene) {
+  if (planner.triggered && !planner.should_intervene) {
     mpaBadge.textContent = "No intervention";
     mpaBadge.className = "badge subtle";
-    mpaSummary.textContent = mpa.rationale || "MPA reviewed the evidence and declined intervention.";
+    mpaSummary.textContent = planner.rationale || "Planner reviewed the evidence and declined intervention.";
     return;
   }
 
   mpaBadge.textContent = "Waiting";
   mpaBadge.className = "badge subtle";
-  mpaSummary.textContent = mpa.rationale || "Planner is waiting for the next agent turn.";
+  mpaSummary.textContent = planner.rationale || "Planner is waiting for the next agent turn.";
 }
 
 function renderPersonality(personality) {
@@ -484,7 +486,7 @@ function renderPersonality(personality) {
     personalityBadge.textContent = "Waiting";
     personalityBadge.className = "badge subtle";
     personalitySummary.textContent =
-      personality.spoken_text || "Personality actor is waiting for an MPA agenda.";
+      personality.spoken_text || "Response actor is waiting for a response-worthy plan.";
     personalityNotes.textContent =
       personality.audio_error || personality.delivery_notes || "Voice delivery notes will appear here.";
   }
@@ -589,6 +591,226 @@ function formatDebugEvents(events) {
     .join("\n\n");
 }
 
+function parseEventTime(value) {
+  const millis = Date.parse(value || "");
+  return Number.isFinite(millis) ? millis : null;
+}
+
+function formatRelativeTimestamp(timestamp, baseline) {
+  const timeMs = parseEventTime(timestamp);
+  if (timeMs === null || baseline === null) {
+    return "--:--";
+  }
+  const seconds = Math.max(0, Math.floor((timeMs - baseline) / 1000));
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  return `${minutes}:${String(remainder).padStart(2, "0")}`;
+}
+
+function summarizeThoughtEvent(event) {
+  const component = String(event.component || "");
+  const phase = String(event.phase || "");
+  const payload = event.payload || {};
+
+  if (component === "agent" && phase === "stimulus") {
+    const stimulusType = String((payload && payload.type) || "").trim();
+    const rawMessage = String(event.message || "").replace(/^Stimulus:\s*/i, "").trim();
+    const label = stimulusType || rawMessage || "a new signal";
+    return {
+      line: `I noticed ${label.replaceAll("_", " ")}.`,
+      meta: rawMessage && rawMessage !== label ? rawMessage : "",
+      tone: "signal",
+    };
+  }
+
+  if (component === "turn" && phase === "collecting") {
+    return {
+      line: "I started collecting a fresh deliberate snapshot of the world state.",
+      meta: "",
+      tone: "step",
+    };
+  }
+
+  if (component === "turn" && phase === "snapshot_frozen") {
+    const reason = String(payload.reason || "").replace(/^stimulus:/, "").replaceAll("_", " ").trim();
+    return {
+      line: "I froze the evidence for a deliberate turn so I could reason on a stable snapshot.",
+      meta: reason ? `Trigger: ${reason}.` : "",
+      tone: "step",
+    };
+  }
+
+  if (component === "agent" && phase === "processing") {
+    return {
+      line: `I started evaluating the latest evidence with ${payload.model || "the agent model"}.`,
+      meta: "",
+      tone: "thinking",
+    };
+  }
+
+  if (component === "agent" && phase === "writing") {
+    const output = payload.output || {};
+    const summary = trimPreview(output.summary || "I finished my assessment.", 180);
+    const responseRequired = output.response_required ? "Response requested." : "No response requested.";
+    return {
+      line: `I finished my assessment: ${summary}`,
+      meta: responseRequired,
+      tone: "decision",
+    };
+  }
+
+  if (component === "agent" && phase === "cached") {
+    return {
+      line: "I skipped a model call because the evidence had not meaningfully changed.",
+      meta: "",
+      tone: "efficiency",
+    };
+  }
+
+  if (component === "planner" && phase === "writing") {
+    const plannerOutput = payload.planner_output || {};
+    const agenda = trimPreview(plannerOutput.agenda || "Planner updated the next action.", 180);
+    const intervene = plannerOutput.should_intervene ? "Intervention is warranted." : "No intervention needed.";
+    return {
+      line: `I updated the plan: ${agenda}`,
+      meta: intervene,
+      tone: "decision",
+    };
+  }
+
+  if (component === "personality" && phase === "writing") {
+    const output = payload.output || {};
+    const spoken = trimPreview(output.spoken_text || "I prepared a spoken response.", 200);
+    return {
+      line: `I prepared a spoken line for the user: "${spoken}"`,
+      meta: output.should_speak ? "Speech is ready." : "Speech was withheld.",
+      tone: "voice",
+    };
+  }
+
+  if (component === "personality" && phase === "idle") {
+    return {
+      line: "I chose not to speak on this turn.",
+      meta: trimPreview(event.message || "", 140),
+      tone: "quiet",
+    };
+  }
+
+  if (component === "audio" && phase === "processing") {
+    return {
+      line: "I started generating audio for the spoken response.",
+      meta: "",
+      tone: "voice",
+    };
+  }
+
+  if (component === "audio" && phase === "writing") {
+    const generated = Boolean(payload.audio_generated);
+    return {
+      line: generated
+        ? "I delivered an audio message to the user."
+        : "I tried to generate audio, but it failed.",
+      meta: payload.audio_error ? trimPreview(payload.audio_error, 180) : "",
+      tone: generated ? "voice" : "error",
+    };
+  }
+
+  if (component === "browser" && phase === "launch_complete") {
+    const url = trimPreview((payload && payload.url) || "", 120);
+    return {
+      line: "I launched the tracked browser for the session.",
+      meta: url ? `URL: ${url}` : "",
+      tone: "step",
+    };
+  }
+
+  if (component === "capture" && phase === "analyze_complete") {
+    const mode = payload.analysis_mode || "capture";
+    return {
+      line: `I updated the ${mode} summary after scanning a fresh frame.`,
+      meta: "",
+      tone: "step",
+    };
+  }
+
+  if (component === "turn" && phase === "error") {
+    return {
+      line: "I hit an error while working through the turn.",
+      meta: trimPreview(payload.error || event.message || "Unknown error.", 180),
+      tone: "error",
+    };
+  }
+
+  if (component === "turn" && phase === "complete") {
+    return {
+      line: "I finished the current turn.",
+      meta: payload.focus_state ? `Focus state: ${payload.focus_state}.` : "",
+      tone: "step",
+    };
+  }
+
+  if (component === "session" && phase === "start") {
+    const duration = Number(payload.duration_seconds || 0);
+    return {
+      line: "I started a focus session.",
+      meta: duration ? `Session length: ${formatDurationLabel(duration)}.` : "",
+      tone: "step",
+    };
+  }
+
+  if (component === "session" && phase === "stop") {
+    return {
+      line: "I stopped the focus session.",
+      meta: "",
+      tone: "step",
+    };
+  }
+
+  return null;
+}
+
+function renderThoughtFeed(events) {
+  const filtered = (events || [])
+    .map((event) => {
+      const summary = summarizeThoughtEvent(event);
+      if (!summary) {
+        return null;
+      }
+      return { event, summary };
+    })
+    .filter(Boolean);
+
+  if (filtered.length === 0) {
+    thoughtFeedBadge.textContent = "Waiting for events";
+    thoughtFeedBadge.className = "badge subtle";
+    thoughtFeed.innerHTML = `
+      <article class="thought-entry">
+        <div class="thought-time">0:00</div>
+        <div class="thought-body">
+          <p class="thought-line">Agent thought updates will appear here after the session starts doing work.</p>
+        </div>
+      </article>
+    `;
+    return;
+  }
+
+  const visible = filtered.slice(-18);
+  const baseline = parseEventTime(visible[0].event.timestamp);
+  thoughtFeedBadge.textContent = `${visible.length} thought${visible.length === 1 ? "" : "s"} visible`;
+  thoughtFeedBadge.className = "badge ready";
+  thoughtFeed.innerHTML = visible
+    .map(({ event, summary }) => `
+      <article class="thought-entry">
+        <div class="thought-time">${escapeHtml(formatRelativeTimestamp(event.timestamp, baseline))}</div>
+        <div class="thought-body">
+          <p class="thought-line">${escapeHtml(summary.line)}</p>
+          ${summary.meta ? `<p class="thought-meta">${escapeHtml(summary.meta)}</p>` : ""}
+        </div>
+      </article>
+    `)
+    .join("");
+}
+
 function formatTurnReason(reason) {
   return String(reason || "unspecified")
     .replaceAll("_", " ")
@@ -651,7 +873,7 @@ function renderTurnSnapshot(snapshot) {
     <div class="turn-resource-grid">
       <article class="turn-resource-card">
         <div class="resource-head">
-          <h3>Frozen watcher prompt</h3>
+          <h3>Frozen agent prompt</h3>
           <span class="badge subtle">Exact turn input</span>
         </div>
         <pre class="turn-pre">${escapeHtml(snapshot.prompt_text || "No prompt text was captured.")}</pre>
@@ -878,6 +1100,28 @@ async function processPendingAgentActions(actions) {
   }
 }
 
+function hasPendingActionType(actionType) {
+  const pending = (((latestState || {}).agent || {}).pending_actions || []);
+  return pending.some((action) => action && action.type === actionType && action.id && !completedClientActionIds.has(action.id));
+}
+
+function shouldAutoAnalyzeSource(sourceKey, changed, diff, now) {
+  if (sourceKey === "webcam") {
+    const source = captureSources[sourceKey];
+    const webcamDue = now - source.lastSentAt >= WEBCAM_MIN_PERIOD_MS;
+    return !source.lastSentAt || diff >= STRONG_MOTION_THRESHOLD || (changed && webcamDue);
+  }
+
+  if (sourceKey === "screen") {
+    if (hasPendingActionType("screen_scan")) {
+      return changed;
+    }
+    return false;
+  }
+
+  return changed;
+}
+
 function renderState(state) {
   latestState = state;
   goalInput.value = state.goal;
@@ -897,12 +1141,13 @@ function renderState(state) {
   }
   browserNameInput.value = state.browser_name || availableBrowsers[0] || "";
 
-  watcherBadge.textContent = state.watcher_enabled
-    ? `Watcher online · ${state.watcher_model}`
-    : "Watcher fallback mode";
-  actorModeBadge.textContent = state.watcher_output.actor_mode || "unknown";
+  watcherBadge.textContent = state.agent_enabled
+      ? `Agent online · ${state.agent_model}`
+      : "Agent fallback mode";
+  const agentOutput = state.agent_output || state.watcher_output || {};
+  actorModeBadge.textContent = agentOutput.actor_mode || "unknown";
 
-  runningBadge.textContent = state.running ? "Watcher running" : "Watcher stopped";
+  runningBadge.textContent = state.running ? "Agent running" : "Agent stopped";
   runningBadge.className = `badge ${state.running ? "running" : "subtle"}`;
   guidedBadge.textContent = state.running ? "Session active" : "Ready to launch";
   guidedBadge.className = `badge ${state.running ? "running" : "subtle"}`;
@@ -910,12 +1155,12 @@ function renderState(state) {
   const cooldownRemaining = Number(state.cooldown_remaining_seconds || 0);
   statusBadge.textContent =
     cooldownRemaining > 0
-      ? "Watcher cooldown active"
-      : state.watcher_output.off_task
-        ? "Watcher says off task"
-        : "Watcher says on task";
+      ? "Response cooldown active"
+      : agentOutput.off_task
+        ? "Agent says off task"
+        : "Agent says on task";
   statusBadge.className = `badge ${
-    cooldownRemaining > 0 ? "warm" : state.watcher_output.off_task ? "alert" : "idle"
+    cooldownRemaining > 0 ? "warm" : agentOutput.off_task ? "alert" : "idle"
   }`;
   cooldownBadge.textContent =
     cooldownRemaining > 0
@@ -953,11 +1198,11 @@ function renderState(state) {
   }
 
   renderThreshold(state);
-  watcherSummary.textContent = state.watcher_output.summary || "No watcher output yet.";
-  renderEvidence(state.watcher_output.relevant_evidence || []);
+  watcherSummary.textContent = agentOutput.summary || "No agent output yet.";
+  renderEvidence(agentOutput.evidence || agentOutput.relevant_evidence || []);
 
-  const mpa = state.mpa_output || {};
-  renderMPA(mpa);
+  const mpa = state.planner_output || state.mpa_output || {};
+  renderPlanner(mpa);
   const personality = state.personality_output || {};
   renderPersonality(personality);
   speakPersonalityIfNeeded(personality, state.last_turn_at || "");
@@ -967,6 +1212,7 @@ function renderState(state) {
   });
   renderActorStages(state.actor_stages || {}, state.snapshot_at || "");
   playActorStageUpdates(state.actor_stages || {});
+  renderThoughtFeed(state.debug_events || []);
   debugLogPath.textContent = `Debug log file: ${state.debug_log_path || "state/debug_events.jsonl"} | Live events in memory: ${
     (state.debug_events || []).length
   }`;
@@ -980,7 +1226,7 @@ function renderState(state) {
   webcamOutput.textContent = state.resources.webcam;
   screenshareOutput.textContent = state.resources.screenshare;
   browserOutput.textContent = state.resources.browser;
-  watcherOutput.textContent = JSON.stringify(state.watcher_output, null, 2);
+  watcherOutput.textContent = JSON.stringify(agentOutput, null, 2);
   mpaOutput.textContent = JSON.stringify(mpa, null, 2);
   personalityOutput.textContent = JSON.stringify(personality, null, 2);
 
@@ -1026,17 +1272,14 @@ async function summarizeSources(reason = "manual", requestedKeys = null, actionR
         updateActivityTracking(changed);
       }
 
-      // Send policy: manual captures always go through; the screen goes
-      // through only when it changed; the webcam holds a slow cadence
-      // unless there is strong motion.
+      // Send policy:
+      // - manual / targeted agent actions always go through
+      // - browser/tab changes are handled browser-first on the server
+      // - screen VLM only runs when the agent explicitly requested it
+      // - webcam keeps its slower cadence unless there is strong motion
       let shouldSend = true;
       if (reason === "auto") {
-        if (sourceKey === "webcam") {
-          const webcamDue = now - source.lastSentAt >= WEBCAM_MIN_PERIOD_MS;
-          shouldSend = !source.lastSentAt || diff >= STRONG_MOTION_THRESHOLD || (changed && webcamDue);
-        } else {
-          shouldSend = changed;
-        }
+        shouldSend = shouldAutoAnalyzeSource(sourceKey, changed, diff, now);
       }
 
       if (!shouldSend) {
@@ -1079,7 +1322,7 @@ async function summarizeSources(reason = "manual", requestedKeys = null, actionR
 
     // Auto turns are stimulus-driven by the server orchestrator; only manual
     // captures force a turn from the client.
-    if (reason !== "auto" && latestState && latestState.running && analyzedCount > 0) {
+    if (reason === "manual" && latestState && latestState.running && analyzedCount > 0) {
       await postJson("/api/run-once", {
         ...payloadFromControls(),
         reason: "manual_capture_cycle",
@@ -1166,7 +1409,7 @@ async function startGuidedSession() {
       setupErrors.push(`Screenshare: ${error.message || "permission denied"}`);
     }
 
-    guidedStatus.textContent = "Starting watcher pipeline...";
+    guidedStatus.textContent = "Starting agent loop...";
     await postJson("/api/start", payloadFromControls());
 
     if (activeSourceKeys().length > 0) {

@@ -57,6 +57,68 @@ body {
   color: #f6f8fb;
 }
 
+.thought-panel {
+  padding: 24px;
+  margin-bottom: 20px;
+  background:
+    linear-gradient(145deg, rgba(15, 28, 40, 0.96), rgba(24, 53, 68, 0.95)),
+    linear-gradient(180deg, var(--panel-strong), var(--panel));
+  color: #eef5fb;
+}
+
+.thought-panel .section-kicker,
+.thought-panel .thought-intro,
+.thought-panel .thought-meta,
+.thought-panel .thought-time {
+  color: rgba(228, 238, 248, 0.76);
+}
+
+.thought-panel h2,
+.thought-panel .thought-line {
+  color: #fff;
+}
+
+.thought-intro {
+  margin-bottom: 16px;
+  max-width: 74ch;
+  line-height: 1.6;
+}
+
+.thought-feed {
+  display: grid;
+  gap: 12px;
+}
+
+.thought-entry {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(214, 228, 240, 0.12);
+}
+
+.thought-time {
+  font: 0.86rem/1.2 "Cascadia Code", Consolas, monospace;
+  letter-spacing: 0.04em;
+  padding-top: 2px;
+}
+
+.thought-body {
+  min-width: 0;
+}
+
+.thought-line,
+.thought-meta {
+  margin-bottom: 0;
+  line-height: 1.55;
+}
+
+.thought-line + .thought-meta {
+  margin-top: 6px;
+}
+
 .guided-panel .section-kicker,
 .guided-panel .muted-text,
 .guided-panel .metric-field small,
@@ -649,6 +711,11 @@ pre {
 
   .source-visuals {
     grid-template-columns: 1fr;
+  }
+
+  .thought-entry {
+    grid-template-columns: 1fr;
+    gap: 8px;
   }
 
   .actions {

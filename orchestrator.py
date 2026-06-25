@@ -1,7 +1,6 @@
 import threading
 import time
 from dataclasses import dataclass
-import threading
 
 from config import env_int
 
@@ -49,9 +48,10 @@ class AgentOrchestrator(threading.Thread):
         self.todos = app.todos
         self.stop_event = threading.Event()
         self.heartbeat_seconds = env_int("BIG_BROTHER_HEARTBEAT_SECONDS", 30)
-        self.tab_poll_seconds = env_int("BIG_BROTHER_TAB_POLL_SECONDS", 2)
+        self.tab_poll_seconds = max(1, env_int("BIG_BROTHER_TAB_POLL_SECONDS", 1))
         self.last_turn_started = 0.0
         self.last_tab_poll = 0.0
+        self.last_heartbeat_emitted_at = 0.0
         self.pending_ticket = None
         self._tab_signature = None
         self._warmup_until = 0.0
@@ -86,8 +86,7 @@ class AgentOrchestrator(threading.Thread):
             self.last_tab_poll = now
             self._poll_tabs()
 
-        if self._running() and self.last_turn_started and now - self.last_turn_started >= self.heartbeat_seconds:
-            self.bus.emit("heartbeat", {"idle_seconds": round(now - self.last_turn_started, 1)})
+        self._maybe_emit_heartbeat(now)
 
         stimulus = self.bus.get(timeout=0.5)
         if stimulus is not None:
@@ -97,6 +96,20 @@ class AgentOrchestrator(threading.Thread):
             return
 
         self._run_pending_turn_if_allowed()
+
+    def _maybe_emit_heartbeat(self, now: float):
+        if not self._running() or not self.last_turn_started:
+            return
+        due_at = self.last_turn_started + self.heartbeat_seconds
+        if now < due_at:
+            return
+        if self.last_heartbeat_emitted_at >= due_at:
+            return
+        if self.pending_ticket is not None and self.pending_ticket.priority >= STIMULUS_PRIORITY["heartbeat"]:
+            return
+        emitted = self.bus.emit("heartbeat", {"idle_seconds": round(now - self.last_turn_started, 1)})
+        if emitted:
+            self.last_heartbeat_emitted_at = now
 
     def _poll_tabs(self):
         tabs = self.app.refresh_browser_export(retries=1, delay_seconds=0.1, log_event=False)
@@ -173,6 +186,8 @@ class AgentOrchestrator(threading.Thread):
             self.status.update(focus_state="active", last_activity_at=stimulus.get("emitted_at", ""))
 
         if stimulus_type in TURN_STIMULI and self._running():
+            if stimulus_type == "heartbeat" and self.pending_ticket is not None:
+                return
             ticket = StimulusTicket(
                 type=stimulus_type,
                 payload=payload,
@@ -194,6 +209,7 @@ class AgentOrchestrator(threading.Thread):
         ticket = self.pending_ticket
         self.pending_ticket = None
         self.last_turn_started = now
+        self.last_heartbeat_emitted_at = 0.0
         reason = f"stimulus:{ticket.type}"
         try:
             self.app.run_turn(reason=reason)
@@ -204,6 +220,7 @@ class AgentOrchestrator(threading.Thread):
     def note_session_started(self):
         self.last_turn_started = 0.0
         self.last_tab_poll = 0.0
+        self.last_heartbeat_emitted_at = 0.0
         self.pending_ticket = StimulusTicket(type="manual", payload={}, emitted_at="", priority=100)
         self._tab_signature = None
         self._warmup_until = time.time() + 2.5
@@ -212,5 +229,6 @@ class AgentOrchestrator(threading.Thread):
 
     def note_session_stopped(self):
         self.pending_ticket = None
+        self.last_heartbeat_emitted_at = 0.0
         self.status.update(focus_state="unknown", notes="Session stopped.")
         self.memory.append("session", "Monitoring session stopped.")

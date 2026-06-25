@@ -453,12 +453,13 @@ class StimulusBus:
     """Thread-safe stimulus queue with per-type debounce windows."""
 
     DEFAULT_DEBOUNCE_SECONDS = {
-        "tab_opened": 2.0,
-        "tab_closed": 2.0,
-        "tab_refreshed": 2.0,
+        "tab_opened": 0.5,
+        "tab_closed": 0.5,
+        "tab_refreshed": 0.5,
         "frame_unchanged": 0.0,
         "inactivity": 10.0,
         "activity": 2.0,
+        "heartbeat": 5.0,
     }
 
     def __init__(self, debounce_overrides: dict | None = None):

@@ -1,16 +1,16 @@
 {
-  "updated_at": "2026-06-25T00:29:30.643",
+  "updated_at": "2026-06-25T00:39:53.176",
   "focus_state": "focused",
-  "last_activity_at": "2026-06-10T22:48:36.812",
+  "last_activity_at": "2026-06-25T00:38:17.178",
   "last_stimulus": "frame_unchanged",
-  "last_stimulus_at": "2026-06-25T00:29:30.641",
+  "last_stimulus_at": "2026-06-25T00:39:50.179",
   "last_stimulus_payload": {
     "mode": "screen",
-    "width": 930,
-    "height": 1004
+    "width": 1920,
+    "height": 1032
   },
-  "last_turn_at": "2026-06-25 00:29:24",
-  "last_turn_reason": "stimulus:capture_updated",
-  "last_intervention_at": "2026-06-25T00:29:27.121",
-  "notes": "Browser confirms exclusive focus on calculus study material. Webcam ambiguity (neutral posture with slight head tilt) is resolved by prioritizing unambiguous browser evidence per policy."
+  "last_turn_at": "2026-06-25 00:39:53",
+  "last_turn_reason": "stimulus:inactivity",
+  "last_intervention_at": "2026-06-25T00:39:31.020",
+  "notes": "Browser confirms calculus study focus with relevant tabs open. Webcam shows attentive posture without clear distraction signals."
 }

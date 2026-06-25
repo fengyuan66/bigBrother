@@ -1,38 +1,31 @@
 {
-  "started_at": "2026-06-25T00:23:51.351",
+  "started_at": "2026-06-25T00:33:31.368",
   "components": {
     "vlm:webcam": {
-      "calls": 15,
-      "skipped_calls": 66,
-      "prompt_tokens": 4005,
-      "completion_tokens": 3627,
-      "estimated_tokens_saved": 87450
+      "calls": 14,
+      "skipped_calls": 89,
+      "prompt_tokens": 3738,
+      "completion_tokens": 3373,
+      "estimated_tokens_saved": 117925
     },
     "mpa": {
-      "calls": 15,
+      "calls": 13,
       "skipped_calls": 0,
-      "prompt_tokens": 31469,
-      "completion_tokens": 4758,
+      "prompt_tokens": 26541,
+      "completion_tokens": 4062,
       "estimated_tokens_saved": 0
     },
     "personality": {
-      "calls": 6,
+      "calls": 11,
       "skipped_calls": 0,
-      "prompt_tokens": 798,
-      "completion_tokens": 1616,
+      "prompt_tokens": 1547,
+      "completion_tokens": 2185,
       "estimated_tokens_saved": 0
-    },
-    "agent": {
-      "calls": 0,
-      "skipped_calls": 3,
-      "prompt_tokens": 0,
-      "completion_tokens": 0,
-      "estimated_tokens_saved": 1730
     }
   },
-  "total_calls": 36,
-  "total_skipped_calls": 69,
-  "total_tokens_used": 46273,
-  "total_estimated_tokens_saved": 89180,
-  "efficiency_multiplier": 2.93
+  "total_calls": 38,
+  "total_skipped_calls": 89,
+  "total_tokens_used": 41446,
+  "total_estimated_tokens_saved": 117925,
+  "efficiency_multiplier": 3.85
 }

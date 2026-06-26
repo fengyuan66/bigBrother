@@ -410,183 +410,6 @@ class AgentActor:
                 )
         return requests
 
-    def _heuristic_decision(
-        self,
-        session_goal,
-        resources,
-        *,
-        stimulus_type="",
-        stimulus_payload=None,
-        current_context=None,
-        historic_context=None,
-    ):
-        stimulus = str(stimulus_type or "").replace("stimulus:", "").strip()
-        stimulus_payload = dict(stimulus_payload or {})
-        current_context = current_context or {}
-        historic_context = historic_context or []
-        requested_resources = []
-        todo_writes = []
-        policy = self.stimulus_policy(stimulus)
-        notes = [policy["instruction"]] if policy.get("instruction") else []
-
-        browser = _browser_assessment(session_goal, resources.browser_text)
-        fresh_visual_text = "\n".join(
-            text for name, text in resources.iter_sources(include_stale=False) if name in {"webcam", "screenshare"}
-        )
-        visual = _visual_assessment(fresh_visual_text, session_goal)
-
-        if stimulus in {"tab_opened", "tab_refreshed", "tab_closed"}:
-            focus_label = _goal_focus_label(session_goal)
-            if not resources.browser_text:
-                requested_resources.extend(self.procedural_resource_requests(stimulus_type, stimulus_payload))
-                return AgentDecision(
-                    sufficient=False,
-                    focus_state="uncertain",
-                    summary="A browser tab changed, but no fresh browser export is available yet.",
-                    evidence=[],
-                    response_required=False,
-                    response_text="",
-                    requested_resources=requested_resources,
-                    todo_writes=[],
-                    notes=notes + ["Browser-first judgement is blocked until the tab export refreshes."],
-                    actor_mode="heuristic",
-                )
-
-            if browser["focus_state"] == "distracted":
-                top_title = browser["tabs"][0].get("title", "") if browser.get("tabs") else ""
-                return AgentDecision(
-                    sufficient=True,
-                    focus_state="distracted",
-                    summary=browser["summary"],
-                    evidence=browser["evidence"],
-                    response_required=True,
-                    response_text=f"I can see {top_title or 'that tab'}, and it does not look helpful for {focus_label}. Close it or explain why it matters.",
-                    requested_resources=[],
-                    todo_writes=[],
-                    notes=notes + ["Browser title and URL were used as the first-priority source."],
-                    actor_mode="browser_first",
-                )
-
-            if browser["needs_screen"]:
-                requested_resources.append(
-                    {
-                        "type": "screen_scan",
-                        "reason": "Browser title is too generic; verify the visible page before judging.",
-                        "source": "screen",
-                        "priority": "high",
-                    }
-                )
-                return AgentDecision(
-                    sufficient=False,
-                    focus_state="uncertain",
-                    summary=browser["summary"],
-                    evidence=browser["evidence"],
-                    response_required=False,
-                    response_text="",
-                    requested_resources=requested_resources,
-                    todo_writes=[],
-                    notes=notes + ["Browser-first read was ambiguous, so the next escalation is a screen scan."],
-                    actor_mode="browser_first",
-                )
-
-            return AgentDecision(
-                sufficient=True,
-                focus_state=browser["focus_state"],
-                summary=browser["summary"],
-                evidence=browser["evidence"],
-                response_required=False,
-                response_text="",
-                requested_resources=[],
-                todo_writes=[],
-                notes=notes + ["Browser-first judgement completed without using VLM."],
-                actor_mode="browser_first",
-            )
-
-        if stimulus == "inactivity":
-            todo_writes.append({"note": "Recheck inactivity state.", "due_in_seconds": 30, "kind": "inactivity_recheck"})
-            requested_resources.extend(self.procedural_resource_requests(stimulus_type, stimulus_payload))
-            if resources.browser_text and browser["focus_state"] == "focused":
-                notes.append("Browser context still looks on-task despite inactivity.")
-            return AgentDecision(
-                sufficient=False,
-                focus_state="inactive",
-                summary=(browser["summary"] if resources.browser_text else "Inactivity detected. Browser context needs to be checked first."),
-                evidence=browser["evidence"],
-                response_required=False,
-                response_text="",
-                requested_resources=requested_resources,
-                todo_writes=todo_writes,
-                notes=notes + ["Inactivity does not trigger an intervention by itself."],
-                actor_mode="heuristic",
-            )
-
-        if stimulus == "todo_due":
-            requested_resources.extend(self.procedural_resource_requests(stimulus_type, stimulus_payload or current_context))
-            return AgentDecision(
-                sufficient=False,
-                focus_state="inactive",
-                summary="A scheduled follow-up is due.",
-                evidence=[],
-                response_required=False,
-                response_text="",
-                requested_resources=requested_resources,
-                todo_writes=[],
-                notes=notes + ["This is a scheduled recheck ticket."],
-                actor_mode="heuristic",
-            )
-
-        if browser["focus_state"] == "distracted":
-            top_title = browser["tabs"][0].get("title", "") if browser.get("tabs") else "that current tab"
-            return AgentDecision(
-                sufficient=True,
-                focus_state="distracted",
-                summary=browser["summary"],
-                evidence=browser["evidence"],
-                response_required=True,
-                response_text=f"Come back to {session_goal}. {top_title} looks unrelated right now.",
-                requested_resources=[],
-                todo_writes=[],
-                notes=notes + ["Browser evidence remained the strongest signal."],
-                actor_mode="heuristic",
-            )
-
-        if visual["focus_state"] == "distracted":
-            return AgentDecision(
-                sufficient=True,
-                focus_state="distracted",
-                summary=visual["summary"],
-                evidence=visual["evidence"],
-                response_required=True,
-                response_text=f"Pause the distraction and return to {session_goal}.",
-                requested_resources=[],
-                todo_writes=[],
-                notes=notes + ["Fresh visual evidence triggered the response."],
-                actor_mode="heuristic",
-            )
-
-        if browser["focus_state"] == "uncertain" and not resources.browser_text:
-            requested_resources.append(
-                {
-                    "type": "browser_rag",
-                    "reason": "Refresh browser tab info before judging.",
-                    "source": "browser",
-                    "priority": "high",
-                }
-            )
-
-        return AgentDecision(
-            sufficient=not requested_resources,
-            focus_state=browser["focus_state"],
-            summary=browser["summary"],
-            evidence=browser["evidence"],
-            response_required=False,
-            response_text="",
-            requested_resources=requested_resources,
-            todo_writes=[],
-            notes=notes + ["No intervention is needed from the current evidence."],
-            actor_mode="heuristic",
-        )
-
     def _normalize_focus_state(self, value: str) -> str:
         state = str(value or "").strip().lower()
         if state in {"focused", "distracted", "uncertain", "inactive"}:
@@ -673,6 +496,7 @@ class AgentActor:
             "If evidence is insufficient, request the minimum next resource(s) needed.\n"
             "Stimulus instructions are higher priority than your own interpretation.\n"
             "For browser tab changes, browser reading is the first-priority source and VLM should not be requested unless browser evidence is ambiguous.\n"
+            "Do not assume a tab is bad merely because its title is not the exact study goal. Supportive research, tools, reference material, and brief navigation steps may still be on-task.\n"
             "If evidence is sufficient, make a judgement. That judgement may include a spoken response, context notes, todo writes, or no intervention.\n"
             "Be careful with generic browser titles like 'New tab' or 'YouTube'. Do not overreact unless the evidence truly supports it.\n"
             "Write natural response_text. Do not mechanically repeat the full study-goal sentence if a shorter natural phrase is better.\n"
@@ -709,23 +533,25 @@ class AgentActor:
         historic_context = historic_context or []
 
         if not self.client or not self.model:
-            return self._heuristic_decision(
-                session_goal,
-                resources,
-                stimulus_type=stimulus_type,
-                stimulus_payload=stimulus_payload,
-                current_context=current_context,
-                historic_context=historic_context,
+            requested_resources = self._normalize_requested_resources(
+                self.procedural_resource_requests(stimulus_type, stimulus_payload or current_context)
             )
-
-        if stimulus in {"tab_opened", "tab_refreshed", "tab_closed"}:
-            return self._heuristic_decision(
-                session_goal,
-                resources,
-                stimulus_type=stimulus_type,
-                stimulus_payload=stimulus_payload,
-                current_context=current_context,
-                historic_context=historic_context,
+            notes = []
+            policy = self.stimulus_policy(stimulus)
+            if policy.get("instruction"):
+                notes.append(policy["instruction"])
+            notes.append("The MPA LLM was unavailable, so no judgement was made.")
+            return AgentDecision(
+                sufficient=False,
+                focus_state="uncertain",
+                summary="The MPA LLM is unavailable, so Big Brother cannot judge this evidence yet.",
+                evidence=[],
+                response_required=False,
+                response_text="",
+                requested_resources=requested_resources,
+                todo_writes=[],
+                notes=notes,
+                actor_mode="llm_unavailable",
             )
 
         policy = self.stimulus_policy(stimulus)

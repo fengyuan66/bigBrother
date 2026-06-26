@@ -1,17 +1,17 @@
 {
-  "started_at": "2026-06-25T10:36:01.251",
+  "started_at": "2026-06-26T14:41:23.448",
   "components": {
     "mpa": {
-      "calls": 1,
+      "calls": 7,
       "skipped_calls": 0,
-      "prompt_tokens": 1417,
-      "completion_tokens": 577,
+      "prompt_tokens": 7032,
+      "completion_tokens": 2039,
       "estimated_tokens_saved": 0
     }
   },
-  "total_calls": 1,
+  "total_calls": 7,
   "total_skipped_calls": 0,
-  "total_tokens_used": 1994,
+  "total_tokens_used": 9071,
   "total_estimated_tokens_saved": 0,
   "efficiency_multiplier": 1.0
 }

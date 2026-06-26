@@ -114,7 +114,13 @@ class AgentOrchestrator(threading.Thread):
         self.app.expire_session_if_needed()
 
         for item in self.todos.pop_due(now):
-            self.bus.emit("todo_due", {"todo": item})
+            emitted = self.bus.emit("todo_due", {"todo": item})
+            self.app._log_event(
+                "orchestrator",
+                "todo_due_emit",
+                "Due todo converted into a stimulus.",
+                {"todo": item, "accepted": emitted},
+            )
 
         if self._running() and now - self.last_tab_poll >= self.tab_poll_seconds:
             self.last_tab_poll = now
@@ -127,6 +133,20 @@ class AgentOrchestrator(threading.Thread):
             self._handle_stimulus(stimulus)
 
         if self.app.assessment_paused():
+            if self.pending_ticket is not None:
+                self.app._log_event(
+                    "orchestrator",
+                    "paused_with_pending_ticket",
+                    "Assessment pause is active; pending ticket remains queued.",
+                    {
+                        "pending_ticket": {
+                            "type": self.pending_ticket.type,
+                            "priority": self.pending_ticket.priority,
+                            "emitted_at": self.pending_ticket.emitted_at,
+                            "payload": dict(self.pending_ticket.payload),
+                        }
+                    },
+                )
             return
 
         self._run_pending_turn_if_allowed()
@@ -144,6 +164,12 @@ class AgentOrchestrator(threading.Thread):
         emitted = self.bus.emit("heartbeat", {"idle_seconds": round(now - self.last_turn_started, 1)})
         if emitted:
             self.last_heartbeat_emitted_at = now
+            self.app._log_event(
+                "orchestrator",
+                "heartbeat_emit",
+                "Heartbeat stimulus emitted.",
+                {"idle_seconds": round(now - self.last_turn_started, 1), "due_at": due_at},
+            )
 
     def _poll_tabs(self):
         poll_started_perf = time.perf_counter()
@@ -265,6 +291,19 @@ class AgentOrchestrator(threading.Thread):
 
         if stimulus_type in TURN_STIMULI and self._running():
             if stimulus_type == "heartbeat" and self.pending_ticket is not None:
+                self.app._log_event(
+                    "turn",
+                    "queue_skip",
+                    "Heartbeat stimulus ignored because a higher-value pending ticket already exists.",
+                    {
+                        "incoming_type": stimulus_type,
+                        "pending_ticket": {
+                            "type": self.pending_ticket.type,
+                            "priority": self.pending_ticket.priority,
+                            "emitted_at": self.pending_ticket.emitted_at,
+                        },
+                    },
+                )
                 return
             ticket = StimulusTicket(
                 type=stimulus_type,
@@ -272,6 +311,7 @@ class AgentOrchestrator(threading.Thread):
                 emitted_at=stimulus.get("emitted_at", ""),
                 priority=STIMULUS_PRIORITY.get(stimulus_type, 0),
             )
+            previous_ticket = self.pending_ticket
             if (
                 self.pending_ticket is None
                 or ticket.priority > self.pending_ticket.priority
@@ -286,6 +326,36 @@ class AgentOrchestrator(threading.Thread):
                         "type": ticket.type,
                         "priority": ticket.priority,
                         "payload": dict(ticket.payload),
+                        "replaced_ticket": (
+                            {
+                                "type": previous_ticket.type,
+                                "priority": previous_ticket.priority,
+                                "emitted_at": previous_ticket.emitted_at,
+                                "payload": dict(previous_ticket.payload),
+                            }
+                            if previous_ticket is not None
+                            else None
+                        ),
+                    },
+                )
+            else:
+                self.app._log_event(
+                    "turn",
+                    "queue_skip",
+                    "Incoming stimulus did not replace the existing pending ticket.",
+                    {
+                        "incoming_ticket": {
+                            "type": ticket.type,
+                            "priority": ticket.priority,
+                            "emitted_at": ticket.emitted_at,
+                            "payload": dict(ticket.payload),
+                        },
+                        "kept_ticket": {
+                            "type": self.pending_ticket.type,
+                            "priority": self.pending_ticket.priority,
+                            "emitted_at": self.pending_ticket.emitted_at,
+                            "payload": dict(self.pending_ticket.payload),
+                        },
                     },
                 )
 
@@ -296,6 +366,20 @@ class AgentOrchestrator(threading.Thread):
         spacing = 0.0 if self.pending_ticket.priority >= 90 else self._min_turn_spacing()
         now = time.time()
         if now - self.last_turn_started < spacing:
+            self.app._log_event(
+                "turn",
+                "spacing_wait",
+                "Pending ticket is waiting for minimum turn spacing.",
+                {
+                    "pending_ticket": {
+                        "type": self.pending_ticket.type,
+                        "priority": self.pending_ticket.priority,
+                        "emitted_at": self.pending_ticket.emitted_at,
+                    },
+                    "elapsed_since_last_turn": round(now - self.last_turn_started, 3),
+                    "required_spacing": spacing,
+                },
+            )
             return
 
         ticket = self.pending_ticket
@@ -324,6 +408,20 @@ class AgentOrchestrator(threading.Thread):
         self._warmup_until = time.time() + 0.5
         self.status.update(focus_state="active", notes="Session started.")
         self.memory.append("session", "Monitoring session started.")
+        self.app._log_event(
+            "orchestrator",
+            "session_started",
+            "Orchestrator session bookkeeping initialized.",
+            {
+                "pending_ticket": {
+                    "type": self.pending_ticket.type,
+                    "priority": self.pending_ticket.priority,
+                },
+                "warmup_until_unix": self._warmup_until,
+                "heartbeat_seconds": self.heartbeat_seconds,
+                "tab_poll_seconds": self.tab_poll_seconds,
+            },
+        )
 
     def note_session_stopped(self):
         self.pending_ticket = None
@@ -331,3 +429,9 @@ class AgentOrchestrator(threading.Thread):
         self._tab_signature = None
         self.status.update(focus_state="unknown", notes="Session stopped.")
         self.memory.append("session", "Monitoring session stopped.")
+        self.app._log_event(
+            "orchestrator",
+            "session_stopped",
+            "Orchestrator session bookkeeping cleared.",
+            {"heartbeat_seconds": self.heartbeat_seconds, "tab_poll_seconds": self.tab_poll_seconds},
+        )

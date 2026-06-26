@@ -1,22 +1,21 @@
 {
-  "updated_at": "2026-06-25T10:37:01.274",
-  "focus_state": "focused",
+  "updated_at": "2026-06-26T14:42:22.629",
+  "focus_state": "distracted",
   "last_activity_at": "2026-06-25T00:38:17.178",
-  "last_stimulus": "tab_refreshed",
-  "last_stimulus_at": "2026-06-25T10:36:54.523",
+  "last_stimulus": "tab_closed",
+  "last_stimulus_at": "2026-06-26T14:42:22.628",
   "last_stimulus_payload": {
     "count": 1,
-    "tabs": [
-      {
-        "id": "3214BE19C39A0B529C6C47DDE35099A5",
-        "title": "Calculus - YouTube",
-        "url": "https://www.youtube.com/shorts/1FEPodyGeK4"
-      }
+    "tab_ids": [
+      "4230AD4B26A99183A964A96959C2121F"
     ],
-    "source_event": "Target.targetInfoChanged"
+    "source_event": "Target.targetDestroyed",
+    "source_browser": "Edge",
+    "source_event_at": "2026-06-26T14:42:22.574",
+    "source_event_at_unix": 1782510142.5742106
   },
-  "last_turn_at": "2026-06-25 10:37:01",
+  "last_turn_at": "2026-06-26 14:42:14",
   "last_turn_reason": "stimulus:tab_refreshed",
-  "last_intervention_at": "2026-06-25T10:36:48.398",
-  "notes": "Browser tabs align with the study goal."
+  "last_intervention_at": "2026-06-26T14:42:15.264",
+  "notes": "Browser tab shows Roblox open alongside calculus material"
 }

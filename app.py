@@ -2,6 +2,7 @@ import base64
 import hashlib
 import json
 import os
+import socket
 import threading
 import time
 import base64
@@ -292,6 +293,49 @@ class BigBrotherApp:
         }
         return snap
 
+    def _debug_state_summary(self) -> dict:
+        with self.state.lock:
+            return {
+                "running": bool(self.state.running),
+                "status": str(self.state.status),
+                "last_turn_at": str(self.state.last_turn_at),
+                "last_turn_reason": str(self.state.last_turn_reason),
+                "resource_revision": int(self.state.resource_revision),
+                "capture_status": str(self.state.capture_status),
+                "browser_name": str(self.state.browser_name),
+                "browser_url": str(self.state.browser_url),
+                "session_duration_seconds": int(self.state.session_duration_seconds),
+                "speech": {
+                    "in_progress": bool(self.state.speech.get("in_progress")),
+                    "client_started": bool(self.state.speech.get("client_started")),
+                    "event_id": str(self.state.speech.get("event_id", "")),
+                    "grace_until_unix": float(self.state.speech.get("grace_until_unix", 0.0) or 0.0),
+                },
+                "agent_output_summary": str((self.state.agent_output or {}).get("summary", ""))[:200],
+                "planner_requested_actions": len((self.state.planner_output or {}).get("requested_actions", []) or []),
+                "personality_pending": bool((self.state.personality_output or {}).get("should_speak")),
+            }
+
+    def _debug_resource_summary(self, resources) -> dict:
+        metadata = dict(getattr(resources, "metadata", {}) or {})
+        return {
+            "missing_sources": list(getattr(resources, "missing_sources", []) or []),
+            "sources": {
+                "webcam": {
+                    "chars": len(str(getattr(resources, "webcam_text", "") or "")),
+                    "metadata": metadata.get("webcam", {}),
+                },
+                "screenshare": {
+                    "chars": len(str(getattr(resources, "screenshare_text", "") or "")),
+                    "metadata": metadata.get("screenshare", {}),
+                },
+                "browser": {
+                    "chars": len(str(getattr(resources, "browser_text", "") or "")),
+                    "metadata": metadata.get("browser", {}),
+                },
+            },
+        }
+
     def _ensure_browser_event_monitor(self):
         config = BROWSERS[self.state.browser_name]
         if (
@@ -320,11 +364,20 @@ class BigBrotherApp:
         started_perf = time.perf_counter()
         stimulus_type = str(event.get("stimulus_type", "")).strip()
         payload = dict(event.get("payload") or {})
+        source_event_at_unix = float(payload.get("source_event_at_unix", 0.0) or 0.0)
+        callback_received_at_unix = time.time()
+        callback_latency_ms = round((callback_received_at_unix - source_event_at_unix) * 1000, 1) if source_event_at_unix else None
         self._log_event(
             "browser",
             "event_received",
             "Browser event handed to Big Brother.",
-            {"stimulus_type": stimulus_type, "payload": payload},
+            {
+                "stimulus_type": stimulus_type,
+                "payload": payload,
+                "source_event_at_unix": source_event_at_unix,
+                "callback_received_at_unix": callback_received_at_unix,
+                "callback_latency_ms": callback_latency_ms,
+            },
         )
         with self.state.lock:
             running = bool(self.state.running)
@@ -333,7 +386,14 @@ class BigBrotherApp:
                 "browser",
                 "event_ignored",
                 "Browser event ignored because the session is not running or the event was empty.",
-                {"stimulus_type": stimulus_type, "payload": payload, "running": running},
+                {
+                    "stimulus_type": stimulus_type,
+                    "payload": payload,
+                    "running": running,
+                    "source_event_at_unix": source_event_at_unix,
+                    "callback_received_at_unix": callback_received_at_unix,
+                    "callback_latency_ms": callback_latency_ms,
+                },
             )
             return
 
@@ -351,6 +411,9 @@ class BigBrotherApp:
             {
                 "stimulus_type": stimulus_type,
                 "duration_ms": round((time.perf_counter() - started_perf) * 1000, 1),
+                "source_event_at_unix": source_event_at_unix,
+                "callback_received_at_unix": callback_received_at_unix,
+                "callback_latency_ms": callback_latency_ms,
                 "count": len(tabs),
                 "tabs_preview": [
                     {
@@ -371,6 +434,9 @@ class BigBrotherApp:
                 "stimulus_type": stimulus_type,
                 "accepted": accepted,
                 "payload": payload,
+                "source_event_at_unix": source_event_at_unix,
+                "callback_received_at_unix": callback_received_at_unix,
+                "callback_latency_ms": callback_latency_ms,
                 "total_duration_ms": round((time.perf_counter() - started_perf) * 1000, 1),
             },
         )
@@ -414,6 +480,7 @@ class BigBrotherApp:
             "component": component,
             "phase": phase,
             "message": message,
+            "thread": threading.current_thread().name,
         }
         self._last_event_perf = now_perf
         if payload is not None:
@@ -463,10 +530,18 @@ class BigBrotherApp:
                 "screenshare": resources.describe_source("screenshare") or "No screenshare summary yet.",
                 "browser": resources.describe_source("browser") or "No browser export yet.",
             }
+        self._log_event(
+            "resources",
+            "loaded",
+            "Resource loader refreshed runtime resource summaries.",
+            self._debug_resource_summary(resources),
+        )
         return resources
 
     def refresh_browser_export(self, retries=2, delay_seconds=0.25, log_event=True):
         started_perf = time.perf_counter()
+        with self.state.lock:
+            previous_revision = int(self.state.resource_revision)
         with self._browser_refresh_lock:
             try:
                 self.tab_reader = BrowserLiveReader(BROWSERS[self.state.browser_name])
@@ -483,6 +558,7 @@ class BigBrotherApp:
                 "count": count,
             }
             self.state.resource_revision += 1
+            latest_revision = int(self.state.resource_revision)
         self._refresh_resource_debug()
         if log_event:
             self._log_event(
@@ -492,6 +568,10 @@ class BigBrotherApp:
                 {
                     "count": count,
                     "path": str(path),
+                    "retries": int(retries),
+                    "delay_seconds": float(delay_seconds),
+                    "resource_revision_before": previous_revision,
+                    "resource_revision_after": latest_revision,
                     "duration_ms": round((time.perf_counter() - started_perf) * 1000, 1),
                     "tabs_preview": [
                         {
@@ -531,8 +611,10 @@ class BigBrotherApp:
             self.state.session_deadline_at = time.time() + self.state.session_duration_seconds
             self.state.status = "Agent session running."
             self.state.last_error = ""
+            start_snapshot = self._debug_state_summary()
         self._ensure_browser_event_monitor()
         self.refresh_browser_export()
+        self._log_event("session", "start", "Agent session started.", start_snapshot)
         self.orchestrator.note_session_started()
 
     def stop(self, timed_out=False):
@@ -540,6 +622,8 @@ class BigBrotherApp:
             self.state.running = False
             self.state.session_deadline_at = 0.0
             self.state.status = "Timed session complete." if timed_out else "Session stopped."
+            stop_snapshot = self._debug_state_summary()
+        self._log_event("session", "stop", "Agent session stopped.", {"timed_out": bool(timed_out), "state": stop_snapshot})
         self.orchestrator.note_session_stopped()
 
     def reset_stats(self):
@@ -595,7 +679,7 @@ class BigBrotherApp:
         except OSError:
             pass
         self._clear_resource_artifacts()
-        self._log_event("system", "reset", "Agent state reset.", {})
+        self._log_event("system", "reset", "Agent state reset.", {"state": self._debug_state_summary()})
 
     def _clear_resource_artifacts(self):
         files_to_clear = [
@@ -634,7 +718,7 @@ class BigBrotherApp:
 
     def run_turn(self, reason="manual_run"):
         turn_started_perf = time.perf_counter()
-        self._log_event("turn", "requested", "Agent turn requested.", {"reason": reason})
+        self._log_event("turn", "requested", "Agent turn requested.", {"reason": reason, "state": self._debug_state_summary()})
         if self.assessment_paused():
             pause_payload = {"reason": reason, "speech_in_progress": self.speech_in_progress()}
             self._log_event("turn", "paused", "Turn blocked while speech/grace pause is active.", pause_payload)
@@ -679,7 +763,21 @@ class BigBrotherApp:
         last_stimulus = dict(getattr(self.bus, "last_stimulus", {}) or {})
         if str(last_stimulus.get("type", "")).strip() and f"stimulus:{last_stimulus.get('type')}" == reason:
             stimulus_payload = dict(last_stimulus.get("payload", {}) or {})
-        self._log_event("agent", "reading", "Agent received fresh resources.", {"reason": reason, "prompt": prompt_text})
+        self._log_event(
+            "agent",
+            "reading",
+            "Agent received fresh resources.",
+            {
+                "reason": reason,
+                "prompt": prompt_text,
+                "turn_resource_revision": turn_resource_revision,
+                "resource_summary": self._debug_resource_summary(resources),
+                "current_context": current_context,
+                "history_count": len(history),
+                "last_stimulus": last_stimulus,
+                "stimulus_payload_used": stimulus_payload,
+            },
+        )
         actor_started_perf = time.perf_counter()
         decision = self.agent.evaluate(
             goal,
@@ -698,6 +796,12 @@ class BigBrotherApp:
                 "duration_ms": round((time.perf_counter() - actor_started_perf) * 1000, 1),
                 "sufficient": decision.sufficient,
                 "focus_state": decision.focus_state,
+                "summary": decision.summary,
+                "evidence": list(decision.evidence),
+                "response_required": decision.response_required,
+                "response_text": decision.response_text,
+                "todo_writes": list(decision.todo_writes),
+                "notes": list(decision.notes),
                 "requested_resources": list(decision.requested_resources),
             },
         )
@@ -736,7 +840,17 @@ class BigBrotherApp:
                 self._queue_requested_resource(item)
             resources = self._refresh_resource_debug()
             prompt_text = resources.as_prompt_text()
-            self._log_event("agent", "reading", "Agent re-evaluating after procedural browser refresh.", {"reason": reason, "prompt": prompt_text})
+            self._log_event(
+                "agent",
+                "reading",
+                "Agent re-evaluating after procedural browser refresh.",
+                {
+                    "reason": reason,
+                    "prompt": prompt_text,
+                    "resource_summary": self._debug_resource_summary(resources),
+                    "immediate_browser_requests": immediate_browser_requests,
+                },
+            )
             decision = self.agent.evaluate(
                 goal,
                 resources,
@@ -754,6 +868,12 @@ class BigBrotherApp:
                     "duration_ms": round((time.perf_counter() - loop_started_perf) * 1000, 1),
                     "sufficient": decision.sufficient,
                     "focus_state": decision.focus_state,
+                    "summary": decision.summary,
+                    "evidence": list(decision.evidence),
+                    "response_required": decision.response_required,
+                    "response_text": decision.response_text,
+                    "todo_writes": list(decision.todo_writes),
+                    "notes": list(decision.notes),
                     "requested_resources": list(decision.requested_resources),
                 },
             )
@@ -790,6 +910,17 @@ class BigBrotherApp:
                     kind=str(todo.get("kind", "scheduled")),
                 )
                 requested_actions.append({"todo": created})
+        self._log_event(
+            "planner",
+            "actions_resolved",
+            "Decision resources and todos were converted into runtime actions.",
+            {
+                "reason": reason,
+                "requested_resources": list(decision.requested_resources),
+                "resolved_actions": requested_actions,
+                "todo_writes": list(decision.todo_writes),
+            },
+        )
 
         now_label = time.strftime("%Y-%m-%d %H:%M:%S")
         should_speak = decision.response_required and self._should_emit_response(decision)
@@ -835,6 +966,9 @@ class BigBrotherApp:
                 "duration_ms": round((time.perf_counter() - personality_started_perf) * 1000, 1),
                 "should_speak": personality_result.should_speak,
                 "actor_mode": personality_result.actor_mode,
+                "triggered": personality_result.triggered,
+                "spoken_text": personality_result.spoken_text,
+                "delivery_notes": personality_result.delivery_notes,
             },
         )
         if personality_result.should_speak:
@@ -903,6 +1037,22 @@ class BigBrotherApp:
             self.state.status = decision.summary
             self.state.last_turn_at = now_label
             self.state.last_turn_reason = reason
+            committed_agent_output = dict(self.state.agent_output)
+            committed_planner_output = dict(self.state.planner_output)
+            committed_personality_output = dict(self.state.personality_output)
+        self._log_event(
+            "turn",
+            "state_commit",
+            "Turn outputs committed to dashboard state and context files.",
+            {
+                "reason": reason,
+                "last_turn_at": now_label,
+                "agent_output": committed_agent_output,
+                "planner_output": committed_planner_output,
+                "personality_output": committed_personality_output,
+                "state": self._debug_state_summary(),
+            },
+        )
         self._log_event(
             "agent",
             "decision",
@@ -946,7 +1096,12 @@ class BigBrotherApp:
             }
             self.state.status = "Speech narration in progress. Big Brother is waiting before reassessing."
         self.status_file.update(last_intervention_at=now_iso())
-        self._log_event("speech", "started", "Speech narration started.", {"event_id": event_id, "text": str(text or "")[:240]})
+        self._log_event(
+            "speech",
+            "started",
+            "Speech narration started.",
+            {"event_id": event_id, "text": str(text or "")[:240], "state": self._debug_state_summary()},
+        )
         return {"ok": True}
 
     def note_speech_finished(self, event_id: str = ""):
@@ -972,7 +1127,11 @@ class BigBrotherApp:
             "speech",
             "finished",
             "Speech narration finished. Grace period started.",
-            {"event_id": event_id or active_event_id, "grace_seconds": POST_SPEECH_GRACE_SECONDS},
+            {
+                "event_id": event_id or active_event_id,
+                "grace_seconds": POST_SPEECH_GRACE_SECONDS,
+                "state": self._debug_state_summary(),
+            },
         )
         return {"ok": True, "grace_seconds": POST_SPEECH_GRACE_SECONDS}
 
@@ -988,7 +1147,12 @@ class BigBrotherApp:
             }
             self.state.status = "Speech signal sent. Big Brother is waiting for narration to finish."
         self.status_file.update(last_intervention_at=now_iso())
-        self._log_event("speech", "armed", "Speech signal sent; narration lock engaged immediately.", {"event_id": event_id, "text": str(text or "")[:240]})
+        self._log_event(
+            "speech",
+            "armed",
+            "Speech signal sent; narration lock engaged immediately.",
+            {"event_id": event_id, "text": str(text or "")[:240], "state": self._debug_state_summary()},
+        )
 
     def _queue_requested_resource(self, item: dict):
         request_type = str(item.get("type", "")).strip().lower()
@@ -1011,7 +1175,20 @@ class BigBrotherApp:
         dedupe_key = str(item.get("dedupe_key", "")).strip()
         if not dedupe_key:
             dedupe_key = f"{normalized_type}:{item.get('source', '')}:{item.get('reason', '')}"
-        return self.client_actions.enqueue(normalized_type, dict(item), dedupe_key=dedupe_key)
+        queued = self.client_actions.enqueue(normalized_type, dict(item), dedupe_key=dedupe_key)
+        self._log_event(
+            "client_action",
+            "enqueue",
+            "Client-side resource action queued or deduplicated.",
+            {
+                "normalized_type": normalized_type,
+                "dedupe_key": dedupe_key,
+                "request": dict(item),
+                "result": queued,
+                "pending_count": len(self.client_actions.pending()),
+            },
+        )
+        return queued
 
     def ingest_stimulus(self, stimulus_type: str, payload: dict | None = None):
         stimulus_type = str(stimulus_type or "").strip()
@@ -1031,6 +1208,18 @@ class BigBrotherApp:
 
         payload = dict(payload or {})
         accepted = self.bus.emit(stimulus_type, payload)
+        self._log_event(
+            "stimulus",
+            "ingest",
+            "Manual/API stimulus ingest attempted.",
+            {
+                "stimulus_type": stimulus_type,
+                "accepted": accepted,
+                "payload": payload,
+                "last_stimulus": dict(self.bus.last_stimulus),
+                "state": self._debug_state_summary(),
+            },
+        )
         return {"accepted": accepted, "type": stimulus_type}
 
     def complete_client_action(self, action_id: str, result: dict | None = None):
@@ -1057,6 +1246,17 @@ class BigBrotherApp:
         if analysis_mode not in MODE_TO_SOURCE_DIR:
             raise ValueError("analysisMode must be 'webcam' or 'screen'.")
         image_data_url = parse_data_url(image_data_url)
+        self._log_event(
+            "capture",
+            "analyze_start",
+            "Capture analysis requested.",
+            {
+                "analysis_mode": analysis_mode,
+                "prompt": prompt,
+                "metadata": metadata,
+                "image_bytes_base64": len(image_data_url),
+            },
+        )
 
         image_hash = hashlib.sha1(image_data_url.encode("utf-8")).hexdigest()
         if self._capture_hashes.get(analysis_mode) == image_hash and self._capture_cache.get(analysis_mode):
@@ -1074,6 +1274,18 @@ class BigBrotherApp:
                     "summary": summary,
                     "writtenFiles": written_files,
                 }
+                latest_revision = int(self.state.resource_revision)
+            self._log_event(
+                "capture",
+                "analyze_cached",
+                "Capture analysis reused a cached summary.",
+                {
+                    "analysis_mode": analysis_mode,
+                    "metadata": metadata,
+                    "resource_revision_after": latest_revision,
+                    "written_files": written_files,
+                },
+            )
             return {
                 "summary": summary,
                 "model": VISION_MODEL,
@@ -1096,6 +1308,18 @@ class BigBrotherApp:
                     "summary": message,
                     "writtenFiles": written_files,
                 }
+                latest_revision = int(self.state.resource_revision)
+            self._log_event(
+                "capture",
+                "analyze_no_model",
+                "Capture analysis completed without an external model.",
+                {
+                    "analysis_mode": analysis_mode,
+                    "metadata": metadata,
+                    "resource_revision_after": latest_revision,
+                    "written_files": written_files,
+                },
+            )
             return {
                 "summary": message,
                 "model": "",
@@ -1162,12 +1386,20 @@ class BigBrotherApp:
                 "summary": message,
                 "writtenFiles": written_files,
             }
+            latest_revision = int(self.state.resource_revision)
         self.memory.append("observation", f"{analysis_mode} summary updated.", meta={"summary": message[:300]})
         self._log_event(
             "capture",
             "analyze_complete",
             "Capture analysis complete.",
-            {"analysis_mode": analysis_mode, "summary": message, "tab_record_image": tab_record_image},
+            {
+                "analysis_mode": analysis_mode,
+                "metadata": metadata,
+                "summary": message,
+                "tab_record_image": tab_record_image,
+                "written_files": written_files,
+                "resource_revision_after": latest_revision,
+            },
         )
         self.bus.emit("capture_updated", {"analysis_mode": analysis_mode})
         return {
@@ -1305,12 +1537,53 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._send_json({"error": str(exc)}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
 
 
+class BigBrotherHTTPServer(ThreadingHTTPServer):
+    allow_reuse_address = True
+    daemon_threads = True
+
+
+def _can_bind(host: str, port: int) -> tuple[bool, str]:
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind((host, int(port)))
+        return True, ""
+    except OSError as exc:
+        return False, str(exc)
+    finally:
+        try:
+            sock.close()
+        except OSError:
+            pass
+
+
+def _choose_server_port(host: str, requested_port: int, max_attempts: int = 25) -> tuple[int, list[dict]]:
+    attempts = []
+    for offset in range(max(1, int(max_attempts))):
+        port = int(requested_port) + offset
+        ok, error_text = _can_bind(host, port)
+        attempts.append({"port": port, "ok": ok, "error": error_text})
+        if ok:
+            return port, attempts
+    raise OSError(f"Unable to bind any port from {requested_port} to {requested_port + max(0, int(max_attempts) - 1)} on {host}.")
+
+
 def run():
     ensure_output_dirs()
     host = os.getenv("BIG_BROTHER_HOST", "127.0.0.1")
-    port = env_int("BIG_BROTHER_PORT", 8000)
-    server = ThreadingHTTPServer((host, port), RequestHandler)
-    print(f"Big Brother running at http://{host}:{port}")
+    requested_port = env_int("BIG_BROTHER_PORT", 8000)
+    port, bind_attempts = _choose_server_port(host, requested_port)
+    server = BigBrotherHTTPServer((host, port), RequestHandler)
+    if port != requested_port:
+        APP._log_event(
+            "server",
+            "port_fallback",
+            "Default port was unavailable, so Big Brother moved to a fallback port.",
+            {"host": host, "requested_port": requested_port, "selected_port": port, "attempts": bind_attempts},
+        )
+        print(f"Big Brother default port {requested_port} was unavailable; using http://{host}:{port}")
+    else:
+        print(f"Big Brother running at http://{host}:{port}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

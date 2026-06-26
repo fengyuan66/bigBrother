@@ -33,6 +33,7 @@ OUTPUT_PATH = BROWSER_DIR / "browser_live.txt"
 TAB_OUTPUT_PATH = BROWSER_DIR / "tabs.txt"
 INDEX_OUTPUT_PATH = BROWSER_DIR / "index.json"
 SUMMARY_OUTPUT_PATH = SUMMARIES_DIR / "browser_summary.json"
+GROUND_TRUTH_LOG_PATH = STATE_DIR / "browser_ground_truth.jsonl"
 
 
 def ensure_output_dirs():
@@ -362,6 +363,8 @@ class BrowserEventMonitor(threading.Thread):
         stimulus_type = self.EVENT_METHODS.get(method)
         if not stimulus_type:
             return None
+        observed_at = datetime.now().isoformat(timespec="milliseconds")
+        observed_at_unix = time.time()
 
         params = dict(message.get("params") or {})
         if method == "Target.targetDestroyed":
@@ -373,10 +376,15 @@ class BrowserEventMonitor(threading.Thread):
                 "method": method,
                 "stimulus_type": stimulus_type,
                 "tab_id": target_id,
+                "observed_at": observed_at,
+                "observed_at_unix": observed_at_unix,
                 "payload": {
                     "count": 1,
                     "tab_ids": [target_id],
                     "source_event": method,
+                    "source_browser": self.config.name,
+                    "source_event_at": observed_at,
+                    "source_event_at_unix": observed_at_unix,
                 },
             }
 
@@ -394,12 +402,38 @@ class BrowserEventMonitor(threading.Thread):
             "method": method,
             "stimulus_type": stimulus_type,
             "tab_id": tab_payload["id"],
+            "observed_at": observed_at,
+            "observed_at_unix": observed_at_unix,
             "payload": {
                 "count": 1,
                 "tabs": [tab_payload],
                 "source_event": method,
+                "source_browser": self.config.name,
+                "source_event_at": observed_at,
+                "source_event_at_unix": observed_at_unix,
             },
         }
+
+    def _write_ground_truth_event(self, event: dict):
+        try:
+            ensure_output_dirs()
+            payload = dict(event.get("payload") or {})
+            entry = {
+                "timestamp": event.get("observed_at", ""),
+                "unix_ms": int(float(event.get("observed_at_unix", 0.0) or 0.0) * 1000),
+                "browser": self.config.name,
+                "source": event.get("source", ""),
+                "method": event.get("method", ""),
+                "stimulus_type": event.get("stimulus_type", ""),
+                "tab_id": event.get("tab_id", ""),
+                "tabs": list(payload.get("tabs", []) or []),
+                "tab_ids": list(payload.get("tab_ids", []) or []),
+                "payload": payload,
+            }
+            with GROUND_TRUTH_LOG_PATH.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        except OSError:
+            pass
 
     def run(self):
         if not websocket:
@@ -440,11 +474,14 @@ class BrowserEventMonitor(threading.Thread):
                         "event",
                         "Browser DevTools event received.",
                         {
+                            "observed_at": event.get("observed_at", ""),
+                            "observed_at_unix": event.get("observed_at_unix", 0.0),
                             "method": event.get("method", ""),
                             "stimulus_type": event.get("stimulus_type", ""),
                             "payload": dict(event.get("payload") or {}),
                         },
                     )
+                    self._write_ground_truth_event(event)
                     try:
                         self.callback(event)
                     except Exception as exc:

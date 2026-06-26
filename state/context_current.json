@@ -1,10 +1,10 @@
 {
-  "updated_at": "2026-06-25T10:37:01.271",
-  "focus_state": "focused",
-  "summary": "Browser tabs align with the study goal.",
+  "updated_at": "2026-06-26T14:42:14.993",
+  "focus_state": "distracted",
+  "summary": "Browser tab shows Roblox open alongside calculus material",
   "active_notes": [
     "A browser tab changed. Refresh browser data first and treat browser evidence as highest priority.",
-    "Browser-first judgement completed without using VLM."
+    "Roblox is a known distraction despite calculus tab remaining open"
   ],
   "last_stimulus": "stimulus:tab_refreshed",
   "last_turn_reason": "stimulus:tab_refreshed",

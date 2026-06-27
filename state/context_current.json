@@ -1,11 +1,11 @@
 {
-  "updated_at": "2026-06-26T20:20:59.330",
+  "updated_at": "2026-06-26T22:04:58.087",
   "focus_state": "focused",
-  "summary": "Closed YouTube tab, returning to on-task Wikipedia calculus page",
+  "summary": "The YouTube tab was closed, and remaining browser tabs align with calculus study goals.",
   "active_notes": [
     "A browser tab changed. Refresh browser data first and treat browser evidence as highest priority.",
-    "YouTube tab closure aligns with returning focus to study materials",
-    "No active distraction tabs remaining in browser data"
+    "Closed tab confirms return to study material",
+    "No further verification needed as browser evidence is clear"
   ],
   "last_stimulus": "stimulus:tab_closed",
   "last_turn_reason": "stimulus:tab_closed",

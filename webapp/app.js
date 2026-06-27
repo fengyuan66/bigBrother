@@ -6,6 +6,13 @@ const sessionCountdown = document.getElementById("sessionCountdown");
 const browserNameInput = document.getElementById("browserName");
 const browserUrlInput = document.getElementById("browserUrl");
 const capturePromptInput = document.getElementById("capturePrompt");
+const simulationStimulusType = document.getElementById("simulationStimulusType");
+const simulationHoldSeconds = document.getElementById("simulationHoldSeconds");
+const simulationNote = document.getElementById("simulationNote");
+const simulationApplyBrowserSnapshot = document.getElementById("simulationApplyBrowserSnapshot");
+const simulationDerivePayload = document.getElementById("simulationDerivePayload");
+const simulationBrowserTabs = document.getElementById("simulationBrowserTabs");
+const simulationPayload = document.getElementById("simulationPayload");
 
 const runningBadge = document.getElementById("runningBadge");
 const stimulusBadge = document.getElementById("stimulusBadge");
@@ -33,6 +40,8 @@ const mapCurrentStationDot = document.getElementById("mapCurrentStationDot");
 const stimulusToast = document.getElementById("stimulusToast");
 const stimulusToastTitle = document.getElementById("stimulusToastTitle");
 const stimulusToastBody = document.getElementById("stimulusToastBody");
+const simulationBadge = document.getElementById("simulationBadge");
+const simulationStatusText = document.getElementById("simulationStatusText");
 
 const evidenceList = document.getElementById("evidenceList");
 const actionList = document.getElementById("actionList");
@@ -69,6 +78,10 @@ const runOnceButton = document.getElementById("runOnceButton");
 const startButton = document.getElementById("startButton");
 const stopButton = document.getElementById("stopButton");
 const resetStatsButton = document.getElementById("resetStatsButton");
+const sendSimulationButton = document.getElementById("sendSimulationButton");
+const repeatSimulationButton = document.getElementById("repeatSimulationButton");
+const clearSimulationButton = document.getElementById("clearSimulationButton");
+const simulationPresetButtons = Array.from(document.querySelectorAll(".simulation-preset"));
 
 const MAX_UPLOAD_WIDTH = { webcam: 640, screen: 1024 };
 const UPLOAD_JPEG_QUALITY = 0.7;
@@ -104,6 +117,142 @@ let lastCompletedSpeechEventId = "";
 let lastStimulusCueKey = "";
 let stimulusToastHandle = null;
 const completedClientActionIds = new Set();
+let lastSimulationRequest = null;
+
+const simulationPresets = {
+  "focused-opened": {
+    type: "tab_opened",
+    note: "Perfect on-task browser stimulus",
+    applyBrowserSnapshot: true,
+    derivePayloadFromTabs: true,
+    holdSeconds: 12,
+    browserTabs: [
+      {
+        id: "SIM-CALCULUS",
+        title: "Calculus - Wikipedia",
+        url: "https://en.wikipedia.org/wiki/Calculus",
+        domain: "en.wikipedia.org",
+      },
+    ],
+    payload: {},
+  },
+  "youtube-home": {
+    type: "tab_refreshed",
+    note: "Perfect generic browser refresh stimulus",
+    applyBrowserSnapshot: true,
+    derivePayloadFromTabs: true,
+    holdSeconds: 12,
+    browserTabs: [
+      {
+        id: "SIM-YOUTUBE-HOME",
+        title: "YouTube",
+        url: "https://www.youtube.com/",
+        domain: "www.youtube.com",
+      },
+      {
+        id: "SIM-CALCULUS",
+        title: "Calculus - Wikipedia",
+        url: "https://en.wikipedia.org/wiki/Calculus",
+        domain: "en.wikipedia.org",
+      },
+    ],
+    payload: {},
+  },
+  "roblox-video": {
+    type: "tab_refreshed",
+    note: "Perfect off-task distraction stimulus",
+    applyBrowserSnapshot: true,
+    derivePayloadFromTabs: true,
+    holdSeconds: 12,
+    browserTabs: [
+      {
+        id: "SIM-ROBLOX-VIDEO",
+        title: "ROBLOX HIDE THE BODY.. - YouTube",
+        url: "https://www.youtube.com/watch?v=EK5SvovOFr0",
+        domain: "www.youtube.com",
+      },
+      {
+        id: "SIM-CALCULUS",
+        title: "Calculus - Wikipedia",
+        url: "https://en.wikipedia.org/wiki/Calculus",
+        domain: "en.wikipedia.org",
+      },
+    ],
+    payload: {},
+  },
+  "close-distraction": {
+    type: "tab_closed",
+    note: "Perfect close event with post-close browser snapshot",
+    applyBrowserSnapshot: true,
+    derivePayloadFromTabs: false,
+    holdSeconds: 12,
+    browserTabs: [
+      {
+        id: "SIM-CALCULUS",
+        title: "Calculus - Wikipedia",
+        url: "https://en.wikipedia.org/wiki/Calculus",
+        domain: "en.wikipedia.org",
+      },
+    ],
+    payload: {
+      count: 1,
+      tab_ids: ["SIM-ROBLOX-VIDEO"],
+      tabs: [
+        {
+          id: "SIM-ROBLOX-VIDEO",
+          title: "ROBLOX HIDE THE BODY.. - YouTube",
+          url: "https://www.youtube.com/watch?v=EK5SvovOFr0",
+          domain: "www.youtube.com",
+        },
+      ],
+    },
+  },
+  "payload-only": {
+    type: "tab_refreshed",
+    note: "Failure case: browser payload with no browser snapshot update",
+    applyBrowserSnapshot: false,
+    derivePayloadFromTabs: false,
+    holdSeconds: 12,
+    browserTabs: [],
+    payload: {
+      count: 1,
+      tabs: [
+        {
+          id: "SIM-PAYLOAD-ONLY",
+          title: "YouTube",
+          url: "https://www.youtube.com/",
+          domain: "www.youtube.com",
+        },
+      ],
+    },
+  },
+  mismatch: {
+    type: "tab_refreshed",
+    note: "Failure case: payload does not match browser snapshot",
+    applyBrowserSnapshot: true,
+    derivePayloadFromTabs: false,
+    holdSeconds: 12,
+    browserTabs: [
+      {
+        id: "SIM-CALCULUS",
+        title: "Calculus - Wikipedia",
+        url: "https://en.wikipedia.org/wiki/Calculus",
+        domain: "en.wikipedia.org",
+      },
+    ],
+    payload: {
+      count: 1,
+      tabs: [
+        {
+          id: "SIM-MISMATCH",
+          title: "ROBLOX HIDE THE BODY.. - YouTube",
+          url: "https://www.youtube.com/watch?v=EK5SvovOFr0",
+          domain: "www.youtube.com",
+        },
+      ],
+    },
+  },
+};
 
 function payloadFromControls() {
   return {
@@ -197,6 +346,62 @@ async function postJson(url, payload = {}) {
 
 function postStimulus(type, payload = {}) {
   return postJson("/api/stimulus", { type, payload }).catch(() => {});
+}
+
+function stringifySimulationJson(value) {
+  return JSON.stringify(value, null, 2);
+}
+
+function parseSimulationJson(rawText, fallbackValue) {
+  const text = String(rawText || "").trim();
+  if (!text) {
+    return fallbackValue;
+  }
+  return JSON.parse(text);
+}
+
+function applySimulationPreset(presetKey) {
+  const preset = simulationPresets[presetKey];
+  if (!preset) {
+    return;
+  }
+  simulationStimulusType.value = preset.type;
+  simulationHoldSeconds.value = String(preset.holdSeconds || 12);
+  simulationNote.value = preset.note || "";
+  simulationApplyBrowserSnapshot.checked = Boolean(preset.applyBrowserSnapshot);
+  simulationDerivePayload.checked = Boolean(preset.derivePayloadFromTabs);
+  simulationBrowserTabs.value = stringifySimulationJson(preset.browserTabs || []);
+  simulationPayload.value = stringifySimulationJson(preset.payload || {});
+}
+
+function collectSimulationRequest() {
+  return {
+    type: simulationStimulusType.value,
+    hold_seconds: Number(simulationHoldSeconds.value || 12),
+    note: simulationNote.value.trim(),
+    apply_browser_snapshot: Boolean(simulationApplyBrowserSnapshot.checked),
+    derive_payload_from_tabs: Boolean(simulationDerivePayload.checked),
+    browser_tabs: parseSimulationJson(simulationBrowserTabs.value, []),
+    payload: parseSimulationJson(simulationPayload.value, {}),
+  };
+}
+
+function renderSimulationState(simulation = {}) {
+  if (!simulationBadge || !simulationStatusText) {
+    return;
+  }
+  if (simulation.active) {
+    const remaining = formatDuration(Math.ceil(Number(simulation.remaining_seconds || 0)));
+    const label = simulation.note ? `Simulation active: ${simulation.note}` : "Simulation active";
+    simulationBadge.textContent = `${simulation.tab_count || 0} fake tab(s)`;
+    simulationBadge.className = "badge warm";
+    simulationStatusText.textContent = `${label}. Override expires in ${remaining}.`;
+    return;
+  }
+  simulationBadge.textContent = "Live browser mode";
+  simulationBadge.className = "badge subtle";
+  simulationStatusText.textContent =
+    "Send fake browser stimuli through the real agent runtime to test perfect-trigger timing and deliberate failure cases.";
 }
 
 async function loadState() {
@@ -608,9 +813,10 @@ function renderState(state) {
   statusText.textContent = state.status || "Ready.";
   errorText.textContent = state.last_error || "";
   captureStatusText.textContent = `${state.capture_status || "Idle"} Vision model: ${state.vision_model || "none"}`;
+  renderSimulationState(state.simulation || {});
 
   const agentOutput = state.agent_output || {};
-  agentModeBadge.textContent = agentOutput.actor_mode || "heuristic";
+  agentModeBadge.textContent = agentOutput.actor_mode || "idle";
   agentSummary.textContent = agentOutput.summary || "No agent decision yet.";
   renderEvidence(agentOutput.evidence || []);
 
@@ -954,6 +1160,50 @@ async function exportTabs() {
   }
 }
 
+async function sendSimulationRequest(requestBody) {
+  sendSimulationButton.disabled = true;
+  repeatSimulationButton.disabled = true;
+  errorText.textContent = "";
+  try {
+    const result = await postJson("/api/simulate-stimulus", requestBody);
+    lastSimulationRequest = requestBody;
+    await loadState();
+    const stimulusType = result && result.stimulus && result.stimulus.type ? result.stimulus.type : requestBody.type;
+    const accepted = Boolean(result && result.stimulus && result.stimulus.accepted);
+    statusText.textContent = accepted
+      ? `Simulated stimulus sent: ${stimulusType}.`
+      : `Simulated stimulus was rejected by debounce/runtime rules: ${stimulusType}.`;
+  } finally {
+    sendSimulationButton.disabled = false;
+    repeatSimulationButton.disabled = false;
+  }
+}
+
+async function sendSimulation() {
+  const requestBody = collectSimulationRequest();
+  await sendSimulationRequest(requestBody);
+}
+
+async function repeatSimulation() {
+  if (!lastSimulationRequest) {
+    statusText.textContent = "No prior simulation request is available to repeat yet.";
+    return;
+  }
+  await sendSimulationRequest(lastSimulationRequest);
+}
+
+async function clearSimulationOverride() {
+  clearSimulationButton.disabled = true;
+  errorText.textContent = "";
+  try {
+    await postJson("/api/clear-simulation");
+    await loadState();
+    statusText.textContent = "Simulation override cleared; live browser export restored.";
+  } finally {
+    clearSimulationButton.disabled = false;
+  }
+}
+
 function startPolling() {
   if (pollHandle) {
     clearInterval(pollHandle);
@@ -994,10 +1244,31 @@ stopButton.addEventListener("click", stopSession);
 resetStatsButton.addEventListener("click", resetStats);
 launchBrowserButton.addEventListener("click", launchBrowser);
 exportTabsButton.addEventListener("click", exportTabs);
+sendSimulationButton.addEventListener("click", () => {
+  sendSimulation().catch((err) => {
+    errorText.textContent = err.message || "Simulation request failed.";
+  });
+});
+repeatSimulationButton.addEventListener("click", () => {
+  repeatSimulation().catch((err) => {
+    errorText.textContent = err.message || "Simulation repeat failed.";
+  });
+});
+clearSimulationButton.addEventListener("click", () => {
+  clearSimulationOverride().catch((err) => {
+    errorText.textContent = err.message || "Unable to clear the simulation override.";
+  });
+});
+for (const button of simulationPresetButtons) {
+  button.addEventListener("click", () => {
+    applySimulationPreset(button.dataset.preset || "");
+  });
+}
 sessionDurationSlider.addEventListener("input", syncSessionDurationLabel);
 
 captureSources.webcam.liveStatusEl.textContent = "Webcam not connected.";
 captureSources.screen.liveStatusEl.textContent = "Screen not connected.";
+applySimulationPreset("focused-opened");
 syncSessionDurationLabel();
 syncCaptureButtons();
 loadState().catch((err) => {

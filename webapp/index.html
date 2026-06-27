@@ -87,6 +87,92 @@
         </article>
       </section>
 
+      <section class="panel simulation-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="section-kicker">Testing</p>
+            <h2>Stimulus simulation lab</h2>
+          </div>
+          <span id="simulationBadge" class="badge subtle">Live browser mode</span>
+        </div>
+        <p id="simulationStatusText" class="status-text muted-text">
+          Send fake browser stimuli through the real agent runtime to test perfect-trigger timing and deliberate failure cases.
+        </p>
+
+        <div class="simulation-presets">
+          <button type="button" class="alt simulation-preset" data-preset="focused-opened">On-task tab opened</button>
+          <button type="button" class="alt simulation-preset" data-preset="youtube-home">Generic YouTube refresh</button>
+          <button type="button" class="alt simulation-preset" data-preset="roblox-video">Off-task video refresh</button>
+          <button type="button" class="alt simulation-preset" data-preset="close-distraction">Closed distraction tab</button>
+          <button type="button" class="alt simulation-preset" data-preset="payload-only">Stimulus only edge case</button>
+          <button type="button" class="alt simulation-preset" data-preset="mismatch">Mismatch edge case</button>
+        </div>
+
+        <div class="simulation-grid">
+          <label class="field">
+            <span>Stimulus type</span>
+            <select id="simulationStimulusType">
+              <option value="tab_opened">tab_opened</option>
+              <option value="tab_refreshed">tab_refreshed</option>
+              <option value="tab_closed">tab_closed</option>
+              <option value="activity">activity</option>
+              <option value="inactivity">inactivity</option>
+              <option value="manual">manual</option>
+              <option value="heartbeat">heartbeat</option>
+              <option value="capture_updated">capture_updated</option>
+            </select>
+          </label>
+
+          <label class="metric-field">
+            <span>Hold override</span>
+            <input id="simulationHoldSeconds" type="number" min="1" max="600" value="12" />
+            <small>How long the fake browser snapshot should stay active before it expires.</small>
+          </label>
+
+          <label class="field grow simulation-wide">
+            <span>Simulation note</span>
+            <input id="simulationNote" type="text" placeholder="Perfect browser refresh timing test" />
+          </label>
+
+          <label class="simulation-toggle">
+            <input id="simulationApplyBrowserSnapshot" type="checkbox" checked />
+            <span>Apply fake browser snapshot override</span>
+          </label>
+
+          <label class="simulation-toggle">
+            <input id="simulationDerivePayload" type="checkbox" checked />
+            <span>Auto-build payload from browser tabs when payload JSON is blank</span>
+          </label>
+        </div>
+
+        <div class="simulation-json-grid">
+          <label class="field">
+            <span>Fake browser tabs JSON</span>
+            <textarea id="simulationBrowserTabs" rows="10" spellcheck="false">[
+  {
+    "id": "SIM-CALCULUS",
+    "title": "Calculus - Wikipedia",
+    "url": "https://en.wikipedia.org/wiki/Calculus",
+    "domain": "en.wikipedia.org"
+  }
+]</textarea>
+            <small>Represents the browser state the agent should read during the simulated turn.</small>
+          </label>
+
+          <label class="field">
+            <span>Stimulus payload JSON</span>
+            <textarea id="simulationPayload" rows="10" spellcheck="false">{}</textarea>
+            <small>Leave this blank or `{}` to auto-build payload from the tabs for tab stimuli.</small>
+          </label>
+        </div>
+
+        <div class="actions actions-wide">
+          <button id="sendSimulationButton">Send simulated stimulus</button>
+          <button id="repeatSimulationButton" class="alt">Send again</button>
+          <button id="clearSimulationButton" class="alt">Clear simulation override</button>
+        </div>
+      </section>
+
       <section class="panel map-panel">
         <div class="panel-heading">
           <div>
@@ -230,7 +316,7 @@
               <p class="section-kicker">Agent</p>
               <h2>Latest judgement</h2>
             </div>
-            <span id="agentModeBadge" class="badge subtle">heuristic</span>
+            <span id="agentModeBadge" class="badge subtle">idle</span>
           </div>
           <p id="agentSummary" class="status-text">No agent decision yet.</p>
           <ul id="evidenceList" class="evidence-list">

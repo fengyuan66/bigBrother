@@ -1,14 +1,29 @@
 {
-  "updated_at": "2026-06-26T20:21:10.393",
+  "updated_at": "2026-06-26T22:04:59.046",
   "focus_state": "focused",
   "last_activity_at": "",
-  "last_stimulus": "heartbeat",
-  "last_stimulus_at": "2026-06-26T20:21:10.391",
+  "last_stimulus": "tab_closed",
+  "last_stimulus_at": "2026-06-26T22:04:50.735",
   "last_stimulus_payload": {
-    "idle_seconds": 30.2
+    "count": 1,
+    "tabs": [
+      {
+        "id": "35A0762E29CC593B9AC9428322991FA3",
+        "title": "ROBLOX SKIP SCHOOL - YouTube",
+        "url": "https://www.youtube.com/watch?v=LPSOe6B2_RI",
+        "domain": "www.youtube.com"
+      }
+    ],
+    "tab_ids": [
+      "35A0762E29CC593B9AC9428322991FA3"
+    ],
+    "source_event": "Target.targetDestroyed",
+    "source_browser": "Edge",
+    "source_event_at": "2026-06-26T22:04:50.702",
+    "source_event_at_unix": 1782536690.7029734
   },
-  "last_turn_at": "2026-06-26 20:20:59",
+  "last_turn_at": "2026-06-26 22:04:58",
   "last_turn_reason": "stimulus:tab_closed",
-  "last_intervention_at": "2026-06-26T20:20:59.722",
-  "notes": "Closed YouTube tab, returning to on-task Wikipedia calculus page"
+  "last_intervention_at": "2026-06-26T22:04:59.046",
+  "notes": "The YouTube tab was closed, and remaining browser tabs align with calculus study goals."
 }

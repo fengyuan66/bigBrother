@@ -288,6 +288,59 @@ h3 {
   margin-bottom: 20px;
 }
 
+.simulation-panel {
+  padding: 22px;
+  margin-bottom: 20px;
+}
+
+.simulation-presets,
+.simulation-grid,
+.simulation-json-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.simulation-presets {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  margin-bottom: 16px;
+}
+
+.simulation-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 16px;
+  align-items: start;
+}
+
+.simulation-wide {
+  grid-column: 1 / -1;
+}
+
+.simulation-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(44, 63, 82, 0.12);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--ink);
+}
+
+.simulation-toggle input {
+  width: auto;
+  margin: 0;
+}
+
+.simulation-toggle span {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.simulation-json-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .map-panel {
   padding: 22px;
   margin-bottom: 20px;
@@ -583,6 +636,14 @@ select {
 
 textarea {
   resize: vertical;
+}
+
+#simulationBrowserTabs,
+#simulationPayload {
+  min-height: 220px;
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 0.92rem;
+  line-height: 1.45;
 }
 
 select {
@@ -1009,6 +1070,8 @@ pre {
   .hero-grid,
   .guided-grid,
   .control-layout,
+  .simulation-grid,
+  .simulation-json-grid,
   .overview-grid,
   .workspace-grid,
   .debug-grid,
@@ -1026,6 +1089,7 @@ pre {
 
   .hero,
   .controls-panel,
+  .simulation-panel,
   .overview-card,
   .preview-panel,
   .inspector-panel {

@@ -60,6 +60,7 @@ MODE_TO_SUMMARY_PATH = {
 VOLATILE_LINE_PREFIXES = ("created:", "updated:", "timestamp", "exported")
 POST_SPEECH_GRACE_SECONDS = 0
 FRESH_BROWSER_EXPORT_SECONDS = float(os.getenv("BIG_BROTHER_FRESH_BROWSER_EXPORT_SECONDS", "3"))
+DEFAULT_SIMULATION_HOLD_SECONDS = float(os.getenv("BIG_BROTHER_SIMULATION_HOLD_SECONDS", "12"))
 
 
 def now_iso():
@@ -248,6 +249,7 @@ class BigBrotherApp:
         self._runtime_started_perf = time.perf_counter()
         self._last_event_perf = self._runtime_started_perf
         self._browser_refresh_lock = threading.RLock()
+        self._simulation_lock = threading.RLock()
         self.state = DashboardState()
         self.resource_loader = ResourceLoader()
         self.ledger = TokenLedger()
@@ -266,6 +268,15 @@ class BigBrotherApp:
         self._capture_cache = {}
         self._last_decision_fingerprint = ""
         self._last_browser_export_fingerprint = ""
+        self._browser_simulation = {
+            "active": False,
+            "tabs": [],
+            "note": "",
+            "source": "simulation",
+            "expires_at_unix": 0.0,
+            "applied_at_unix": 0.0,
+            "needs_live_resync": False,
+        }
         if start_orchestrator:
             self.orchestrator.start()
         self._ensure_browser_event_monitor()
@@ -294,7 +305,32 @@ class BigBrotherApp:
             "token_ledger": self.ledger.snapshot(),
             "heartbeat_seconds": self.orchestrator.heartbeat_seconds,
         }
+        snap["simulation"] = self._simulation_snapshot()
         return snap
+
+    def _simulation_snapshot(self) -> dict:
+        with self._simulation_lock:
+            active = bool(self._browser_simulation.get("active"))
+            tabs = list(self._browser_simulation.get("tabs", []) or [])
+            note = str(self._browser_simulation.get("note", "")).strip()
+            source = str(self._browser_simulation.get("source", "simulation")).strip() or "simulation"
+            expires_at_unix = float(self._browser_simulation.get("expires_at_unix", 0.0) or 0.0)
+            applied_at_unix = float(self._browser_simulation.get("applied_at_unix", 0.0) or 0.0)
+            needs_live_resync = bool(self._browser_simulation.get("needs_live_resync"))
+        now = time.time()
+        if active and expires_at_unix and expires_at_unix <= now:
+            active = False
+        return {
+            "active": active,
+            "note": note,
+            "source": source,
+            "tab_count": len(tabs),
+            "tabs_preview": tabs[:5],
+            "expires_at_unix": expires_at_unix,
+            "applied_at_unix": applied_at_unix,
+            "remaining_seconds": max(0.0, round(expires_at_unix - now, 3)) if active and expires_at_unix else 0.0,
+            "needs_live_resync": needs_live_resync,
+        }
 
     def _debug_state_summary(self) -> dict:
         with self.state.lock:
@@ -356,6 +392,57 @@ class BigBrotherApp:
             json.dumps(normalized, ensure_ascii=True, separators=(",", ":"), sort_keys=True).encode("utf-8")
         ).hexdigest()
 
+    def _normalize_browser_tabs(self, tabs) -> list[dict]:
+        normalized = []
+        for raw in list(tabs or []):
+            if not isinstance(raw, dict):
+                continue
+            url = str(raw.get("url", "")).strip()
+            title = str(raw.get("title", "")).strip()
+            domain = str(raw.get("domain", "")).strip() or urlparse(url).netloc
+            tab_id = str(raw.get("id", "") or raw.get("tab_id", "")).strip()
+            if not tab_id:
+                basis = f"{title}|{url}|{domain}"
+                tab_id = hashlib.sha1(basis.encode("utf-8")).hexdigest().upper()[:32]
+            normalized.append(
+                {
+                    "id": tab_id,
+                    "title": title,
+                    "url": url,
+                    "domain": domain,
+                }
+            )
+        return normalized
+
+    def _simulation_override_tabs(self) -> list[dict] | None:
+        with self._simulation_lock:
+            active = bool(self._browser_simulation.get("active"))
+            expires_at_unix = float(self._browser_simulation.get("expires_at_unix", 0.0) or 0.0)
+            if not active:
+                return None
+            if expires_at_unix and expires_at_unix <= time.time():
+                self._browser_simulation = {
+                    "active": False,
+                    "tabs": [],
+                    "note": "",
+                    "source": "simulation",
+                    "expires_at_unix": 0.0,
+                    "applied_at_unix": 0.0,
+                    "needs_live_resync": True,
+                }
+                return None
+            return self._normalize_browser_tabs(self._browser_simulation.get("tabs", []))
+
+    def _simulation_active(self) -> bool:
+        return self._simulation_override_tabs() is not None
+
+    def _consume_simulation_live_resync_flag(self) -> bool:
+        with self._simulation_lock:
+            needs_live_resync = bool(self._browser_simulation.get("needs_live_resync"))
+            if needs_live_resync:
+                self._browser_simulation["needs_live_resync"] = False
+        return needs_live_resync
+
     def _has_fresh_browser_export(self, max_age_seconds: float = FRESH_BROWSER_EXPORT_SECONDS) -> bool:
         with self.state.lock:
             exported_at_unix = float((self.state.last_export or {}).get("exported_at_unix", 0.0) or 0.0)
@@ -408,6 +495,20 @@ class BigBrotherApp:
                 "callback_latency_ms": callback_latency_ms,
             },
         )
+        if self._simulation_active():
+            self._log_event(
+                "browser",
+                "event_ignored_simulation",
+                "Browser event ignored because a simulation override is active.",
+                {
+                    "stimulus_type": stimulus_type,
+                    "payload": payload,
+                    "source_event_at_unix": source_event_at_unix,
+                    "callback_received_at_unix": callback_received_at_unix,
+                    "callback_latency_ms": callback_latency_ms,
+                },
+            )
+            return
         with self.state.lock:
             running = bool(self.state.running)
         if not running or not stimulus_type:
@@ -618,17 +719,93 @@ class BigBrotherApp:
         )
         return resources
 
+    def _write_browser_outputs_from_tabs(self, tabs: list[dict], retries=2, delay_seconds=0.25):
+        self.tab_reader = BrowserLiveReader(BROWSERS[self.state.browser_name])
+        path, count = self.tab_reader.export_tabs(retries=retries, delay_seconds=delay_seconds, tabs=tabs)
+        self.tab_reader.write_index(retries=retries, delay_seconds=delay_seconds, tabs=tabs)
+        self.tab_reader.write_summary(retries=retries, delay_seconds=delay_seconds, tabs=tabs)
+        return path, count
+
+    def _apply_browser_simulation(self, tabs, hold_seconds=None, note: str = "", source: str = "simulation"):
+        normalized_tabs = self._normalize_browser_tabs(tabs)
+        hold_value = DEFAULT_SIMULATION_HOLD_SECONDS if hold_seconds is None else float(hold_seconds)
+        hold_value = max(1.0, min(600.0, hold_value))
+        now = time.time()
+        with self._simulation_lock:
+            self._browser_simulation = {
+                "active": True,
+                "tabs": normalized_tabs,
+                "note": str(note or "").strip(),
+                "source": str(source or "simulation").strip() or "simulation",
+                "expires_at_unix": now + hold_value,
+                "applied_at_unix": now,
+                "needs_live_resync": False,
+            }
+        self.orchestrator.sync_tab_signature(normalized_tabs, source=f"{source}:override")
+        self._log_event(
+            "simulation",
+            "override_applied",
+            "Browser simulation override applied.",
+            {
+                "tab_count": len(normalized_tabs),
+                "hold_seconds": hold_value,
+                "note": str(note or "").strip(),
+                "tabs_preview": normalized_tabs[:5],
+            },
+        )
+        return {"tabs": normalized_tabs, "hold_seconds": hold_value, "applied_at_unix": now}
+
+    def clear_browser_simulation(self):
+        had_active = self._simulation_active()
+        with self._simulation_lock:
+            self._browser_simulation = {
+                "active": False,
+                "tabs": [],
+                "note": "",
+                "source": "simulation",
+                "expires_at_unix": 0.0,
+                "applied_at_unix": 0.0,
+                "needs_live_resync": False,
+            }
+        tabs = self.refresh_browser_export(retries=1, delay_seconds=0.05, log_event=False)
+        self.orchestrator.sync_tab_signature(tabs, source="simulation:cleared")
+        self._log_event(
+            "simulation",
+            "override_cleared",
+            "Browser simulation override cleared.",
+            {"had_active": had_active, "live_tab_count": len(tabs), "tabs_preview": tabs[:5]},
+        )
+        return {"cleared": True, "had_active": had_active, "live_tab_count": len(tabs)}
+
+    def _default_stimulus_payload_from_tabs(self, stimulus_type: str, tabs: list[dict]) -> dict:
+        normalized_tabs = self._normalize_browser_tabs(tabs)
+        if stimulus_type in {"tab_opened", "tab_refreshed"}:
+            return {"count": len(normalized_tabs), "tabs": normalized_tabs[:5]}
+        if stimulus_type == "tab_closed":
+            return {
+                "count": len(normalized_tabs),
+                "tabs": normalized_tabs[:5],
+                "tab_ids": [str(tab.get("id", "")).strip() for tab in normalized_tabs[:5] if str(tab.get("id", "")).strip()],
+            }
+        return {}
+
     def refresh_browser_export(self, retries=2, delay_seconds=0.25, log_event=True):
         started_perf = time.perf_counter()
         with self.state.lock:
             previous_revision = int(self.state.resource_revision)
+            browser_name = self.state.browser_name
+        simulation_tabs = self._simulation_override_tabs()
+        source = "simulation" if simulation_tabs is not None else "live"
+        should_resync_live_baseline = simulation_tabs is None and self._consume_simulation_live_resync_flag()
         with self._browser_refresh_lock:
             try:
-                self.tab_reader = BrowserLiveReader(BROWSERS[self.state.browser_name])
-                tabs = self.tab_reader.read_tabs(retries=retries, delay_seconds=delay_seconds)
-                path, count = self.tab_reader.export_tabs(retries=retries, delay_seconds=delay_seconds, tabs=tabs)
-                self.tab_reader.write_index(retries=retries, delay_seconds=delay_seconds, tabs=tabs)
-                self.tab_reader.write_summary(retries=retries, delay_seconds=delay_seconds, tabs=tabs)
+                if simulation_tabs is not None:
+                    tabs = simulation_tabs
+                    path, count = self._write_browser_outputs_from_tabs(tabs, retries=retries, delay_seconds=delay_seconds)
+                else:
+                    self.tab_reader = BrowserLiveReader(BROWSERS[browser_name])
+                    tabs = self.tab_reader.read_tabs(retries=retries, delay_seconds=delay_seconds)
+                    path, count = self._write_browser_outputs_from_tabs(tabs, retries=retries, delay_seconds=delay_seconds)
             except Exception as exc:
                 self._log_event("browser", "error", "Browser export failed.", {"error": str(exc)})
                 return []
@@ -639,6 +816,7 @@ class BigBrotherApp:
                 "path": str(path.relative_to(APP_DIR)),
                 "count": count,
                 "exported_at_unix": exported_at_unix,
+                "source": source,
             }
             changed = fingerprint != self._last_browser_export_fingerprint
             if changed:
@@ -647,6 +825,14 @@ class BigBrotherApp:
             latest_revision = int(self.state.resource_revision)
         if changed:
             self._refresh_resource_debug()
+        if should_resync_live_baseline:
+            self.orchestrator.sync_tab_signature(tabs, source="simulation:expired")
+            self._log_event(
+                "simulation",
+                "override_expired",
+                "Simulation override expired and the browser baseline was resynced to live tabs.",
+                {"live_tab_count": len(tabs), "tabs_preview": tabs[:5]},
+            )
         if log_event:
             self._log_event(
                 "browser",
@@ -657,6 +843,7 @@ class BigBrotherApp:
                     "path": str(path),
                     "retries": int(retries),
                     "delay_seconds": float(delay_seconds),
+                    "source": source,
                     "changed": bool(changed),
                     "resource_revision_before": previous_revision,
                     "resource_revision_after": latest_revision,
@@ -747,6 +934,15 @@ class BigBrotherApp:
         self._capture_cache = {}
         self._last_decision_fingerprint = ""
         self._last_browser_export_fingerprint = ""
+        with self._simulation_lock:
+            self._browser_simulation = {
+                "active": False,
+                "tabs": [],
+                "note": "",
+                "source": "simulation",
+                "expires_at_unix": 0.0,
+                "applied_at_unix": 0.0,
+            }
         self._ensure_browser_event_monitor(force_restart=True)
         self.status_file.reset()
         self.context_files.reset()
@@ -1291,6 +1487,57 @@ class BigBrotherApp:
         )
         return {"accepted": accepted, "type": stimulus_type}
 
+    def simulate_stimulus(
+        self,
+        stimulus_type: str,
+        *,
+        browser_tabs=None,
+        payload: dict | None = None,
+        apply_browser_snapshot: bool = True,
+        derive_payload_from_tabs: bool = True,
+        hold_seconds=None,
+        note: str = "",
+    ):
+        stimulus_type = str(stimulus_type or "").strip()
+        normalized_tabs = self._normalize_browser_tabs(browser_tabs)
+        simulation_payload = dict(payload or {})
+        simulation_info = {
+            "applied_browser_snapshot": False,
+            "hold_seconds": 0.0,
+            "tab_count": len(normalized_tabs),
+            "note": str(note or "").strip(),
+        }
+        if apply_browser_snapshot:
+            override_result = self._apply_browser_simulation(
+                normalized_tabs,
+                hold_seconds=hold_seconds,
+                note=note,
+                source="simulation_panel",
+            )
+            self.refresh_browser_export(retries=1, delay_seconds=0.01, log_event=False)
+            simulation_info["applied_browser_snapshot"] = True
+            simulation_info["hold_seconds"] = float(override_result.get("hold_seconds", 0.0) or 0.0)
+        if derive_payload_from_tabs and not simulation_payload:
+            simulation_payload = self._default_stimulus_payload_from_tabs(stimulus_type, normalized_tabs)
+        result = self.ingest_stimulus(stimulus_type, simulation_payload)
+        self._log_event(
+            "simulation",
+            "stimulus_sent",
+            "Simulation panel emitted a fake stimulus.",
+            {
+                "stimulus_type": stimulus_type,
+                "payload": simulation_payload,
+                "browser_tabs": normalized_tabs,
+                **simulation_info,
+                "accepted": bool(result.get("accepted")),
+            },
+        )
+        return {
+            "ok": True,
+            "stimulus": result,
+            "simulation": simulation_info,
+        }
+
     def complete_client_action(self, action_id: str, result: dict | None = None):
         completed = self.client_actions.complete(action_id, result or {})
         if completed:
@@ -1567,6 +1814,22 @@ class RequestHandler(BaseHTTPRequestHandler):
                 return
             if parsed.path == "/api/stimulus":
                 result = APP.ingest_stimulus(body.get("type", ""), body.get("payload") or {})
+                self._send_json(result)
+                return
+            if parsed.path == "/api/simulate-stimulus":
+                result = APP.simulate_stimulus(
+                    body.get("type", ""),
+                    browser_tabs=body.get("browser_tabs") or [],
+                    payload=body.get("payload") or {},
+                    apply_browser_snapshot=bool(body.get("apply_browser_snapshot", True)),
+                    derive_payload_from_tabs=bool(body.get("derive_payload_from_tabs", True)),
+                    hold_seconds=body.get("hold_seconds"),
+                    note=body.get("note", ""),
+                )
+                self._send_json(result)
+                return
+            if parsed.path == "/api/clear-simulation":
+                result = APP.clear_browser_simulation()
                 self._send_json(result)
                 return
             if parsed.path == "/api/client-action-complete":

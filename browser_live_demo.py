@@ -321,6 +321,7 @@ class BrowserEventMonitor(threading.Thread):
         self.logger = logger
         self.stop_event = threading.Event()
         self._message_id = 0
+        self._known_targets = {}
 
     def stop(self):
         self.stop_event.set()
@@ -358,6 +359,43 @@ class BrowserEventMonitor(threading.Thread):
             return False
         return True
 
+    def _tab_payload_from_target_info(self, target_info: dict) -> dict:
+        url = str(target_info.get("url", "")).strip()
+        return {
+            "id": str(target_info.get("targetId", "")).strip(),
+            "title": str(target_info.get("title", "")).strip(),
+            "url": url,
+            "domain": urlparse(url).netloc,
+        }
+
+    def _remember_target(self, tab_payload: dict):
+        tab_id = str((tab_payload or {}).get("id", "")).strip()
+        if not tab_id:
+            return
+        self._known_targets[tab_id] = dict(tab_payload)
+
+    def _forget_target(self, tab_id: str) -> dict:
+        return dict(self._known_targets.pop(str(tab_id or "").strip(), {}) or {})
+
+    def _seed_known_targets(self, reader):
+        seeded = 0
+        try:
+            for tab in reader.read_tabs(retries=1, delay_seconds=0.05):
+                tab_payload = {
+                    "id": str(tab.get("id", "")).strip(),
+                    "title": str(tab.get("title", "")).strip(),
+                    "url": str(tab.get("url", "")).strip(),
+                    "domain": urlparse(str(tab.get("url", "")).strip()).netloc,
+                }
+                if not tab_payload["id"]:
+                    continue
+                self._remember_target(tab_payload)
+                seeded += 1
+        except Exception as exc:
+            self._log("seed_error", "Unable to seed known browser targets before listening for events.", {"error": str(exc)})
+            return
+        self._log("seeded", "Seeded existing browser targets before enabling discovery.", {"browser": self.config.name, "count": seeded})
+
     def _normalize_event(self, message: dict) -> dict | None:
         method = str(message.get("method", "")).strip()
         stimulus_type = self.EVENT_METHODS.get(method)
@@ -371,6 +409,7 @@ class BrowserEventMonitor(threading.Thread):
             target_id = str(params.get("targetId", "")).strip()
             if not target_id:
                 return None
+            prior_tab = self._forget_target(target_id)
             return {
                 "source": "devtools",
                 "method": method,
@@ -380,6 +419,7 @@ class BrowserEventMonitor(threading.Thread):
                 "observed_at_unix": observed_at_unix,
                 "payload": {
                     "count": 1,
+                    "tabs": [prior_tab] if prior_tab else [],
                     "tab_ids": [target_id],
                     "source_event": method,
                     "source_browser": self.config.name,
@@ -392,11 +432,16 @@ class BrowserEventMonitor(threading.Thread):
         if not self._is_page_target(target_info):
             return None
 
-        tab_payload = {
-            "id": str(target_info.get("targetId", "")).strip(),
-            "title": str(target_info.get("title", "")).strip(),
-            "url": str(target_info.get("url", "")).strip(),
-        }
+        tab_payload = self._tab_payload_from_target_info(target_info)
+        if method == "Target.targetCreated" and tab_payload["id"] in self._known_targets:
+            self._remember_target(tab_payload)
+            self._log(
+                "suppressed",
+                "Ignored a discovery-time targetCreated event for an already-known page target.",
+                {"browser": self.config.name, "tab": tab_payload},
+            )
+            return None
+        self._remember_target(tab_payload)
         return {
             "source": "devtools",
             "method": method,
@@ -450,6 +495,8 @@ class BrowserEventMonitor(threading.Thread):
                     self.stop_event.wait(1.0)
                     continue
 
+                self._known_targets = {}
+                self._seed_known_targets(reader)
                 self._log("connecting", "Connecting to browser DevTools event stream.", {"browser": self.config.name, "ws_url": ws_url})
                 ws = websocket.create_connection(ws_url, timeout=2)
                 ws.settimeout(1.0)

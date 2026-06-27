@@ -1,22 +1,19 @@
 {
-  "updated_at": "2026-06-26T14:42:14.993",
-  "focus_state": "distracted",
-  "summary": "Browser tab shows Roblox open alongside calculus material",
+  "updated_at": "2026-06-26T17:28:27.717",
+  "focus_state": "focused",
+  "summary": "Browser tabs now align with study goal after tab closure",
   "active_notes": [
     "A browser tab changed. Refresh browser data first and treat browser evidence as highest priority.",
-    "Roblox is a known distraction despite calculus tab remaining open"
+    "Tab closure confirmed via browser_rag",
+    "No distraction tabs detected in current browser state"
   ],
-  "last_stimulus": "stimulus:tab_refreshed",
-  "last_turn_reason": "stimulus:tab_refreshed",
+  "last_stimulus": "stimulus:tab_closed",
+  "last_turn_reason": "stimulus:tab_closed",
   "resource_summary": {
     "missing_sources": [
       "webcam",
       "screenshare"
     ]
   },
-  "open_tab_ids": [
-    "28CA9D9E33500D895FA96A325AD16ADD",
-    "75363395769C3CA37FC4EF321A452B26",
-    "44AED4DC90EFC026E673642376451A58"
-  ]
+  "open_tab_ids": []
 }

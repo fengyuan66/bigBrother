@@ -402,6 +402,10 @@ class BigBrotherApp:
                 reason="New browser evidence arrived before narration began.",
                 replacement_stimulus=stimulus_type,
             )
+            self._clear_speech_grace_if_active(
+                reason="New browser evidence arrived after narration finished.",
+                replacement_stimulus=stimulus_type,
+            )
 
         tabs = self.refresh_browser_export(retries=1, delay_seconds=0.05, log_event=False)
         self._log_event(
@@ -466,6 +470,31 @@ class BigBrotherApp:
             "canceled",
             "Pending speech signal canceled before narration started.",
             {"event_id": canceled_event_id, "reason": reason, "replacement_stimulus": replacement_stimulus},
+        )
+        return True
+
+    def _clear_speech_grace_if_active(self, reason: str, replacement_stimulus: str = "") -> bool:
+        with self.state.lock:
+            speech = dict(self.state.speech)
+            if speech.get("in_progress"):
+                return False
+            grace_until = float(speech.get("grace_until_unix", 0.0) or 0.0)
+            if grace_until <= time.time():
+                return False
+            self.state.speech = {
+                "in_progress": False,
+                "event_id": "",
+                "text": "",
+                "started_at": "",
+                "client_started": False,
+                "grace_until_unix": 0.0,
+            }
+            self.state.status = "Post-speech grace cleared because fresher browser evidence arrived."
+        self._log_event(
+            "speech",
+            "grace_cleared",
+            "Post-speech grace window cleared so fresher browser evidence can be assessed immediately.",
+            {"reason": reason, "replacement_stimulus": replacement_stimulus, "state": self._debug_state_summary()},
         )
         return True
 
@@ -657,13 +686,14 @@ class BigBrotherApp:
         self._capture_hashes = {}
         self._capture_cache = {}
         self._last_decision_fingerprint = ""
+        self.status_file.reset()
+        self.context_files.reset()
         clear_targets = [
             DEBUG_LOG_PATH,
             PERSONALITY_JSON_PATH,
             self.memory.path,
             self.todos.path,
             self.client_actions.path,
-            self.context_files.historic_path,
         ]
         for path in clear_targets:
             try:

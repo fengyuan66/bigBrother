@@ -187,7 +187,11 @@ class StatusFile:
     def __init__(self, path: Path = STATUS_PATH):
         self.path = Path(path)
         self.lock = threading.RLock()
-        self.data = {
+        self.data = self._default_data()
+        self._load()
+
+    def _default_data(self):
+        return {
             "updated_at": now_iso(),
             "focus_state": "unknown",
             "last_activity_at": "",
@@ -199,7 +203,6 @@ class StatusFile:
             "last_intervention_at": "",
             "notes": "",
         }
-        self._load()
 
     def _load(self):
         if not self.path.exists():
@@ -219,6 +222,16 @@ class StatusFile:
         with self.lock:
             self.data.update(fields)
             self.data["updated_at"] = now_iso()
+            try:
+                self.path.parent.mkdir(parents=True, exist_ok=True)
+                self.path.write_text(json.dumps(self.data, indent=2), encoding="utf-8")
+            except OSError:
+                pass
+            return dict(self.data)
+
+    def reset(self) -> dict:
+        with self.lock:
+            self.data = self._default_data()
             try:
                 self.path.parent.mkdir(parents=True, exist_ok=True)
                 self.path.write_text(json.dumps(self.data, indent=2), encoding="utf-8")
@@ -347,6 +360,18 @@ class ContextFiles:
     def recent_history(self, limit: int = 8):
         with self.lock:
             return list(self.history[-max(1, int(limit)) :])
+
+    def reset(self):
+        with self.lock:
+            self.current = self._default_current()
+            self.history = []
+            try:
+                self.current_path.parent.mkdir(parents=True, exist_ok=True)
+                self.current_path.write_text(json.dumps(self.current, indent=2), encoding="utf-8")
+                self.historic_path.write_text("", encoding="utf-8")
+            except OSError:
+                pass
+            return {"current": dict(self.current), "history_count": 0}
 
     def write_snapshot(self, summary: str, *, focus_state: str = "", notes=None, meta=None):
         notes = [str(item).strip() for item in (notes or []) if str(item).strip()]

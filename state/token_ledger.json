@@ -1,17 +1,24 @@
 {
-  "started_at": "2026-06-26T14:41:23.448",
+  "started_at": "2026-06-26T17:24:02.482",
   "components": {
     "mpa": {
-      "calls": 7,
+      "calls": 17,
       "skipped_calls": 0,
-      "prompt_tokens": 7032,
-      "completion_tokens": 2039,
+      "prompt_tokens": 22759,
+      "completion_tokens": 6183,
       "estimated_tokens_saved": 0
+    },
+    "agent": {
+      "calls": 0,
+      "skipped_calls": 23,
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "estimated_tokens_saved": 6072
     }
   },
-  "total_calls": 7,
-  "total_skipped_calls": 0,
-  "total_tokens_used": 9071,
-  "total_estimated_tokens_saved": 0,
-  "efficiency_multiplier": 1.0
+  "total_calls": 17,
+  "total_skipped_calls": 23,
+  "total_tokens_used": 28942,
+  "total_estimated_tokens_saved": 6072,
+  "efficiency_multiplier": 1.21
 }

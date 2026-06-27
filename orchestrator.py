@@ -216,6 +216,10 @@ class AgentOrchestrator(threading.Thread):
                 refreshed.append(tab)
 
         if opened or closed or refreshed:
+            self.app._clear_speech_grace_if_active(
+                reason="Browser poll detected fresher browser evidence after narration finished.",
+                replacement_stimulus="browser_poll_delta",
+            )
             self.app._log_event(
                 "browser",
                 "diff",

@@ -1,21 +1,14 @@
 {
-  "updated_at": "2026-06-26T14:42:22.629",
-  "focus_state": "distracted",
-  "last_activity_at": "2026-06-25T00:38:17.178",
-  "last_stimulus": "tab_closed",
-  "last_stimulus_at": "2026-06-26T14:42:22.628",
+  "updated_at": "2026-06-26T17:39:03.098",
+  "focus_state": "unknown",
+  "last_activity_at": "",
+  "last_stimulus": "heartbeat",
+  "last_stimulus_at": "2026-06-26T17:38:33.759",
   "last_stimulus_payload": {
-    "count": 1,
-    "tab_ids": [
-      "4230AD4B26A99183A964A96959C2121F"
-    ],
-    "source_event": "Target.targetDestroyed",
-    "source_browser": "Edge",
-    "source_event_at": "2026-06-26T14:42:22.574",
-    "source_event_at_unix": 1782510142.5742106
+    "idle_seconds": 30.5
   },
-  "last_turn_at": "2026-06-26 14:42:14",
-  "last_turn_reason": "stimulus:tab_refreshed",
-  "last_intervention_at": "2026-06-26T14:42:15.264",
-  "notes": "Browser tab shows Roblox open alongside calculus material"
+  "last_turn_at": "2026-06-26 17:38:33",
+  "last_turn_reason": "stimulus:heartbeat",
+  "last_intervention_at": "2026-06-26T17:28:27.920",
+  "notes": "Session stopped."
 }

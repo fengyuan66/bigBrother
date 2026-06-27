@@ -410,6 +410,13 @@ class BrowserEventMonitor(threading.Thread):
             if not target_id:
                 return None
             prior_tab = self._forget_target(target_id)
+            if not prior_tab:
+                self._log(
+                    "ignored_destroyed_target",
+                    "Ignored Target.targetDestroyed for an unknown or non-page target.",
+                    {"browser": self.config.name, "target_id": target_id},
+                )
+                return None
             return {
                 "source": "devtools",
                 "method": method,

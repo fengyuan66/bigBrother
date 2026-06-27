@@ -288,6 +288,7 @@ class BigBrotherApp:
             "context_history": self.context_files.recent_history(8),
             "pending_actions": self.client_actions.pending(),
             "last_stimulus": dict(self.bus.last_stimulus),
+            "stimulus_history": self.bus.history(limit=40),
             "token_ledger": self.ledger.snapshot(),
             "heartbeat_seconds": self.orchestrator.heartbeat_seconds,
         }
@@ -429,6 +430,7 @@ class BigBrotherApp:
                 ],
             },
         )
+        self.orchestrator.sync_tab_signature(tabs, source=f"browser_event:{stimulus_type}")
         accepted = self.bus.emit(stimulus_type, payload)
         self._log_event(
             "browser",

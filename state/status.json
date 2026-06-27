@@ -1,14 +1,12 @@
 {
-  "updated_at": "2026-06-26T17:39:03.098",
+  "updated_at": "2026-06-26T19:12:10.837",
   "focus_state": "unknown",
   "last_activity_at": "",
-  "last_stimulus": "heartbeat",
-  "last_stimulus_at": "2026-06-26T17:38:33.759",
-  "last_stimulus_payload": {
-    "idle_seconds": 30.5
-  },
-  "last_turn_at": "2026-06-26 17:38:33",
-  "last_turn_reason": "stimulus:heartbeat",
-  "last_intervention_at": "2026-06-26T17:28:27.920",
-  "notes": "Session stopped."
+  "last_stimulus": "",
+  "last_stimulus_at": "",
+  "last_stimulus_payload": {},
+  "last_turn_at": "",
+  "last_turn_reason": "",
+  "last_intervention_at": "",
+  "notes": ""
 }

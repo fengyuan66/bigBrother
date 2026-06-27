@@ -1,24 +1,9 @@
 {
-  "started_at": "2026-06-26T17:24:02.482",
-  "components": {
-    "mpa": {
-      "calls": 17,
-      "skipped_calls": 0,
-      "prompt_tokens": 22759,
-      "completion_tokens": 6183,
-      "estimated_tokens_saved": 0
-    },
-    "agent": {
-      "calls": 0,
-      "skipped_calls": 23,
-      "prompt_tokens": 0,
-      "completion_tokens": 0,
-      "estimated_tokens_saved": 6072
-    }
-  },
-  "total_calls": 17,
-  "total_skipped_calls": 23,
-  "total_tokens_used": 28942,
-  "total_estimated_tokens_saved": 6072,
-  "efficiency_multiplier": 1.21
+  "started_at": "2026-06-26T19:12:10.282",
+  "components": {},
+  "total_calls": 0,
+  "total_skipped_calls": 0,
+  "total_tokens_used": 0,
+  "total_estimated_tokens_saved": 0,
+  "efficiency_multiplier": 0.0
 }

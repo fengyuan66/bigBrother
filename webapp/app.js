@@ -41,6 +41,7 @@ const agentMemory = document.getElementById("agentMemory");
 const debugEventLog = document.getElementById("debugEventLog");
 const agentJson = document.getElementById("agentJson");
 const responseJson = document.getElementById("responseJson");
+const stimulusHistoryTableBody = document.getElementById("stimulusHistoryTableBody");
 
 const browserOutput = document.getElementById("browserOutput");
 const webcamOutput = document.getElementById("webcamOutput");
@@ -127,6 +128,46 @@ function formatDuration(totalSeconds) {
   return `${remainder}s`;
 }
 
+function formatTimestampLabel(timestamp, fallbackUnix = 0) {
+  const text = String(timestamp || "").trim();
+  if (text) {
+    return text.replace("T", " ");
+  }
+  const unix = Number(fallbackUnix || 0);
+  if (!unix) {
+    return "Unknown";
+  }
+  return new Date(unix * 1000).toISOString().replace("T", " ").replace("Z", "");
+}
+
+function formatStimulusRelevancy(seconds) {
+  if (seconds === null || seconds === undefined || seconds === "") {
+    return "Current";
+  }
+  const value = Number(seconds);
+  if (!Number.isFinite(value)) {
+    return "Current";
+  }
+  if (value < 60) {
+    const decimals = value < 10 ? 3 : 1;
+    return `${value.toFixed(decimals).replace(/0+$/, "").replace(/\.$/, "")}s`;
+  }
+  const minutes = Math.floor(value / 60);
+  const remainder = value - minutes * 60;
+  if (minutes < 60) {
+    if (remainder <= 0.001) {
+      return `${minutes}m`;
+    }
+    return `${minutes}m ${Math.round(remainder)}s`;
+  }
+  const hours = Math.floor(minutes / 60);
+  const leftoverMinutes = minutes - hours * 60;
+  if (leftoverMinutes === 0) {
+    return `${hours}h`;
+  }
+  return `${hours}h ${leftoverMinutes}m`;
+}
+
 function syncSessionDurationLabel() {
   sessionDurationValue.textContent = `${Number(sessionDurationSlider.value || 15)} min`;
 }
@@ -193,6 +234,50 @@ function renderPendingActions(actions) {
   }
   actionBadge.textContent = `${entries.length} queued`;
   actionBadge.className = "badge warm";
+}
+
+function renderStimulusHistory(items) {
+  if (!stimulusHistoryTableBody) {
+    return;
+  }
+  const entries = Array.isArray(items) ? items : [];
+  stimulusHistoryTableBody.innerHTML = "";
+  if (!entries.length) {
+    const row = document.createElement("tr");
+    const cell = document.createElement("td");
+    cell.colSpan = 3;
+    cell.textContent = "No stimuli recorded yet.";
+    row.appendChild(cell);
+    stimulusHistoryTableBody.appendChild(row);
+    return;
+  }
+
+  for (const entry of entries) {
+    const row = document.createElement("tr");
+    if (!entry.replaced_at) {
+      row.classList.add("is-current");
+    }
+
+    const typeCell = document.createElement("td");
+    const typeChip = document.createElement("span");
+    typeChip.className = "history-type";
+    typeChip.textContent = String(entry.type || "unknown");
+    typeCell.appendChild(typeChip);
+
+    const timeCell = document.createElement("td");
+    timeCell.textContent = formatTimestampLabel(entry.emitted_at, entry.emitted_at_unix);
+
+    const relevancyCell = document.createElement("td");
+    relevancyCell.textContent = formatStimulusRelevancy(entry.relevancy_duration_seconds);
+    if (!entry.replaced_at) {
+      relevancyCell.classList.add("history-current");
+    }
+
+    row.appendChild(typeCell);
+    row.appendChild(timeCell);
+    row.appendChild(relevancyCell);
+    stimulusHistoryTableBody.appendChild(row);
+  }
 }
 
 function playStimulusCue(stimulusType) {
@@ -574,6 +659,7 @@ function renderState(state) {
 
   const lastStimulus = agent.last_stimulus || {};
   stimulusBadge.textContent = lastStimulus.type ? lastStimulus.type : "No stimulus yet";
+  renderStimulusHistory(agent.stimulus_history || []);
   agentStatusText.textContent = `Focus: ${(agent.status && agent.status.focus_state) || "unknown"} · Last turn: ${
     (agent.status && agent.status.last_turn_reason) || "none"
   } · ${((agent.status && agent.status.notes) || "").trim()}`;

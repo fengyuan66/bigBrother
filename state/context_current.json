@@ -1,19 +1,10 @@
 {
-  "updated_at": "2026-06-26T17:28:27.717",
-  "focus_state": "focused",
-  "summary": "Browser tabs now align with study goal after tab closure",
-  "active_notes": [
-    "A browser tab changed. Refresh browser data first and treat browser evidence as highest priority.",
-    "Tab closure confirmed via browser_rag",
-    "No distraction tabs detected in current browser state"
-  ],
-  "last_stimulus": "stimulus:tab_closed",
-  "last_turn_reason": "stimulus:tab_closed",
-  "resource_summary": {
-    "missing_sources": [
-      "webcam",
-      "screenshare"
-    ]
-  },
+  "updated_at": "2026-06-26T19:12:10.930",
+  "focus_state": "unknown",
+  "summary": "",
+  "active_notes": [],
+  "last_stimulus": "",
+  "last_turn_reason": "",
+  "resource_summary": {},
   "open_tab_ids": []
 }

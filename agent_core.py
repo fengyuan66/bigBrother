@@ -485,6 +485,7 @@ class StimulusBus:
         "activity": 2.0,
         "heartbeat": 5.0,
     }
+    MAX_HISTORY_ITEMS = 60
 
     def __init__(self, debounce_overrides: dict | None = None):
         self.queue = queue.Queue()
@@ -494,6 +495,31 @@ class StimulusBus:
             self.debounce.update(debounce_overrides)
         self.last_emitted_at = {}
         self.last_stimulus = {}
+        self.stimulus_history = []
+
+    def _close_active_stimulus_locked(self, replaced_at: str, replaced_at_unix: float):
+        if not self.stimulus_history:
+            return
+        active = self.stimulus_history[-1]
+        if active.get("replaced_at"):
+            return
+        emitted_at_unix = float(active.get("emitted_at_unix", 0.0) or 0.0)
+        duration_seconds = None
+        if emitted_at_unix:
+            duration_seconds = max(0.0, round(float(replaced_at_unix) - emitted_at_unix, 3))
+        active["replaced_at"] = str(replaced_at or "")
+        active["replaced_at_unix"] = float(replaced_at_unix or 0.0)
+        active["relevancy_duration_seconds"] = duration_seconds
+
+    def history(self, limit: int | None = None):
+        with self.lock:
+            entries = [dict(item) for item in self.stimulus_history]
+        if limit is None:
+            return entries
+        limit = max(0, int(limit))
+        if not limit:
+            return []
+        return entries[-limit:]
 
     def emit(self, stimulus_type: str, payload: dict | None = None) -> bool:
         stimulus_type = str(stimulus_type)
@@ -504,13 +530,23 @@ class StimulusBus:
             if window > 0 and now - last < window:
                 return False
             self.last_emitted_at[stimulus_type] = now
+            payload = dict(payload or {})
+            emitted_at = now_iso()
+            self._close_active_stimulus_locked(emitted_at, now)
             stimulus = {
                 "type": stimulus_type,
-                "payload": payload or {},
-                "emitted_at": now_iso(),
+                "payload": payload,
+                "emitted_at": emitted_at,
                 "emitted_at_unix": now,
             }
-            self.last_stimulus = stimulus
+            self.last_stimulus = dict(stimulus)
+            history_entry = dict(stimulus)
+            history_entry["replaced_at"] = ""
+            history_entry["replaced_at_unix"] = 0.0
+            history_entry["relevancy_duration_seconds"] = None
+            self.stimulus_history.append(history_entry)
+            if len(self.stimulus_history) > self.MAX_HISTORY_ITEMS:
+                self.stimulus_history = self.stimulus_history[-self.MAX_HISTORY_ITEMS :]
         self.queue.put(stimulus)
         return True
 

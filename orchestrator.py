@@ -90,6 +90,19 @@ class AgentOrchestrator(threading.Thread):
             {"count": len(self._tab_signature), "tabs": self._signature_preview(self._tab_signature)},
         )
 
+    def sync_tab_signature(self, tabs: list[dict], source: str = ""):
+        self._tab_signature = self._tabs_signature(tabs)
+        self.app._log_event(
+            "browser",
+            "baseline_sync",
+            "Browser tab baseline synced from a fresh browser event snapshot.",
+            {
+                "source": str(source or "unknown"),
+                "count": len(self._tab_signature),
+                "tabs": self._signature_preview(self._tab_signature),
+            },
+        )
+
     def stop(self):
         self.stop_event.set()
 

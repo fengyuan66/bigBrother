@@ -58,7 +58,8 @@ MODE_TO_SUMMARY_PATH = {
     "screen": SUMMARIES_DIR / "screen_summary.json",
 }
 VOLATILE_LINE_PREFIXES = ("created:", "updated:", "timestamp", "exported")
-POST_SPEECH_GRACE_SECONDS = int(os.getenv("BIG_BROTHER_POST_SPEECH_GRACE_SECONDS", "5"))
+POST_SPEECH_GRACE_SECONDS = 0
+FRESH_BROWSER_EXPORT_SECONDS = float(os.getenv("BIG_BROTHER_FRESH_BROWSER_EXPORT_SECONDS", "3"))
 
 
 def now_iso():
@@ -166,13 +167,13 @@ class DashboardState:
             "response_required": False,
             "requested_resources": [],
             "notes": [],
-            "actor_mode": "heuristic",
+            "actor_mode": "idle",
         }
         self.planner_output = {
             "summary": "No follow-up actions yet.",
             "requested_actions": [],
             "notes": [],
-            "actor_mode": "heuristic",
+            "actor_mode": "idle",
         }
         self.personality_output = {
             "triggered": False,
@@ -264,6 +265,7 @@ class BigBrotherApp:
         self._capture_hashes = {}
         self._capture_cache = {}
         self._last_decision_fingerprint = ""
+        self._last_browser_export_fingerprint = ""
         if start_orchestrator:
             self.orchestrator.start()
         self._ensure_browser_event_monitor()
@@ -337,9 +339,35 @@ class BigBrotherApp:
             },
         }
 
-    def _ensure_browser_event_monitor(self):
+    def _browser_tabs_fingerprint(self, tabs: list[dict]) -> str:
+        normalized = []
+        for tab in list(tabs or []):
+            tab = dict(tab or {})
+            normalized.append(
+                {
+                    "id": str(tab.get("id", "")).strip(),
+                    "title": str(tab.get("title", "")).strip(),
+                    "url": str(tab.get("url", "")).strip(),
+                    "domain": str(tab.get("domain", "")).strip(),
+                }
+            )
+        normalized.sort(key=lambda item: (item["id"], item["url"], item["title"], item["domain"]))
+        return hashlib.sha1(
+            json.dumps(normalized, ensure_ascii=True, separators=(",", ":"), sort_keys=True).encode("utf-8")
+        ).hexdigest()
+
+    def _has_fresh_browser_export(self, max_age_seconds: float = FRESH_BROWSER_EXPORT_SECONDS) -> bool:
+        with self.state.lock:
+            exported_at_unix = float((self.state.last_export or {}).get("exported_at_unix", 0.0) or 0.0)
+        if exported_at_unix <= 0:
+            return False
+        return (time.time() - exported_at_unix) <= max(0.0, float(max_age_seconds))
+
+    def _ensure_browser_event_monitor(self, force_restart: bool = False):
         config = BROWSERS[self.state.browser_name]
         if (
+            not force_restart
+            and
             self.browser_event_monitor is not None
             and self.browser_event_monitor.is_alive()
             and self.browser_event_monitor.config.name == config.name
@@ -549,6 +577,27 @@ class BigBrotherApp:
         grace_until = float(speech.get("grace_until_unix", 0.0) or 0.0)
         return grace_until > time.time()
 
+    def _turn_is_obsolete(self, turn_resource_revision: int) -> tuple[bool, dict]:
+        with self.state.lock:
+            latest_revision = int(self.state.resource_revision)
+            running = bool(self.state.running)
+        return (not running or latest_revision != turn_resource_revision), {
+            "turn_resource_revision": int(turn_resource_revision),
+            "latest_resource_revision": latest_revision,
+            "running": running,
+        }
+
+    def _discard_obsolete_turn(self, reason: str, phase_label: str, stale_payload: dict):
+        if stale_payload.get("running"):
+            message = f"Agent turn discarded because newer evidence arrived during {phase_label}."
+        else:
+            message = f"Agent turn discarded because the session stopped during {phase_label}."
+        self._log_event("turn", "stale", message, {"reason": reason, **dict(stale_payload or {})})
+        if not stale_payload.get("running"):
+            with self.state.lock:
+                if not self.state.running:
+                    self.state.status = "Session stopped."
+
     def _resource_max_age_seconds(self):
         with self.state.lock:
             return max(10, int(self.state.interval_seconds) * 2 + 5)
@@ -576,21 +625,28 @@ class BigBrotherApp:
         with self._browser_refresh_lock:
             try:
                 self.tab_reader = BrowserLiveReader(BROWSERS[self.state.browser_name])
-                path, count = self.tab_reader.export_tabs(retries=retries, delay_seconds=delay_seconds)
-                self.tab_reader.write_index(retries=retries, delay_seconds=delay_seconds)
-                self.tab_reader.write_summary(retries=retries, delay_seconds=delay_seconds)
                 tabs = self.tab_reader.read_tabs(retries=retries, delay_seconds=delay_seconds)
+                path, count = self.tab_reader.export_tabs(retries=retries, delay_seconds=delay_seconds, tabs=tabs)
+                self.tab_reader.write_index(retries=retries, delay_seconds=delay_seconds, tabs=tabs)
+                self.tab_reader.write_summary(retries=retries, delay_seconds=delay_seconds, tabs=tabs)
             except Exception as exc:
                 self._log_event("browser", "error", "Browser export failed.", {"error": str(exc)})
                 return []
+        exported_at_unix = time.time()
+        fingerprint = self._browser_tabs_fingerprint(tabs)
         with self.state.lock:
             self.state.last_export = {
                 "path": str(path.relative_to(APP_DIR)),
                 "count": count,
+                "exported_at_unix": exported_at_unix,
             }
-            self.state.resource_revision += 1
+            changed = fingerprint != self._last_browser_export_fingerprint
+            if changed:
+                self.state.resource_revision += 1
+                self._last_browser_export_fingerprint = fingerprint
             latest_revision = int(self.state.resource_revision)
-        self._refresh_resource_debug()
+        if changed:
+            self._refresh_resource_debug()
         if log_event:
             self._log_event(
                 "browser",
@@ -601,6 +657,7 @@ class BigBrotherApp:
                     "path": str(path),
                     "retries": int(retries),
                     "delay_seconds": float(delay_seconds),
+                    "changed": bool(changed),
                     "resource_revision_before": previous_revision,
                     "resource_revision_after": latest_revision,
                     "duration_ms": round((time.perf_counter() - started_perf) * 1000, 1),
@@ -623,7 +680,7 @@ class BigBrotherApp:
             self.state.browser_url = browser_url or self.state.browser_url
         self.tab_reader = BrowserLiveReader(BROWSERS[browser_name])
         self.tab_reader.launch(browser_url or "about:blank")
-        self._ensure_browser_event_monitor()
+        self._ensure_browser_event_monitor(force_restart=True)
         self._log_event("browser", "launch", "Tracked browser launched.", {"browser": browser_name, "url": browser_url})
 
     def start(self, goal=None, interval_seconds=None, duration_seconds=None, browser_name=None, browser_url=None):
@@ -643,7 +700,7 @@ class BigBrotherApp:
             self.state.status = "Agent session running."
             self.state.last_error = ""
             start_snapshot = self._debug_state_summary()
-        self._ensure_browser_event_monitor()
+        self._ensure_browser_event_monitor(force_restart=True)
         self.refresh_browser_export()
         self._log_event("session", "start", "Agent session started.", start_snapshot)
         self.orchestrator.note_session_started()
@@ -681,6 +738,7 @@ class BigBrotherApp:
         self.ledger = TokenLedger()
         self.agent = AgentActor(ledger=self.ledger)
         self.personality = PersonalityActor(ledger=self.ledger)
+        self.tab_reader = BrowserLiveReader(BROWSERS[self.state.browser_name])
         self.orchestrator.bus = self.bus
         self.orchestrator.memory = self.memory
         self.orchestrator.status = self.status_file
@@ -688,6 +746,8 @@ class BigBrotherApp:
         self._capture_hashes = {}
         self._capture_cache = {}
         self._last_decision_fingerprint = ""
+        self._last_browser_export_fingerprint = ""
+        self._ensure_browser_event_monitor(force_restart=True)
         self.status_file.reset()
         self.context_files.reset()
         clear_targets = [
@@ -763,13 +823,21 @@ class BigBrotherApp:
                     self.state.status = f"Post-speech grace active ({remaining}s). Big Brother is waiting before reassessing."
             return
         refresh_started_perf = time.perf_counter()
-        self.refresh_browser_export(log_event=False)
-        self._log_event(
-            "turn",
-            "browser_sync_complete",
-            "Browser export sync finished for turn.",
-            {"reason": reason, "duration_ms": round((time.perf_counter() - refresh_started_perf) * 1000, 1)},
-        )
+        if self._has_fresh_browser_export():
+            self._log_event(
+                "turn",
+                "browser_sync_reused",
+                "Turn reused a fresh browser export instead of forcing another export.",
+                {"reason": reason, "max_age_seconds": FRESH_BROWSER_EXPORT_SECONDS},
+            )
+        else:
+            self.refresh_browser_export(log_event=False)
+            self._log_event(
+                "turn",
+                "browser_sync_complete",
+                "Browser export sync finished for turn.",
+                {"reason": reason, "duration_ms": round((time.perf_counter() - refresh_started_perf) * 1000, 1)},
+            )
         resources = self._refresh_resource_debug()
         with self.state.lock:
             turn_resource_revision = int(self.state.resource_revision)
@@ -837,21 +905,9 @@ class BigBrotherApp:
                 "requested_resources": list(decision.requested_resources),
             },
         )
-        with self.state.lock:
-            latest_revision = int(self.state.resource_revision)
-        if latest_revision != turn_resource_revision:
-            self._log_event(
-                "turn",
-                "stale",
-                "Agent turn discarded because newer evidence arrived during evaluation.",
-                {
-                    "reason": reason,
-                    "turn_resource_revision": turn_resource_revision,
-                    "latest_resource_revision": latest_revision,
-                },
-            )
-            with self.state.lock:
-                self.state.status = "Skipped a stale turn because newer evidence arrived."
+        obsolete, stale_payload = self._turn_is_obsolete(turn_resource_revision)
+        if obsolete:
+            self._discard_obsolete_turn(reason, "evaluation", stale_payload)
             return
 
         for _ in range(2):
@@ -909,50 +965,12 @@ class BigBrotherApp:
                     "requested_resources": list(decision.requested_resources),
                 },
             )
-            with self.state.lock:
-                latest_revision = int(self.state.resource_revision)
-            if latest_revision != turn_resource_revision:
-                self._log_event(
-                    "turn",
-                    "stale",
-                    "Agent turn discarded because newer evidence arrived during browser re-evaluation.",
-                    {
-                        "reason": reason,
-                        "turn_resource_revision": turn_resource_revision,
-                        "latest_resource_revision": latest_revision,
-                    },
-                )
-                with self.state.lock:
-                    self.state.status = "Skipped a stale turn because newer evidence arrived."
+            obsolete, stale_payload = self._turn_is_obsolete(turn_resource_revision)
+            if obsolete:
+                self._discard_obsolete_turn(reason, "browser re-evaluation", stale_payload)
                 return
 
         self._last_decision_fingerprint = fingerprint
-
-        requested_actions = []
-        for item in decision.requested_resources:
-            queued = self._queue_requested_resource(item)
-            if queued:
-                requested_actions.append(queued)
-        for todo in decision.todo_writes:
-            note = str(todo.get("note", "")).strip()
-            if note:
-                created = self.todos.add(
-                    note,
-                    due_in_seconds=float(todo.get("due_in_seconds", 0) or 0),
-                    kind=str(todo.get("kind", "scheduled")),
-                )
-                requested_actions.append({"todo": created})
-        self._log_event(
-            "planner",
-            "actions_resolved",
-            "Decision resources and todos were converted into runtime actions.",
-            {
-                "reason": reason,
-                "requested_resources": list(decision.requested_resources),
-                "resolved_actions": requested_actions,
-                "todo_writes": list(decision.todo_writes),
-            },
-        )
 
         now_label = time.strftime("%Y-%m-%d %H:%M:%S")
         should_speak = decision.response_required and self._should_emit_response(decision)
@@ -973,21 +991,9 @@ class BigBrotherApp:
                     },
                 )(),
             )
-        with self.state.lock:
-            latest_revision = int(self.state.resource_revision)
-        if latest_revision != turn_resource_revision:
-            self._log_event(
-                "turn",
-                "stale",
-                "Agent turn discarded because newer evidence arrived during response wording.",
-                {
-                    "reason": reason,
-                    "turn_resource_revision": turn_resource_revision,
-                    "latest_resource_revision": latest_revision,
-                },
-            )
-            with self.state.lock:
-                self.state.status = "Skipped a stale turn because newer evidence arrived."
+        obsolete, stale_payload = self._turn_is_obsolete(turn_resource_revision)
+        if obsolete:
+            self._discard_obsolete_turn(reason, "response wording", stale_payload)
             return
         self._log_event(
             "response",
@@ -1016,6 +1022,32 @@ class BigBrotherApp:
             "audio_error": "",
             "event_id": now_label,
         }
+
+        requested_actions = []
+        for item in decision.requested_resources:
+            queued = self._queue_requested_resource(item)
+            if queued:
+                requested_actions.append(queued)
+        for todo in decision.todo_writes:
+            note = str(todo.get("note", "")).strip()
+            if note:
+                created = self.todos.add(
+                    note,
+                    due_in_seconds=float(todo.get("due_in_seconds", 0) or 0),
+                    kind=str(todo.get("kind", "scheduled")),
+                )
+                requested_actions.append({"todo": created})
+        self._log_event(
+            "planner",
+            "actions_resolved",
+            "Decision resources and todos were converted into runtime actions.",
+            {
+                "reason": reason,
+                "requested_resources": list(decision.requested_resources),
+                "resolved_actions": requested_actions,
+                "todo_writes": list(decision.todo_writes),
+            },
+        )
 
         self.context_files.write_snapshot(
             decision.summary,
@@ -1142,7 +1174,8 @@ class BigBrotherApp:
             active_event_id = str(self.state.speech.get("event_id", "")).strip()
             if event_id and active_event_id and event_id != active_event_id:
                 return {"ok": False, "reason": "event_id_mismatch", "active_event_id": active_event_id}
-            grace_until = time.time() + POST_SPEECH_GRACE_SECONDS
+            grace_seconds = max(0, int(POST_SPEECH_GRACE_SECONDS))
+            grace_until = time.time() + grace_seconds if grace_seconds > 0 else 0.0
             current_output = dict(self.state.personality_output or {})
             current_output["should_speak"] = False
             self.state.personality_output = current_output
@@ -1154,18 +1187,22 @@ class BigBrotherApp:
                 "client_started": False,
                 "grace_until_unix": grace_until,
             }
-            self.state.status = f"Speech finished. Waiting {POST_SPEECH_GRACE_SECONDS}s before reassessing."
+            self.state.status = (
+                f"Speech finished. Waiting {grace_seconds}s before reassessing."
+                if grace_seconds > 0
+                else "Speech finished. Reassessment may resume immediately."
+            )
         self._log_event(
             "speech",
             "finished",
-            "Speech narration finished. Grace period started.",
+            "Speech narration finished. Grace period started." if grace_seconds > 0 else "Speech narration finished. No post-speech grace window is active.",
             {
                 "event_id": event_id or active_event_id,
-                "grace_seconds": POST_SPEECH_GRACE_SECONDS,
+                "grace_seconds": grace_seconds,
                 "state": self._debug_state_summary(),
             },
         )
-        return {"ok": True, "grace_seconds": POST_SPEECH_GRACE_SECONDS}
+        return {"ok": True, "grace_seconds": grace_seconds}
 
     def _arm_speech_lock(self, event_id: str, text: str):
         with self.state.lock:

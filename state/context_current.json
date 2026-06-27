@@ -1,10 +1,19 @@
 {
-  "updated_at": "2026-06-26T19:12:10.930",
-  "focus_state": "unknown",
-  "summary": "",
-  "active_notes": [],
-  "last_stimulus": "",
-  "last_turn_reason": "",
-  "resource_summary": {},
+  "updated_at": "2026-06-26T20:20:59.330",
+  "focus_state": "focused",
+  "summary": "Closed YouTube tab, returning to on-task Wikipedia calculus page",
+  "active_notes": [
+    "A browser tab changed. Refresh browser data first and treat browser evidence as highest priority.",
+    "YouTube tab closure aligns with returning focus to study materials",
+    "No active distraction tabs remaining in browser data"
+  ],
+  "last_stimulus": "stimulus:tab_closed",
+  "last_turn_reason": "stimulus:tab_closed",
+  "resource_summary": {
+    "missing_sources": [
+      "webcam",
+      "screenshare"
+    ]
+  },
   "open_tab_ids": []
 }

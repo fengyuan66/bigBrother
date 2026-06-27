@@ -1,3 +1,4 @@
+import json
 import threading
 import time
 from dataclasses import dataclass
@@ -29,6 +30,13 @@ STIMULUS_PRIORITY = {
     "heartbeat": 10,
 }
 
+CONTENT_CHANGE_STIMULI = {
+    "tab_opened",
+    "tab_refreshed",
+    "tab_closed",
+    "capture_updated",
+}
+
 
 @dataclass
 class StimulusTicket:
@@ -55,6 +63,10 @@ class AgentOrchestrator(threading.Thread):
         self.pending_ticket = None
         self._tab_signature = None
         self._warmup_until = 0.0
+        self._turns_lock = threading.RLock()
+        self._active_turns = {}
+        self._turn_sequence = 0
+        self.max_parallel_content_turns = 2
 
     def _tabs_signature(self, tabs: list[dict]) -> dict:
         signature = {}
@@ -110,6 +122,95 @@ class AgentOrchestrator(threading.Thread):
         with self.app.state.lock:
             return bool(self.app.state.running)
 
+    def _is_content_change_type(self, stimulus_type: str) -> bool:
+        return str(stimulus_type or "").strip() in CONTENT_CHANGE_STIMULI
+
+    def _normalize_content_payload(self, stimulus_type: str, payload: dict) -> dict:
+        stimulus_type = str(stimulus_type or "").strip()
+        payload = dict(payload or {})
+        if stimulus_type in {"tab_opened", "tab_refreshed", "tab_closed"}:
+            tabs = []
+            for tab in list(payload.get("tabs") or []):
+                tab = dict(tab or {})
+                tabs.append(
+                    {
+                        "id": str(tab.get("id", "")).strip(),
+                        "title": str(tab.get("title", "")).strip(),
+                        "url": str(tab.get("url", "")).strip(),
+                        "domain": str(tab.get("domain", "")).strip(),
+                    }
+                )
+            tabs.sort(key=lambda item: (item["id"], item["url"], item["title"]))
+            tab_ids = sorted(str(tab_id or "").strip() for tab_id in list(payload.get("tab_ids") or []))
+            return {"tabs": tabs, "tab_ids": tab_ids}
+        if stimulus_type == "capture_updated":
+            return {"analysis_mode": str(payload.get("analysis_mode", "")).strip().lower()}
+        return {}
+
+    def _content_key(self, stimulus_type: str, payload: dict) -> str:
+        normalized = self._normalize_content_payload(stimulus_type, payload)
+        if not normalized:
+            return ""
+        return f"{str(stimulus_type or '').strip()}:{json.dumps(normalized, sort_keys=True, separators=(',', ':'))}"
+
+    def _cleanup_finished_turns(self):
+        finished = []
+        with self._turns_lock:
+            for token, meta in list(self._active_turns.items()):
+                thread = meta.get("thread")
+                if thread is None or thread.is_alive():
+                    continue
+                finished.append((token, dict(meta)))
+                self._active_turns.pop(token, None)
+        for token, meta in finished:
+            self.app._log_event(
+                "turn",
+                "thread_complete",
+                "Turn worker completed.",
+                {
+                    "token": token,
+                    "reason": meta.get("reason", ""),
+                    "type": meta.get("type", ""),
+                    "priority": meta.get("priority", 0),
+                    "content_change": bool(meta.get("content_change")),
+                },
+            )
+
+    def _start_turn_worker(self, ticket: StimulusTicket, now: float):
+        with self._turns_lock:
+            self._turn_sequence += 1
+            token = self._turn_sequence
+        reason = f"stimulus:{ticket.type}"
+
+        def _runner():
+            try:
+                self.app.run_turn(reason=reason)
+            except Exception as exc:
+                self.app._log_event("turn", "error", "Agent turn failed.", {"reason": reason, "error": str(exc)})
+
+        thread = threading.Thread(target=_runner, daemon=True, name=f"agent-turn-{token}")
+        with self._turns_lock:
+            self._active_turns[token] = {
+                "thread": thread,
+                "reason": reason,
+                "type": ticket.type,
+                "priority": ticket.priority,
+                "emitted_at": ticket.emitted_at,
+                "payload": dict(ticket.payload),
+                "content_change": self._is_content_change_type(ticket.type),
+                "content_key": self._content_key(ticket.type, ticket.payload),
+                "started_at_unix": now,
+            }
+        self.last_turn_started = now
+        self.last_heartbeat_emitted_at = 0.0
+        self.app._log_event(
+            "turn",
+            "start",
+            "Agent turn starting from queued ticket.",
+            {"reason": reason, "payload": dict(ticket.payload), "priority": ticket.priority, "token": token},
+        )
+        thread.start()
+
     def _min_turn_spacing(self) -> float:
         with self.app.state.lock:
             return float(max(1, self.app.state.interval_seconds))
@@ -125,6 +226,7 @@ class AgentOrchestrator(threading.Thread):
     def _tick(self):
         now = time.time()
         self.app.expire_session_if_needed()
+        self._cleanup_finished_turns()
 
         for item in self.todos.pop_due(now):
             emitted = self.bus.emit("todo_due", {"todo": item})
@@ -328,6 +430,46 @@ class AgentOrchestrator(threading.Thread):
                 emitted_at=stimulus.get("emitted_at", ""),
                 priority=STIMULUS_PRIORITY.get(stimulus_type, 0),
             )
+            incoming_content_key = self._content_key(ticket.type, ticket.payload)
+            if incoming_content_key:
+                pending_content_key = self._content_key(self.pending_ticket.type, self.pending_ticket.payload) if self.pending_ticket else ""
+                with self._turns_lock:
+                    matching_active = [
+                        {
+                            "token": token,
+                            "type": meta.get("type", ""),
+                            "reason": meta.get("reason", ""),
+                            "started_at_unix": meta.get("started_at_unix", 0.0),
+                        }
+                        for token, meta in self._active_turns.items()
+                        if meta.get("content_key") == incoming_content_key
+                    ]
+                if pending_content_key == incoming_content_key or matching_active:
+                    self.app._log_event(
+                        "turn",
+                        "queue_skip_no_change",
+                        "Incoming content-change stimulus matched content already pending or already being processed.",
+                        {
+                            "incoming_ticket": {
+                                "type": ticket.type,
+                                "priority": ticket.priority,
+                                "emitted_at": ticket.emitted_at,
+                                "payload": dict(ticket.payload),
+                            },
+                            "matching_pending_ticket": (
+                                {
+                                    "type": self.pending_ticket.type,
+                                    "priority": self.pending_ticket.priority,
+                                    "emitted_at": self.pending_ticket.emitted_at,
+                                    "payload": dict(self.pending_ticket.payload),
+                                }
+                                if pending_content_key == incoming_content_key and self.pending_ticket is not None
+                                else None
+                            ),
+                            "matching_active_turns": matching_active,
+                        },
+                    )
+                    return
             previous_ticket = self.pending_ticket
             if (
                 self.pending_ticket is None
@@ -355,6 +497,24 @@ class AgentOrchestrator(threading.Thread):
                         ),
                     },
                 )
+                if self._is_content_change_type(stimulus_type):
+                    with self._turns_lock:
+                        active_turns = len(self._active_turns)
+                    if active_turns:
+                        self.app._log_event(
+                            "turn",
+                            "supersede_requested",
+                            "Newer content-change stimulus arrived while another turn is still running.",
+                            {
+                                "incoming_ticket": {
+                                    "type": ticket.type,
+                                    "priority": ticket.priority,
+                                    "emitted_at": ticket.emitted_at,
+                                    "payload": dict(ticket.payload),
+                                },
+                                "active_turns": active_turns,
+                            },
+                        )
             else:
                 self.app._log_event(
                     "turn",
@@ -380,7 +540,51 @@ class AgentOrchestrator(threading.Thread):
         if self.pending_ticket is None or not self._running():
             return
 
-        spacing = 0.0 if self.pending_ticket.priority >= 90 else self._min_turn_spacing()
+        pending_content_key = self._content_key(self.pending_ticket.type, self.pending_ticket.payload)
+        with self._turns_lock:
+            active_count = len(self._active_turns)
+            duplicate_active = any(
+                (meta.get("type") == self.pending_ticket.type and meta.get("emitted_at") == self.pending_ticket.emitted_at)
+                or (pending_content_key and meta.get("content_key") == pending_content_key)
+                for meta in self._active_turns.values()
+            )
+        if duplicate_active:
+            return
+
+        immediate_supersede = active_count > 0 and self._is_content_change_type(self.pending_ticket.type)
+        if active_count > 0 and not immediate_supersede:
+            self.app._log_event(
+                "turn",
+                "wait_active",
+                "Pending ticket is waiting for the currently running turn worker to finish.",
+                {
+                    "pending_ticket": {
+                        "type": self.pending_ticket.type,
+                        "priority": self.pending_ticket.priority,
+                        "emitted_at": self.pending_ticket.emitted_at,
+                    },
+                    "active_turns": active_count,
+                },
+            )
+            return
+        if immediate_supersede and active_count >= self.max_parallel_content_turns:
+            self.app._log_event(
+                "turn",
+                "wait_parallel_limit",
+                "Newer content-change ticket is queued, but the parallel turn limit is already in use.",
+                {
+                    "pending_ticket": {
+                        "type": self.pending_ticket.type,
+                        "priority": self.pending_ticket.priority,
+                        "emitted_at": self.pending_ticket.emitted_at,
+                    },
+                    "active_turns": active_count,
+                    "parallel_limit": self.max_parallel_content_turns,
+                },
+            )
+            return
+
+        spacing = 0.0 if (self.pending_ticket.priority >= 90 or immediate_supersede) else self._min_turn_spacing()
         now = time.time()
         if now - self.last_turn_started < spacing:
             self.app._log_event(
@@ -401,26 +605,17 @@ class AgentOrchestrator(threading.Thread):
 
         ticket = self.pending_ticket
         self.pending_ticket = None
-        self.last_turn_started = now
-        self.last_heartbeat_emitted_at = 0.0
-        reason = f"stimulus:{ticket.type}"
-        self.app._log_event(
-            "turn",
-            "start",
-            "Agent turn starting from queued ticket.",
-            {"reason": reason, "payload": dict(ticket.payload), "priority": ticket.priority},
-        )
-        try:
-            self.app.run_turn(reason=reason)
-            self.status.update(last_turn_at=self.app.state.last_turn_at, last_turn_reason=reason)
-        except Exception as exc:
-            self.app._log_event("turn", "error", "Agent turn failed.", {"reason": reason, "error": str(exc)})
+        self._start_turn_worker(ticket, now)
 
     def note_session_started(self):
         self.last_turn_started = 0.0
         self.last_tab_poll = 0.0
         self.last_heartbeat_emitted_at = 0.0
-        self.pending_ticket = StimulusTicket(type="manual", payload={}, emitted_at="", priority=100)
+        with self._turns_lock:
+            self._active_turns = {}
+            self._turn_sequence = 0
+        pending_ticket = StimulusTicket(type="manual", payload={}, emitted_at="", priority=100)
+        self.pending_ticket = pending_ticket
         self._seed_tab_signature()
         self._warmup_until = time.time() + 0.5
         self.status.update(focus_state="active", notes="Session started.")
@@ -431,8 +626,8 @@ class AgentOrchestrator(threading.Thread):
             "Orchestrator session bookkeeping initialized.",
             {
                 "pending_ticket": {
-                    "type": self.pending_ticket.type,
-                    "priority": self.pending_ticket.priority,
+                    "type": pending_ticket.type,
+                    "priority": pending_ticket.priority,
                 },
                 "warmup_until_unix": self._warmup_until,
                 "heartbeat_seconds": self.heartbeat_seconds,
@@ -444,6 +639,8 @@ class AgentOrchestrator(threading.Thread):
         self.pending_ticket = None
         self.last_heartbeat_emitted_at = 0.0
         self._tab_signature = None
+        with self._turns_lock:
+            self._active_turns = {}
         self.status.update(focus_state="unknown", notes="Session stopped.")
         self.memory.append("session", "Monitoring session stopped.")
         self.app._log_event(

@@ -141,9 +141,9 @@ class BrowserLiveReader:
             time.sleep(max(0.05, float(delay_seconds)))
         return []
 
-    def export_tabs(self, output_path=TAB_OUTPUT_PATH, retries=4, delay_seconds=0.5):
+    def export_tabs(self, output_path=TAB_OUTPUT_PATH, retries=4, delay_seconds=0.5, tabs=None):
         ensure_output_dirs()
-        tabs = self.read_tabs(retries=retries, delay_seconds=delay_seconds)
+        tabs = self.read_tabs(retries=retries, delay_seconds=delay_seconds) if tabs is None else list(tabs)
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         lines = [
@@ -208,9 +208,9 @@ class BrowserLiveReader:
 
         return records
 
-    def write_index(self, output_path=INDEX_OUTPUT_PATH, retries=4, delay_seconds=0.5):
+    def write_index(self, output_path=INDEX_OUTPUT_PATH, retries=4, delay_seconds=0.5, tabs=None):
         ensure_output_dirs()
-        tabs = self.read_tabs(retries=retries, delay_seconds=delay_seconds)
+        tabs = self.read_tabs(retries=retries, delay_seconds=delay_seconds) if tabs is None else list(tabs)
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         data = {
@@ -230,9 +230,9 @@ class BrowserLiveReader:
         output_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
         return output_path, data
 
-    def write_summary(self, output_path=SUMMARY_OUTPUT_PATH, retries=4, delay_seconds=0.5):
+    def write_summary(self, output_path=SUMMARY_OUTPUT_PATH, retries=4, delay_seconds=0.5, tabs=None):
         ensure_output_dirs()
-        tabs = self.read_tabs(retries=retries, delay_seconds=delay_seconds)
+        tabs = self.read_tabs(retries=retries, delay_seconds=delay_seconds) if tabs is None else list(tabs)
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         domains = []
         seen_domains = set()
